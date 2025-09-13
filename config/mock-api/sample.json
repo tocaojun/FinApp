@@ -1,0 +1,51 @@
+{
+  "stocks": {
+    "AAPL": {
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "price": 175.43,
+      "currency": "USD",
+      "market": "NASDAQ",
+      "lastUpdate": "2025-01-13T08:00:00Z"
+    },
+    "00700": {
+      "symbol": "00700",
+      "name": "腾讯控股",
+      "price": 368.20,
+      "currency": "HKD",
+      "market": "HKEX",
+      "lastUpdate": "2025-01-13T08:00:00Z"
+    },
+    "000001": {
+      "symbol": "000001",
+      "name": "平安银行",
+      "price": 12.85,
+      "currency": "CNY",
+      "market": "SZSE",
+      "lastUpdate": "2025-01-13T08:00:00Z"
+    }
+  },
+  "exchangeRates": {
+    "USDCNY": {
+      "from": "USD",
+      "to": "CNY",
+      "rate": 7.2456,
+      "lastUpdate": "2025-01-13T08:00:00Z"
+    },
+    "HKDCNY": {
+      "from": "HKD",
+      "to": "CNY",
+      "rate": 0.9287,
+      "lastUpdate": "2025-01-13T08:00:00Z"
+    }
+  },
+  "funds": {
+    "110022": {
+      "symbol": "110022",
+      "name": "易方达消费行业股票",
+      "nav": 3.2145,
+      "currency": "CNY",
+      "lastUpdate": "2025-01-13T08:00:00Z"
+    }
+  }
+}
