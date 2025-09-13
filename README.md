@@ -15,7 +15,7 @@
 
 1. **克隆项目**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/tocaojun/FinApp.git
    cd FinApp
    ```
 
@@ -264,7 +264,7 @@ tail -f logs/app.log
 如有问题或建议，请通过以下方式联系：
 
 - 创建 Issue
-- 发送邮件到: [your-email@example.com]
+- 发送邮件到: [tocaojun@example.com]
 
 ---
 
