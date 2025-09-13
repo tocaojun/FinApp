@@ -1,0 +1,494 @@
+import { Request, Response } from 'express';
+import { AssetService } from '../services/AssetService';
+import { 
+  AssetSearchCriteria,
+  AssetCreateRequest,
+  AssetUpdateRequest,
+  PriceCreateRequest,
+  PriceUpdateRequest,
+  PriceQueryParams,
+  BulkAssetImportRequest,
+  BulkPriceImportRequest
+} from '../types/asset';
+
+export class AssetController {
+  private assetService: AssetService;
+
+  constructor() {
+    this.assetService = new AssetService();
+  }
+
+  // 资产管理
+  createAsset = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const assetData: AssetCreateRequest = req.body;
+      const asset = await this.assetService.createAsset(assetData);
+      
+      res.status(201).json({
+        success: true,
+        data: asset,
+        message: 'Asset created successfully'
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to create asset'
+      });
+    }
+  };
+
+  updateAsset = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Asset ID is required'
+        });
+        return;
+      }
+      
+      const updateData: AssetUpdateRequest = req.body;
+      const asset = await this.assetService.updateAsset(id, updateData);
+      
+      res.json({
+        success: true,
+        data: asset,
+        message: 'Asset updated successfully'
+      });
+    } catch (error) {
+      const statusCode = error instanceof Error && error.message === 'Asset not found' ? 404 : 400;
+      res.status(statusCode).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to update asset'
+      });
+    }
+  };
+
+  deleteAsset = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Asset ID is required'
+        });
+        return;
+      }
+      
+      const success = await this.assetService.deleteAsset(id);
+      
+      if (success) {
+        res.json({
+          success: true,
+          message: 'Asset deleted successfully'
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          message: 'Asset not found'
+        });
+      }
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to delete asset'
+      });
+    }
+  };
+
+  getAssetById = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Asset ID is required'
+        });
+        return;
+      }
+      
+      const asset = await this.assetService.getAssetById(id);
+      
+      if (asset) {
+        res.json({
+          success: true,
+          data: asset
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          message: 'Asset not found'
+        });
+      }
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get asset'
+      });
+    }
+  };
+
+  searchAssets = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const criteria: AssetSearchCriteria = {
+        keyword: req.query.keyword as string,
+        assetTypeId: req.query.assetTypeId as string,
+        marketId: req.query.marketId as string,
+        currency: req.query.currency as string,
+        sector: req.query.sector as string,
+        riskLevel: req.query.riskLevel as string,
+        liquidityTag: req.query.liquidityTag as string,
+        isActive: req.query.isActive ? req.query.isActive === 'true' : undefined,
+        page: req.query.page ? parseInt(req.query.page as string) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
+        sortBy: req.query.sortBy as string,
+        sortOrder: req.query.sortOrder as 'ASC' | 'DESC'
+      };
+
+      const result = await this.assetService.searchAssets(criteria);
+      
+      res.json({
+        success: true,
+        data: result.assets,
+        pagination: {
+          total: result.total,
+          page: criteria.page || 1,
+          limit: criteria.limit || 20,
+          totalPages: Math.ceil(result.total / (criteria.limit || 20))
+        }
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to search assets'
+      });
+    }
+  };
+
+  // 价格管理
+  addPrice = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const priceData: PriceCreateRequest = req.body;
+      const price = await this.assetService.addPrice(priceData);
+      
+      res.status(201).json({
+        success: true,
+        data: price,
+        message: 'Price added successfully'
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to add price'
+      });
+    }
+  };
+
+  updatePrice = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Price ID is required'
+        });
+        return;
+      }
+      
+      const updateData: PriceUpdateRequest = req.body;
+      const price = await this.assetService.updatePrice(id, updateData);
+      
+      res.json({
+        success: true,
+        data: price,
+        message: 'Price updated successfully'
+      });
+    } catch (error) {
+      const statusCode = error instanceof Error && error.message === 'Price record not found' ? 404 : 400;
+      res.status(statusCode).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to update price'
+      });
+    }
+  };
+
+  deletePrice = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Price ID is required'
+        });
+        return;
+      }
+      
+      const success = await this.assetService.deletePrice(id);
+      
+      if (success) {
+        res.json({
+          success: true,
+          message: 'Price deleted successfully'
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          message: 'Price record not found'
+        });
+      }
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to delete price'
+      });
+    }
+  };
+
+  getAssetPrices = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Asset ID is required'
+        });
+        return;
+      }
+      
+      const params: PriceQueryParams = {
+        startDate: req.query.startDate as string,
+        endDate: req.query.endDate as string,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
+        offset: req.query.offset ? parseInt(req.query.offset as string) : undefined,
+        sortOrder: req.query.sortOrder as 'ASC' | 'DESC'
+      };
+
+      const prices = await this.assetService.getAssetPrices(id, params);
+      
+      res.json({
+        success: true,
+        data: prices
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get asset prices'
+      });
+    }
+  };
+
+  // 资产类型和市场
+  getAssetTypes = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const assetTypes = await this.assetService.getAssetTypes();
+      
+      res.json({
+        success: true,
+        data: assetTypes
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get asset types'
+      });
+    }
+  };
+
+  getMarkets = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const markets = await this.assetService.getMarkets();
+      
+      res.json({
+        success: true,
+        data: markets
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get markets'
+      });
+    }
+  };
+
+  // 统计信息
+  getAssetStatistics = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const statistics = await this.assetService.getAssetStatistics();
+      
+      res.json({
+        success: true,
+        data: statistics
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get asset statistics'
+      });
+    }
+  };
+
+  // 批量导入
+  bulkImportAssets = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const importData: BulkAssetImportRequest = req.body;
+      const result = await this.assetService.bulkImportAssets(importData);
+      
+      const statusCode = result.success ? 200 : 207; // 207 Multi-Status for partial success
+      
+      res.status(statusCode).json({
+        success: result.success,
+        data: result,
+        message: result.success 
+          ? 'Assets imported successfully' 
+          : 'Assets imported with some errors'
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to import assets'
+      });
+    }
+  };
+
+  bulkImportPrices = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const importData: BulkPriceImportRequest = req.body;
+      const result = await this.assetService.bulkImportPrices(importData);
+      
+      const statusCode = result.success ? 200 : 207; // 207 Multi-Status for partial success
+      
+      res.status(statusCode).json({
+        success: result.success,
+        data: result,
+        message: result.success 
+          ? 'Prices imported successfully' 
+          : 'Prices imported with some errors'
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to import prices'
+      });
+    }
+  };
+
+  // 导出功能
+  exportAssets = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const criteria: AssetSearchCriteria = {
+        keyword: req.query.keyword as string,
+        assetTypeId: req.query.assetTypeId as string,
+        marketId: req.query.marketId as string,
+        currency: req.query.currency as string,
+        sector: req.query.sector as string,
+        riskLevel: req.query.riskLevel as string,
+        liquidityTag: req.query.liquidityTag as string,
+        isActive: req.query.isActive ? req.query.isActive === 'true' : undefined,
+        limit: 10000, // 导出时不限制数量
+        sortBy: req.query.sortBy as string,
+        sortOrder: req.query.sortOrder as 'ASC' | 'DESC'
+      };
+
+      const result = await this.assetService.searchAssets(criteria);
+      
+      // 设置CSV下载头
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=assets.csv');
+      
+      // 生成CSV内容
+      const csvHeader = 'Symbol,Name,Asset Type,Market,Currency,Sector,Risk Level,Liquidity Tag,Is Active,Created At\n';
+      const csvRows = result.assets.map(asset => 
+        `"${asset.symbol}","${asset.name}","${asset.assetTypeId}","${asset.marketId}","${asset.currency}","${asset.sector || ''}","${asset.riskLevel}","${asset.liquidityTag}","${asset.isActive}","${asset.createdAt}"`
+      ).join('\n');
+      
+      res.send(csvHeader + csvRows);
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to export assets'
+      });
+    }
+  };
+
+  exportPrices = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Asset ID is required'
+        });
+        return;
+      }
+      
+      const params: PriceQueryParams = {
+        startDate: req.query.startDate as string,
+        endDate: req.query.endDate as string,
+        limit: 10000, // 导出时不限制数量
+        sortOrder: 'ASC'
+      };
+
+      const prices = await this.assetService.getAssetPrices(id, params);
+      
+      // 设置CSV下载头
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=prices_${id}.csv`);
+      
+      // 生成CSV内容
+      const csvHeader = 'Date,Open,High,Low,Close,Volume,Adjusted Close,Source\n';
+      const csvRows = prices.map(price => 
+        `"${price.priceDate}","${price.openPrice || ''}","${price.highPrice || ''}","${price.lowPrice || ''}","${price.closePrice}","${price.volume || ''}","${price.adjustedPrice || ''}","${price.source}"`
+      ).join('\n');
+      
+      res.send(csvHeader + csvRows);
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to export prices'
+      });
+    }
+  };
+
+  // 搜索建议
+  searchSuggestions = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { keyword } = req.query;
+      
+      if (!keyword || (keyword as string).length < 2) {
+        res.json({
+          success: true,
+          data: []
+        });
+        return;
+      }
+
+      const criteria: AssetSearchCriteria = {
+        keyword: keyword as string,
+        isActive: true,
+        limit: 10
+      };
+
+      const result = await this.assetService.searchAssets(criteria);
+      
+      const suggestions = result.assets.map(asset => ({
+        id: asset.id,
+        symbol: asset.symbol,
+        name: asset.name,
+        assetType: asset.assetTypeId,
+        market: asset.marketId,
+        currency: asset.currency
+      }));
+      
+      res.json({
+        success: true,
+        data: suggestions
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get search suggestions'
+      });
+    }
+  };
+}

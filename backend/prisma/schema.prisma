@@ -1,0 +1,538 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 用户表
+model User {
+  id                   String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email                String    @unique @db.VarChar(255)
+  username             String?   @unique @db.VarChar(50)
+  passwordHash         String    @map("password_hash") @db.VarChar(255)
+  firstName            String?   @map("first_name") @db.VarChar(100)
+  lastName             String?   @map("last_name") @db.VarChar(100)
+  phone                String?   @db.VarChar(20)
+  avatarUrl            String?   @map("avatar_url")
+  timezone             String?   @default("UTC") @db.VarChar(50)
+  language             String?   @default("zh-CN") @db.VarChar(10)
+  currencyPreference   String?   @map("currency_preference") @default("CNY") @db.VarChar(3)
+  isActive             Boolean   @map("is_active") @default(true)
+  isVerified           Boolean   @map("is_verified") @default(false)
+  emailVerifiedAt      DateTime? @map("email_verified_at") @db.Timestamptz(6)
+  lastLoginAt          DateTime? @map("last_login_at") @db.Timestamptz(6)
+  loginCount           Int       @map("login_count") @default(0)
+  failedLoginAttempts  Int       @map("failed_login_attempts") @default(0)
+  lockedUntil          DateTime? @map("locked_until") @db.Timestamptz(6)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // 关联关系
+  portfolios           Portfolio[]
+  userRoles            UserRole[]
+  userSessions         UserSession[]
+  auditLogs            AuditLog[]
+  reports              Report[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens  PasswordResetToken[]
+  assignedRoles        UserRole[] @relation("AssignedBy")
+
+  @@map("users")
+}
+
+// 投资组合表
+model Portfolio {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  name         String   @db.VarChar(100)
+  description  String?
+  baseCurrency String   @map("base_currency") @default("CNY") @db.VarChar(3)
+  isDefault    Boolean  @map("is_default") @default(false)
+  isActive     Boolean  @map("is_active") @default(true)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // 关联关系
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tradingAccounts    TradingAccount[]
+  positions          Position[]
+  transactions       Transaction[]
+  cashFlows          CashFlow[]
+  performanceMetrics PerformanceMetric[]
+  portfolioSnapshots PortfolioSnapshot[]
+  reports            Report[]
+
+  @@unique([userId, name])
+  @@map("portfolios")
+}
+
+// 交易账户表
+model TradingAccount {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  portfolioId  String   @map("portfolio_id") @db.Uuid
+  accountName  String   @map("account_name") @db.VarChar(100)
+  accountType  String   @map("account_type") @db.VarChar(50)
+  brokerName   String   @map("broker_name") @db.VarChar(100)
+  accountNumber String? @map("account_number") @db.VarChar(100)
+  currency     String   @default("CNY") @db.VarChar(3)
+  isActive     Boolean  @map("is_active") @default(true)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // 关联关系
+  portfolio    Portfolio     @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  positions    Position[]
+  transactions Transaction[]
+
+  @@unique([portfolioId, accountName])
+  @@map("trading_accounts")
+}
+
+// 资产表
+model Asset {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  symbol      String   @unique @db.VarChar(20)
+  name        String   @db.VarChar(200)
+  assetTypeId String   @map("asset_type_id") @db.Uuid
+  marketId    String   @map("market_id") @db.Uuid
+  currency    String   @db.VarChar(3)
+  isActive    Boolean  @map("is_active") @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // 关联关系
+  assetType    AssetType     @relation(fields: [assetTypeId], references: [id])
+  market       Market        @relation(fields: [marketId], references: [id])
+  positions    Position[]
+  transactions Transaction[]
+  assetPrices  AssetPrice[]
+  optionDetails OptionDetail[]
+
+  @@map("assets")
+}
+
+// 持仓表
+model Position {
+  id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  portfolioId         String    @map("portfolio_id") @db.Uuid
+  tradingAccountId    String    @map("trading_account_id") @db.Uuid
+  assetId             String    @map("asset_id") @db.Uuid
+  quantity            Decimal   @default(0) @db.Decimal(20, 8)
+  averageCost         Decimal   @map("average_cost") @default(0) @db.Decimal(20, 8)
+  totalCost           Decimal   @map("total_cost") @default(0) @db.Decimal(20, 8)
+  currency            String    @db.VarChar(3)
+  firstPurchaseDate   DateTime? @map("first_purchase_date") @db.Date
+  lastTransactionDate DateTime? @map("last_transaction_date") @db.Date
+  isActive            Boolean   @map("is_active") @default(true)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // 关联关系
+  portfolio        Portfolio           @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  tradingAccount   TradingAccount      @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+  asset            Asset               @relation(fields: [assetId], references: [id])
+  positionSnapshots PositionSnapshot[]
+
+  @@unique([portfolioId, tradingAccountId, assetId])
+  @@map("positions")
+}
+
+// 交易记录表
+model Transaction {
+  id               String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  portfolioId      String      @map("portfolio_id") @db.Uuid
+  tradingAccountId String      @map("trading_account_id") @db.Uuid
+  assetId          String      @map("asset_id") @db.Uuid
+  transactionType  String      @map("transaction_type") @db.VarChar(20)
+  quantity         Decimal     @db.Decimal(20, 8)
+  price            Decimal     @db.Decimal(20, 8)
+  totalAmount      Decimal     @map("total_amount") @db.Decimal(20, 8)
+  fees             Decimal     @default(0) @db.Decimal(20, 8)
+  currency         String      @db.VarChar(3)
+  transactionDate  DateTime    @map("transaction_date") @db.Timestamptz(6)
+  notes            String?
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // 关联关系
+  portfolio      Portfolio      @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  tradingAccount TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+  asset          Asset          @relation(fields: [assetId], references: [id])
+
+  @@map("transactions")
+}
+
+// 资产类型表
+model AssetType {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String   @unique @db.VarChar(50)
+  description String?
+  isActive    Boolean  @map("is_active") @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  assets Asset[]
+
+  @@map("asset_types")
+}
+
+// 市场表
+model Market {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  code        String   @unique @db.VarChar(10)
+  country     String   @db.VarChar(50)
+  timezone    String   @db.VarChar(50)
+  currency    String   @db.VarChar(3)
+  isActive    Boolean  @map("is_active") @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  assets Asset[]
+
+  @@map("markets")
+}
+
+// 角色表
+model Role {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String   @unique @db.VarChar(50)
+  description String?
+  isActive    Boolean  @map("is_active") @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+// 权限表
+model Permission {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  description String?
+  resource    String   @db.VarChar(50)
+  action      String   @db.VarChar(50)
+  isActive    Boolean  @map("is_active") @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+// 角色权限关联表
+model RolePermission {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  roleId       String   @map("role_id") @db.Uuid
+  permissionId String   @map("permission_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// 用户角色关联表
+model UserRole {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  roleId     String   @map("role_id") @db.Uuid
+  assignedBy String   @map("assigned_by") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  expiresAt  DateTime? @map("expires_at") @db.Timestamptz(6)
+  isActive   Boolean  @map("is_active") @default(true)
+
+  // 关联关系
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedByUser User @relation("AssignedBy", fields: [assignedBy], references: [id])
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+// 用户会话表
+model UserSession {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  sessionToken String    @unique @map("session_token") @db.VarChar(255)
+  refreshToken String?   @map("refresh_token") @db.VarChar(255)
+  deviceInfo   String?   @map("device_info")
+  ipAddress    String?   @map("ip_address") @db.VarChar(45)
+  userAgent    String?   @map("user_agent")
+  isActive     Boolean   @map("is_active") @default(true)
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(6)
+  lastUsedAt   DateTime? @map("last_used_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+
+// 邮箱验证令牌表
+model EmailVerificationToken {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique @db.VarChar(255)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_verification_tokens")
+}
+
+// 密码重置令牌表
+model PasswordResetToken {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique @db.VarChar(255)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
+// 审计日志表
+model AuditLog {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId      String?  @map("user_id") @db.Uuid
+  action      String   @db.VarChar(100)
+  resource    String   @db.VarChar(100)
+  resourceId  String?  @map("resource_id") @db.Uuid
+  oldValues   Json?    @map("old_values")
+  newValues   Json?    @map("new_values")
+  ipAddress   String?  @map("ip_address") @db.VarChar(45)
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+// 现金流表
+model CashFlow {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  portfolioId String   @map("portfolio_id") @db.Uuid
+  flowType    String   @map("flow_type") @db.VarChar(20)
+  amount      Decimal  @db.Decimal(20, 8)
+  currency    String   @db.VarChar(3)
+  flowDate    DateTime @map("flow_date") @db.Date
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@map("cash_flows")
+}
+
+// 资产价格表
+model AssetPrice {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  assetId   String   @map("asset_id") @db.Uuid
+  priceDate DateTime @map("price_date") @db.Date
+  openPrice Decimal? @map("open_price") @db.Decimal(20, 8)
+  highPrice Decimal? @map("high_price") @db.Decimal(20, 8)
+  lowPrice  Decimal? @map("low_price") @db.Decimal(20, 8)
+  closePrice Decimal @map("close_price") @db.Decimal(20, 8)
+  volume    Decimal? @db.Decimal(20, 0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  asset Asset @relation(fields: [assetId], references: [id])
+
+  @@unique([assetId, priceDate])
+  @@map("asset_prices")
+}
+
+// 汇率表
+model ExchangeRate {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  fromCurrency String   @map("from_currency") @db.VarChar(3)
+  toCurrency   String   @map("to_currency") @db.VarChar(3)
+  rateDate     DateTime @map("rate_date") @db.Date
+  rate         Decimal  @db.Decimal(20, 8)
+  dataSource   String?  @map("data_source") @db.VarChar(50)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([fromCurrency, toCurrency, rateDate])
+  @@map("exchange_rates")
+}
+
+// 基准指数表
+model Benchmark {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  symbol      String   @unique @db.VarChar(20)
+  description String?
+  currency    String   @db.VarChar(3)
+  isActive    Boolean  @map("is_active") @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  benchmarkPrices BenchmarkPrice[]
+
+  @@map("benchmarks")
+}
+
+// 基准指数价格表
+model BenchmarkPrice {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  benchmarkId String   @map("benchmark_id") @db.Uuid
+  priceDate   DateTime @map("price_date") @db.Date
+  closePrice  Decimal  @map("close_price") @db.Decimal(20, 8)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  benchmark Benchmark @relation(fields: [benchmarkId], references: [id])
+
+  @@unique([benchmarkId, priceDate])
+  @@map("benchmark_prices")
+}
+
+// 流动性标签表
+model LiquidityTag {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String   @unique @db.VarChar(50)
+  description String?
+  isActive    Boolean  @map("is_active") @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("liquidity_tags")
+}
+
+// 期权详情表
+model OptionDetail {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  assetId        String    @map("asset_id") @db.Uuid
+  underlyingAsset String   @map("underlying_asset") @db.VarChar(20)
+  optionType     String    @map("option_type") @db.VarChar(10)
+  strikePrice    Decimal   @map("strike_price") @db.Decimal(20, 8)
+  expirationDate DateTime  @map("expiration_date") @db.Date
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  asset Asset @relation(fields: [assetId], references: [id])
+
+  @@map("option_details")
+}
+
+// 绩效指标表
+model PerformanceMetric {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  portfolioId       String   @map("portfolio_id") @db.Uuid
+  metricDate        DateTime @map("metric_date") @db.Date
+  totalValue        Decimal  @map("total_value") @db.Decimal(20, 8)
+  totalCost         Decimal  @map("total_cost") @db.Decimal(20, 8)
+  totalReturn       Decimal  @map("total_return") @db.Decimal(20, 8)
+  totalReturnPct    Decimal  @map("total_return_pct") @db.Decimal(10, 6)
+  dayReturn         Decimal? @map("day_return") @db.Decimal(20, 8)
+  dayReturnPct      Decimal? @map("day_return_pct") @db.Decimal(10, 6)
+  annualizedReturn  Decimal? @map("annualized_return") @db.Decimal(10, 6)
+  volatility        Decimal? @db.Decimal(10, 6)
+  sharpeRatio       Decimal? @map("sharpe_ratio") @db.Decimal(10, 6)
+  maxDrawdown       Decimal? @map("max_drawdown") @db.Decimal(10, 6)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@unique([portfolioId, metricDate])
+  @@map("performance_metrics")
+}
+
+// 投资组合快照表
+model PortfolioSnapshot {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  portfolioId String   @map("portfolio_id") @db.Uuid
+  snapshotDate DateTime @map("snapshot_date") @db.Date
+  totalValue  Decimal  @map("total_value") @db.Decimal(20, 8)
+  totalCost   Decimal  @map("total_cost") @db.Decimal(20, 8)
+  cashBalance Decimal  @map("cash_balance") @db.Decimal(20, 8)
+  currency    String   @db.VarChar(3)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@unique([portfolioId, snapshotDate])
+  @@map("portfolio_snapshots")
+}
+
+// 持仓快照表
+model PositionSnapshot {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  positionId   String   @map("position_id") @db.Uuid
+  snapshotDate DateTime @map("snapshot_date") @db.Date
+  quantity     Decimal  @db.Decimal(20, 8)
+  marketPrice  Decimal  @map("market_price") @db.Decimal(20, 8)
+  marketValue  Decimal  @map("market_value") @db.Decimal(20, 8)
+  unrealizedPnl Decimal @map("unrealized_pnl") @db.Decimal(20, 8)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  position Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@unique([positionId, snapshotDate])
+  @@map("position_snapshots")
+}
+
+// 报告表
+model Report {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  portfolioId String?  @map("portfolio_id") @db.Uuid
+  reportType  String   @map("report_type") @db.VarChar(50)
+  title       String   @db.VarChar(200)
+  description String?
+  parameters  Json?
+  isActive    Boolean  @map("is_active") @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // 关联关系
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  portfolio       Portfolio?        @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  reportExecutions ReportExecution[]
+
+  @@map("reports")
+}
+
+// 报告执行表
+model ReportExecution {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  reportId     String    @map("report_id") @db.Uuid
+  status       String    @db.VarChar(20)
+  startTime    DateTime  @map("start_time") @db.Timestamptz(6)
+  endTime      DateTime? @map("end_time") @db.Timestamptz(6)
+  resultData   Json?     @map("result_data")
+  errorMessage String?   @map("error_message")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // 关联关系
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@map("report_executions")
+}
