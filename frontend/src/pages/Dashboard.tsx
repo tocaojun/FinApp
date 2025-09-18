@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Row, Col, Card, Statistic, Typography, Spin, message } from 'antd';
+import { Card, Statistic, Typography, Spin, message, Grid } from 'antd';
 import {
   DollarOutlined,
   TrophyOutlined,
@@ -8,6 +8,7 @@ import {
   FallOutlined,
   BarChartOutlined
 } from '@ant-design/icons';
+const { useBreakpoint } = Grid;
 import AssetSummaryCard from '../components/dashboard/AssetSummaryCard';
 import PortfolioOverview from '../components/dashboard/PortfolioOverview';
 import RecentTransactions from '../components/dashboard/RecentTransactions';
@@ -128,83 +129,105 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     );
   }
 
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
+
   return (
-    <div style={{ padding: '24px' }}>
-      <Title level={2} style={{ marginBottom: '24px' }}>
+    <div className="responsive-padding">
+      <Title 
+        level={isMobile ? 3 : 2} 
+        style={{ marginBottom: isMobile ? '16px' : '24px' }}
+        className="responsive-title"
+      >
         <BarChartOutlined /> 投资仪表板
       </Title>
 
       {/* 总览统计卡片 */}
-      <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="总资产价值"
-              value={dashboardData.totalValue}
-              precision={2}
-              prefix={<DollarOutlined />}
-              formatter={(value) => formatCurrency(Number(value))}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="总盈亏"
-              value={dashboardData.totalGainLoss}
-              precision={2}
-              prefix={dashboardData.totalGainLoss >= 0 ? <RiseOutlined /> : <FallOutlined />}
-              valueStyle={{ 
-                color: dashboardData.totalGainLoss >= 0 ? '#3f8600' : '#cf1322' 
-              }}
-              formatter={(value) => formatCurrency(Number(value))}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="收益率"
-              value={dashboardData.gainLossPercentage}
-              precision={2}
-              suffix="%"
-              prefix={dashboardData.gainLossPercentage >= 0 ? <RiseOutlined /> : <FallOutlined />}
-              valueStyle={{ 
-                color: dashboardData.gainLossPercentage >= 0 ? '#3f8600' : '#cf1322' 
-              }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="投资组合数量"
-              value={dashboardData.portfolioCount}
-              prefix={<TrophyOutlined />}
-            />
-          </Card>
-        </Col>
-      </Row>
+      <div className="responsive-grid" style={{ marginBottom: isMobile ? '16px' : '24px' }}>
+        <Card 
+          size={isMobile ? 'small' : 'default'}
+          bodyStyle={{ padding: isMobile ? '16px 12px' : '24px' }}
+        >
+          <Statistic
+            title="总资产价值"
+            value={dashboardData.totalValue}
+            precision={2}
+            prefix={<DollarOutlined />}
+            formatter={(value) => formatCurrency(Number(value))}
+            valueStyle={{ fontSize: isMobile ? '20px' : '24px' }}
+          />
+        </Card>
+        
+        <Card 
+          size={isMobile ? 'small' : 'default'}
+          bodyStyle={{ padding: isMobile ? '16px 12px' : '24px' }}
+        >
+          <Statistic
+            title="总盈亏"
+            value={dashboardData.totalGainLoss}
+            precision={2}
+            prefix={dashboardData.totalGainLoss >= 0 ? <RiseOutlined /> : <FallOutlined />}
+            valueStyle={{ 
+              color: dashboardData.totalGainLoss >= 0 ? '#3f8600' : '#cf1322',
+              fontSize: isMobile ? '20px' : '24px'
+            }}
+            formatter={(value) => formatCurrency(Number(value))}
+          />
+        </Card>
+        
+        <Card 
+          size={isMobile ? 'small' : 'default'}
+          bodyStyle={{ padding: isMobile ? '16px 12px' : '24px' }}
+        >
+          <Statistic
+            title="收益率"
+            value={dashboardData.gainLossPercentage}
+            precision={2}
+            suffix="%"
+            prefix={dashboardData.gainLossPercentage >= 0 ? <RiseOutlined /> : <FallOutlined />}
+            valueStyle={{ 
+              color: dashboardData.gainLossPercentage >= 0 ? '#3f8600' : '#cf1322',
+              fontSize: isMobile ? '20px' : '24px'
+            }}
+          />
+        </Card>
+        
+        <Card 
+          size={isMobile ? 'small' : 'default'}
+          bodyStyle={{ padding: isMobile ? '16px 12px' : '24px' }}
+        >
+          <Statistic
+            title="投资组合数量"
+            value={dashboardData.portfolioCount}
+            prefix={<TrophyOutlined />}
+            valueStyle={{ fontSize: isMobile ? '20px' : '24px' }}
+          />
+        </Card>
+      </div>
 
       {/* 主要组件区域 */}
-      <Row gutter={[16, 16]}>
-        <Col span={24}>
-          <AssetSummaryCard 
-            assetCount={dashboardData.assetCount}
-            transactionCount={dashboardData.transactionCount}
-            onNavigate={handleNavigate}
-          />
-        </Col>
-        <Col xs={24} lg={12}>
+      <div style={{ 
+        display: 'grid',
+        gap: isMobile ? '12px' : '16px',
+        gridTemplateColumns: '1fr'
+      }}>
+        <AssetSummaryCard 
+          assetCount={dashboardData.assetCount}
+          transactionCount={dashboardData.transactionCount}
+          onNavigate={handleNavigate}
+        />
+        
+        <div style={{
+          display: 'grid',
+          gap: isMobile ? '12px' : '16px',
+          gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr'
+        }}>
           <PortfolioOverview onNavigate={handleNavigate} />
-        </Col>
-        <Col xs={24} lg={12}>
           <QuickActions onNavigate={handleNavigate} />
-        </Col>
-        <Col span={24}>
-          <RecentTransactions onNavigate={handleNavigate} />
-        </Col>
-      </Row>
+        </div>
+        
+        <RecentTransactions onNavigate={handleNavigate} />
+      </div>
     </div>
   );
 };

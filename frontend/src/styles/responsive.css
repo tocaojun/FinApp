@@ -1,0 +1,398 @@
+/* 响应式设计样式 */
+
+/* 基础响应式断点 */
+:root {
+  --mobile-breakpoint: 768px;
+  --tablet-breakpoint: 1024px;
+  --desktop-breakpoint: 1200px;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  /* 全局布局调整 */
+  .ant-layout-sider {
+    position: fixed !important;
+    height: 100vh;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+  
+  .ant-layout-sider.ant-layout-sider-collapsed {
+    transform: translateX(-100%);
+  }
+  
+  .ant-layout-sider:not(.ant-layout-sider-collapsed) {
+    transform: translateX(0);
+  }
+  
+  .ant-layout-content {
+    margin-left: 0 !important;
+    padding: 16px 12px;
+  }
+  
+  /* 头部导航优化 */
+  .ant-layout-header {
+    padding: 0 16px;
+    height: 56px;
+    line-height: 56px;
+  }
+  
+  .ant-layout-header .ant-menu {
+    line-height: 56px;
+  }
+  
+  /* 卡片组件优化 */
+  .ant-card {
+    margin-bottom: 16px;
+  }
+  
+  .ant-card-head {
+    padding: 0 16px;
+    min-height: 48px;
+  }
+  
+  .ant-card-body {
+    padding: 16px;
+  }
+  
+  /* 表格优化 */
+  .ant-table-wrapper {
+    overflow-x: auto;
+  }
+  
+  .ant-table {
+    min-width: 600px;
+  }
+  
+  .ant-table-thead > tr > th,
+  .ant-table-tbody > tr > td {
+    padding: 8px 4px;
+    font-size: 12px;
+  }
+  
+  /* 表单优化 */
+  .ant-form-item {
+    margin-bottom: 16px;
+  }
+  
+  .ant-form-item-label {
+    padding-bottom: 4px;
+  }
+  
+  .ant-btn {
+    height: 40px;
+    padding: 0 16px;
+    font-size: 14px;
+  }
+  
+  .ant-btn-lg {
+    height: 48px;
+    padding: 0 20px;
+    font-size: 16px;
+  }
+  
+  /* 统计卡片优化 */
+  .stats-card {
+    text-align: center;
+    padding: 16px 8px;
+  }
+  
+  .stats-card .stats-value {
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 4px;
+  }
+  
+  .stats-card .stats-label {
+    font-size: 12px;
+    color: #666;
+  }
+  
+  /* 图表容器优化 */
+  .chart-container {
+    height: 250px !important;
+    margin-bottom: 16px;
+  }
+  
+  .chart-controls {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .chart-controls .ant-btn-group {
+    width: 100%;
+  }
+  
+  .chart-controls .ant-btn-group .ant-btn {
+    flex: 1;
+  }
+  
+  /* 搜索和筛选优化 */
+  .search-filters {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .search-filters .ant-input-search {
+    width: 100%;
+  }
+  
+  .search-filters .ant-select {
+    width: 100%;
+  }
+  
+  /* 操作按钮组优化 */
+  .action-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .action-buttons .ant-btn {
+    width: 100%;
+  }
+  
+  /* 分页优化 */
+  .ant-pagination {
+    text-align: center;
+    margin-top: 16px;
+  }
+  
+  .ant-pagination-options {
+    display: none;
+  }
+}
+
+/* 平板端优化 */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .ant-layout-content {
+    padding: 20px 16px;
+  }
+  
+  .ant-card-body {
+    padding: 20px;
+  }
+  
+  .chart-container {
+    height: 300px;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  
+  .ant-table-thead > tr > th,
+  .ant-table-tbody > tr > td {
+    padding: 12px 8px;
+  }
+}
+
+/* 桌面端优化 */
+@media (min-width: 1025px) {
+  .ant-layout-content {
+    padding: 24px;
+  }
+  
+  .chart-container {
+    height: 400px;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+  }
+}
+
+/* 触摸设备优化 */
+@media (hover: none) and (pointer: coarse) {
+  .ant-btn,
+  .ant-menu-item,
+  .ant-table-row {
+    min-height: 44px;
+  }
+  
+  .ant-input,
+  .ant-select-selector {
+    min-height: 44px;
+  }
+  
+  .ant-menu-item {
+    line-height: 44px;
+  }
+  
+  /* 增加点击区域 */
+  .clickable {
+    padding: 8px;
+    margin: -8px;
+  }
+}
+
+/* 高分辨率屏幕优化 */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .ant-table-thead > tr > th,
+  .ant-table-tbody > tr > td {
+    border-width: 0.5px;
+  }
+}
+
+/* 暗色主题响应式调整 */
+[data-theme='dark'] {
+  @media (max-width: 768px) {
+    .ant-layout-sider {
+      background: #141414;
+      border-right: 1px solid #303030;
+    }
+    
+    .ant-layout-header {
+      background: #141414;
+      border-bottom: 1px solid #303030;
+    }
+  }
+}
+
+/* 打印样式 */
+@media print {
+  .ant-layout-sider,
+  .ant-layout-header,
+  .action-buttons,
+  .ant-pagination {
+    display: none !important;
+  }
+  
+  .ant-layout-content {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  .ant-card {
+    box-shadow: none !important;
+    border: 1px solid #d9d9d9 !important;
+  }
+  
+  .chart-container {
+    height: 300px !important;
+  }
+}
+
+/* 无障碍优化 */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 高对比度模式 */
+@media (prefers-contrast: high) {
+  .ant-btn {
+    border-width: 2px;
+  }
+  
+  .ant-card {
+    border-width: 2px;
+  }
+  
+  .ant-table-thead > tr > th,
+  .ant-table-tbody > tr > td {
+    border-width: 1px;
+  }
+}
+
+/* 自定义响应式工具类 */
+.mobile-only {
+  display: none;
+}
+
+.desktop-only {
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .mobile-only {
+    display: block;
+  }
+  
+  .desktop-only {
+    display: none;
+  }
+  
+  .mobile-hidden {
+    display: none !important;
+  }
+  
+  .mobile-full-width {
+    width: 100% !important;
+  }
+  
+  .mobile-text-center {
+    text-align: center !important;
+  }
+  
+  .mobile-margin-bottom {
+    margin-bottom: 16px !important;
+  }
+}
+
+/* 响应式网格系统 */
+.responsive-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 576px) {
+  .responsive-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .responsive-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+}
+
+@media (min-width: 992px) {
+  .responsive-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+  }
+}
+
+/* 响应式间距 */
+.responsive-padding {
+  padding: 12px;
+}
+
+@media (min-width: 768px) {
+  .responsive-padding {
+    padding: 20px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-padding {
+    padding: 24px;
+  }
+}
+
+/* 响应式字体大小 */
+.responsive-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+@media (min-width: 768px) {
+  .responsive-title {
+    font-size: 20px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-title {
+    font-size: 24px;
+  }
+}

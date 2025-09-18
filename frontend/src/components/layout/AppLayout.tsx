@@ -212,89 +212,82 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       <Layout style={{ minHeight: '100vh', background: themeConfig.colors.background }}>
         <ResponsiveLayout
           siderContent={siderContent}
-          collapsed={collapsed}
-          onCollapse={setCollapsed}
-        >
-          <Layout style={{ background: themeConfig.colors.background }}>
-            <Header style={{ 
-              background: themeConfig.colors.surface, 
-              padding: '0 24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              borderBottom: `1px solid ${themeConfig.colors.border}`,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          headerContent={
+            <Title level={3} style={{ 
+              margin: 0,
+              color: themeConfig.colors.text,
             }}>
-              <Title level={3} style={{ 
-                margin: 0,
-                color: themeConfig.colors.text,
-              }}>
-                {getCurrentPageTitle()}
-              </Title>
+              {getCurrentPageTitle()}
+            </Title>
+          }
+          headerActions={
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {/* 主题切换按钮 */}
+              <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
               
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {/* 主题切换按钮 */}
-                <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
-                
-                {/* 通知中心 */}
-                <NotificationCenter />
-                
-                {/* 用户信息 */}
-                {isAuthenticated && user ? (
-                  <Dropdown 
-                    menu={{ items: userMenuItems }} 
-                    placement="bottomRight"
-                    trigger={['click']}
-                  >
-                    <div style={{ 
-                      cursor: 'pointer', 
-                      display: 'flex', 
-                      alignItems: 'center',
-                      padding: '4px 8px',
-                      borderRadius: 6,
-                      transition: 'background-color 0.3s',
-                    }}>
-                      <Avatar 
-                        icon={<UserOutlined />} 
-                        style={{ marginRight: 8 }}
-                        size="small"
-                      />
-                      <span style={{ color: themeConfig.colors.text }}>
-                        {user.username}
-                      </span>
-                    </div>
-                  </Dropdown>
-                ) : (
-                  <Button 
-                    type="primary" 
-                    icon={<LoginOutlined />} 
-                    onClick={handleLogin}
-                  >
-                    登录
-                  </Button>
-                )}
-              </div>
-            </Header>
-            
+              {/* 通知中心 */}
+              <NotificationCenter />
+              
+              {/* 用户信息 */}
+              {isAuthenticated && user ? (
+                <Dropdown 
+                  menu={{ items: userMenuItems }} 
+                  placement="bottomRight"
+                  trigger={['click']}
+                >
+                  <div style={{ 
+                    cursor: 'pointer', 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    padding: '4px 8px',
+                    borderRadius: 6,
+                    transition: 'background-color 0.3s',
+                  }}>
+                    <Avatar 
+                      icon={<UserOutlined />} 
+                      style={{ marginRight: 8 }}
+                      size="small"
+                    />
+                    <span style={{ color: themeConfig.colors.text }}>
+                      {user.username}
+                    </span>
+                  </div>
+                </Dropdown>
+              ) : (
+                <Button 
+                  type="primary" 
+                  icon={<LoginOutlined />} 
+                  onClick={handleLogin}
+                >
+                  登录
+                </Button>
+              )}
+            </div>
+          }
+        >
+          <div style={{ background: themeConfig.colors.background }}>
             {/* 面包屑导航 */}
             <Breadcrumb />
             
-            <Content style={{ 
+            <div style={{ 
               background: themeConfig.colors.background,
-              minHeight: 'calc(100vh - 64px - 70px - 48px)', // 减去 header、footer 和 breadcrumb 高度
+              minHeight: 'calc(100vh - 120px)', // 调整高度计算
+              padding: '16px 0',
             }}>
               {children}
-            </Content>
+            </div>
             
-            <Footer style={{ 
+            <div style={{ 
               textAlign: 'center', 
               background: themeConfig.colors.surface,
               borderTop: `1px solid ${themeConfig.colors.border}`,
               color: themeConfig.colors.textSecondary,
+              padding: '16px',
+              marginTop: 'auto',
             }}>
               FinApp ©2025 Created by CodeBuddy
-            </Footer>
-          </Layout>
+            </div>
+          </div>
         </ResponsiveLayout>
         
         <LoginModal

@@ -1,101 +1,123 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Drawer, Button } from 'antd';
-import { MenuOutlined } from '@ant-design/icons';
+import { Layout, Drawer, Button, Grid } from 'antd';
+import { MenuOutlined, CloseOutlined } from '@ant-design/icons';
+import { useLocation } from 'react-router-dom';
 
-const { Sider } = Layout;
+const { Header, Sider, Content } = Layout;
+const { useBreakpoint } = Grid;
 
 interface ResponsiveLayoutProps {
   children: React.ReactNode;
   siderContent: React.ReactNode;
-  collapsed: boolean;
-  onCollapse: (collapsed: boolean) => void;
+  headerContent?: React.ReactNode;
+  headerActions?: React.ReactNode;
 }
 
 const ResponsiveLayout: React.FC<ResponsiveLayoutProps> = ({
   children,
   siderContent,
-  collapsed,
-  onCollapse,
+  headerContent,
+  headerActions
 }) => {
-  const [isMobile, setIsMobile] = useState(false);
-  const [mobileDrawerVisible, setMobileDrawerVisible] = useState(false);
+  const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
+  const screens = useBreakpoint();
+  const location = useLocation();
+  const isMobile = !screens.md;
 
+  // 路由变化时关闭移动端菜单
   useEffect(() => {
-    const checkIsMobile = () => {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      
-      // 在移动端自动收起侧边栏
-      if (mobile && !collapsed) {
-        onCollapse(true);
-      }
-    };
+    setMobileMenuVisible(false);
+  }, [location.pathname]);
 
-    checkIsMobile();
-    window.addEventListener('resize', checkIsMobile);
-    
-    return () => {
-      window.removeEventListener('resize', checkIsMobile);
-    };
-  }, [collapsed, onCollapse]);
+  // 移动端菜单切换
+  const toggleMobileMenu = () => {
+    setMobileMenuVisible(!mobileMenuVisible);
+  };
 
-  // 移动端使用抽屉，桌面端使用侧边栏
+  // 移动端布局
   if (isMobile) {
     return (
-      <>
-        {/* 移动端菜单按钮 */}
-        <Button
-          type="text"
-          icon={<MenuOutlined />}
-          onClick={() => setMobileDrawerVisible(true)}
-          style={{
-            position: 'fixed',
-            top: 16,
-            left: 16,
-            zIndex: 1001,
-            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-            border: '1px solid #d9d9d9',
-          }}
-        />
-        
-        {/* 移动端抽屉菜单 */}
+      <Layout className="responsive-layout mobile-layout">
+        <Header className="mobile-header">
+          <div className="mobile-header-left">
+            <Button
+              type="text"
+              icon={<MenuOutlined />}
+              onClick={toggleMobileMenu}
+              className="mobile-menu-trigger"
+              size="large"
+            />
+            {headerContent && (
+              <div className="mobile-header-content">
+                {headerContent}
+              </div>
+            )}
+          </div>
+          {headerActions && (
+            <div className="mobile-header-actions">
+              {headerActions}
+            </div>
+          )}
+        </Header>
+
         <Drawer
           title="导航菜单"
           placement="left"
-          onClose={() => setMobileDrawerVisible(false)}
-          open={mobileDrawerVisible}
+          onClose={() => setMobileMenuVisible(false)}
+          open={mobileMenuVisible}
           bodyStyle={{ padding: 0 }}
+          headerStyle={{ padding: '16px 24px' }}
+          closeIcon={<CloseOutlined />}
           width={280}
         >
           {siderContent}
         </Drawer>
-        
-        {/* 主内容区域 */}
-        <div style={{ marginLeft: 0 }}>
+
+        <Content className="mobile-content">
           {children}
-        </div>
-      </>
+        </Content>
+      </Layout>
     );
   }
 
-  // 桌面端使用标准侧边栏
+  // 桌面端布局
   return (
-    <>
+    <Layout className="responsive-layout desktop-layout">
       <Sider
-        collapsible
-        collapsed={collapsed}
-        onCollapse={onCollapse}
-        style={{ 
-          background: '#fff',
-          boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
+        width={256}
+        className="desktop-sider"
+        theme="light"
+        style={{
+          overflow: 'auto',
+          height: '100vh',
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          bottom: 0,
         }}
-        breakpoint="lg"
-        collapsedWidth={80}
       >
         {siderContent}
       </Sider>
-      {children}
-    </>
+
+      <Layout style={{ marginLeft: 256 }}>
+        {(headerContent || headerActions) && (
+          <Header className="desktop-header">
+            <div className="desktop-header-content">
+              {headerContent}
+            </div>
+            {headerActions && (
+              <div className="desktop-header-actions">
+                {headerActions}
+              </div>
+            )}
+          </Header>
+        )}
+
+        <Content className="desktop-content">
+          {children}
+        </Content>
+      </Layout>
+    </Layout>
   );
 };
 

@@ -1,0 +1,258 @@
+/* 响应式布局样式 */
+
+.responsive-layout {
+  min-height: 100vh;
+}
+
+/* 移动端布局样式 */
+.mobile-layout {
+  background: #f5f5f5;
+}
+
+.mobile-header {
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+  padding: 0 16px;
+  height: 56px;
+  line-height: 56px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.mobile-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mobile-menu-trigger {
+  color: #1890ff;
+  border: none;
+  box-shadow: none;
+}
+
+.mobile-menu-trigger:hover,
+.mobile-menu-trigger:focus {
+  color: #40a9ff;
+  background: rgba(24, 144, 255, 0.1);
+}
+
+.mobile-header-content {
+  font-size: 16px;
+  font-weight: 500;
+  color: #262626;
+}
+
+.mobile-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-content {
+  padding: 16px 12px;
+  background: #f5f5f5;
+  min-height: calc(100vh - 56px);
+}
+
+/* 桌面端布局样式 */
+.desktop-layout {
+  background: #f5f5f5;
+}
+
+.desktop-sider {
+  background: #fff;
+  border-right: 1px solid #f0f0f0;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.06);
+}
+
+.desktop-header {
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+  padding: 0 24px;
+  height: 64px;
+  line-height: 64px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.desktop-header-content {
+  font-size: 18px;
+  font-weight: 500;
+  color: #262626;
+}
+
+.desktop-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.desktop-content {
+  padding: 24px;
+  background: #f5f5f5;
+  min-height: calc(100vh - 64px);
+}
+
+/* 抽屉菜单样式 */
+.ant-drawer-body {
+  padding: 0;
+}
+
+.ant-drawer-header {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.ant-drawer-header .ant-drawer-title {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* 响应式断点调整 */
+@media (max-width: 575px) {
+  .mobile-header {
+    padding: 0 12px;
+    height: 48px;
+    line-height: 48px;
+  }
+  
+  .mobile-header-content {
+    font-size: 14px;
+  }
+  
+  .mobile-content {
+    padding: 12px 8px;
+    min-height: calc(100vh - 48px);
+  }
+}
+
+@media (min-width: 576px) and (max-width: 767px) {
+  .mobile-header {
+    padding: 0 16px;
+  }
+  
+  .mobile-content {
+    padding: 16px 12px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  .desktop-sider {
+    width: 200px !important;
+    min-width: 200px !important;
+    max-width: 200px !important;
+  }
+  
+  .desktop-layout .ant-layout {
+    margin-left: 200px !important;
+  }
+  
+  .desktop-header {
+    padding: 0 20px;
+  }
+  
+  .desktop-content {
+    padding: 20px;
+  }
+}
+
+@media (min-width: 992px) and (max-width: 1199px) {
+  .desktop-header {
+    padding: 0 24px;
+  }
+  
+  .desktop-content {
+    padding: 24px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .desktop-sider {
+    width: 280px !important;
+    min-width: 280px !important;
+    max-width: 280px !important;
+  }
+  
+  .desktop-layout .ant-layout {
+    margin-left: 280px !important;
+  }
+  
+  .desktop-header {
+    padding: 0 32px;
+  }
+  
+  .desktop-content {
+    padding: 32px;
+  }
+}
+
+/* 暗色主题适配 */
+[data-theme='dark'] .mobile-header,
+[data-theme='dark'] .desktop-header {
+  background: #141414;
+  border-bottom-color: #303030;
+}
+
+[data-theme='dark'] .desktop-sider {
+  background: #141414;
+  border-right-color: #303030;
+}
+
+[data-theme='dark'] .mobile-content,
+[data-theme='dark'] .desktop-content {
+  background: #000;
+}
+
+[data-theme='dark'] .mobile-header-content,
+[data-theme='dark'] .desktop-header-content {
+  color: #fff;
+}
+
+/* 动画效果 */
+.mobile-header,
+.desktop-header {
+  transition: all 0.3s ease;
+}
+
+.desktop-sider {
+  transition: all 0.3s ease;
+}
+
+.mobile-menu-trigger {
+  transition: all 0.2s ease;
+}
+
+/* 无障碍优化 */
+.mobile-menu-trigger:focus-visible {
+  outline: 2px solid #1890ff;
+  outline-offset: 2px;
+}
+
+/* 高对比度模式 */
+@media (prefers-contrast: high) {
+  .mobile-header,
+  .desktop-header {
+    border-bottom-width: 2px;
+  }
+  
+  .desktop-sider {
+    border-right-width: 2px;
+  }
+}
+
+/* 减少动画模式 */
+@media (prefers-reduced-motion: reduce) {
+  .mobile-header,
+  .desktop-header,
+  .desktop-sider,
+  .mobile-menu-trigger {
+    transition: none;
+  }
+}
