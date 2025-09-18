@@ -12,6 +12,7 @@ import {
   ReportsPage,
   SettingsPage
 } from './pages';
+import ChartsPage from './pages/charts/ChartsPage';
 import { AppLayout } from './components/layout';
 
 const { Title, Paragraph } = Typography;
@@ -32,7 +33,7 @@ const AppLayoutWrapper: React.FC = () => {
         <Route path="/assets" element={<AssetManagement />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/analytics" element={<ChartsPage />} />
       </Routes>
     </AppLayout>
   );
@@ -115,15 +116,7 @@ const HomePage: React.FC = () => {
   );
 };
 
-// 绩效分析页面
-const AnalyticsPage: React.FC = () => {
-  return (
-    <div style={{ padding: '24px', textAlign: 'center' }}>
-      <Title level={2}>绩效分析</Title>
-      <Paragraph>绩效分析功能开发中...</Paragraph>
-    </div>
-  );
-};
+
 
 // 主应用组件
 function App() {

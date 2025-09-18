@@ -129,6 +129,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       label: '报表中心'
     },
     {
+      key: '/analytics',
+      icon: <BarChartOutlined />,
+      label: '图表分析'
+    },
+    {
       key: '/settings',
       icon: <SettingOutlined />,
       label: '设置'
@@ -153,6 +158,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     if (location.pathname.startsWith('/transactions')) return ['/transactions'];
     if (location.pathname.startsWith('/assets')) return ['/assets'];
     if (location.pathname.startsWith('/reports')) return ['/reports'];
+    if (location.pathname.startsWith('/analytics')) return ['/analytics'];
     if (location.pathname.startsWith('/settings')) return ['/settings'];
     return ['/'];
   };
