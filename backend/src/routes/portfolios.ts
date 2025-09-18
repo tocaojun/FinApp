@@ -61,6 +61,25 @@ router.get('/',
 
 /**
  * @swagger
+ * /api/portfolios/summary:
+ *   get:
+ *     summary: 获取用户所有投资组合的汇总统计
+ *     tags: [Portfolios]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 成功获取投资组合汇总
+ *       401:
+ *         description: 未授权
+ */
+router.get('/summary',
+  requirePermission('portfolio', 'read'),
+  portfolioController.getAllPortfoliosSummary.bind(portfolioController)
+);
+
+/**
+ * @swagger
  * /api/portfolios:
  *   post:
  *     summary: 创建新的投资组合
@@ -114,6 +133,8 @@ router.post('/',
   requirePermission('portfolio', 'write'),
   portfolioController.createPortfolio.bind(portfolioController)
 );
+
+
 
 /**
  * @swagger

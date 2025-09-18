@@ -15,7 +15,8 @@ export interface RegisterData {
 }
 
 export interface LoginData {
-  email: string;
+  username?: string;
+  email?: string;
   password: string;
 }
 
@@ -136,11 +137,16 @@ export class AuthService {
    * 用户登录
    */
   async login(data: LoginData): Promise<{ user: UserProfile; tokens: AuthTokens }> {
-    const { email, password } = data;
+    const { username, email, password } = data;
 
-    // 查找用户
-    const user = await databaseService.prisma.user.findUnique({
-      where: { email },
+    // 查找用户 - 支持用户名或邮箱登录
+    const user = await databaseService.prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: username || '' },
+          { email: email || '' }
+        ]
+      },
     });
 
     if (!user) {

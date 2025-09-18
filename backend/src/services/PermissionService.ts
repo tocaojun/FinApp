@@ -261,12 +261,59 @@ export class PermissionService {
    */
   async hasPermission(userId: string, resource: string, action: string): Promise<boolean> {
     try {
-      // 模拟权限检查
-      const userPermissions = await this.getUserPermissions(userId);
+      const cacheKey = `user:${userId}:permission:${resource}:${action}`;
+      const cached = this.cacheService.get<boolean>(cacheKey);
+      if (cached !== undefined) {
+        return cached;
+      }
+
+      // 从数据库查询用户权限
+      const query = `
+        SELECT DISTINCT p.name, p.resource, p.action
+        FROM users u
+        JOIN user_roles ur ON u.id = ur.user_id
+        JOIN roles r ON ur.role_id = r.id
+        JOIN role_permissions rp ON r.id = rp.role_id
+        JOIN permissions p ON rp.permission_id = p.id
+        WHERE u.id = $1::uuid AND ur.is_active = true AND r.is_active = true
+      `;
+
+      const result = await databaseService.executeRawQuery<Array<{
+        name: string;
+        resource: string;
+        action: string;
+      }>>(query, [userId]);
       
-      return userPermissions.permissions.some(
-        (p: Permission) => p.resource === resource && (p.action === action || p.action === 'all')
-      );
+      // 检查是否有匹配的权限
+      const hasPermission = result.some((row) => {
+        // 支持两种权限格式：resource.action 和 resource:action
+        const permissionName = row.name;
+        const permissionResource = row.resource;
+        const permissionAction = row.action;
+        
+        // 检查权限名称格式 (resource.action)
+        if (permissionName === `${resource}.${action}` || permissionName === `${resource}s.${action}`) {
+          return true;
+        }
+        
+        // 检查权限名称格式 (resource:action)
+        if (permissionName === `${resource}:${action}`) {
+          return true;
+        }
+        
+        // 检查资源和动作字段
+        if ((permissionResource === resource || permissionResource === `${resource}s`) && 
+            (permissionAction === action || permissionAction === 'all')) {
+          return true;
+        }
+        
+        return false;
+      });
+
+      // 缓存结果
+      this.cacheService.set(cacheKey, hasPermission, 60); // 1分钟缓存
+      
+      return hasPermission;
     } catch (error) {
       logger.error('Failed to check permission:', error);
       return false;
@@ -278,10 +325,30 @@ export class PermissionService {
    */
   async hasRole(userId: string, roleName: string): Promise<boolean> {
     try {
-      // 模拟角色检查
-      const userPermissions = await this.getUserPermissions(userId);
+      const cacheKey = `user:${userId}:role:${roleName}`;
+      const cached = this.cacheService.get<boolean>(cacheKey);
+      if (cached !== undefined) {
+        return cached;
+      }
+
+      // 从数据库查询用户角色
+      const query = `
+        SELECT r.name
+        FROM users u
+        JOIN user_roles ur ON u.id = ur.user_id
+        JOIN roles r ON ur.role_id = r.id
+        WHERE u.id = $1::uuid AND ur.is_active = true AND r.is_active = true AND r.name = $2
+      `;
+
+      const result = await databaseService.executeRawQuery<Array<{
+        name: string;
+      }>>(query, [userId, roleName]);
+      const hasRole = result.length > 0;
+
+      // 缓存结果
+      this.cacheService.set(cacheKey, hasRole, 60); // 1分钟缓存
       
-      return userPermissions.roles.some(role => role.name === roleName);
+      return hasRole;
     } catch (error) {
       logger.error('Failed to check role:', error);
       return false;

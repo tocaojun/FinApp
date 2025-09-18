@@ -37,6 +37,12 @@ export const apiRequest = async <T = any>(
   try {
     const response = await fetch(url, config);
     
+    // 检查响应是否为HTML（表示后端服务未运行）
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('text/html')) {
+      throw new Error('Backend service not available - received HTML instead of JSON');
+    }
+    
     if (!response.ok) {
       if (response.status === 401) {
         // 认证失败，清除本地令牌并跳转到登录页

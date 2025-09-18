@@ -264,7 +264,7 @@ tail -f logs/app.log
 如有问题或建议，请通过以下方式联系：
 
 - 创建 Issue
-- 发送邮件到: [tocaojun@example.com]
+- 发送邮件到: [tocaojun@gmail.com]
 
 ---
 

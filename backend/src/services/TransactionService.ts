@@ -117,12 +117,12 @@ export class TransactionService {
     const offset = (page - 1) * limit;
 
     // 构建查询条件
-    const conditions: string[] = ['user_id = $1'];
+    const conditions: string[] = ['user_id = $1::uuid'];
     const values: any[] = [userId];
     let paramIndex = 2;
 
     if (filter.portfolioId) {
-      conditions.push(`portfolio_id = $${paramIndex}`);
+      conditions.push(`portfolio_id = $${paramIndex}::uuid`);
       values.push(filter.portfolioId);
       paramIndex++;
     }
@@ -158,7 +158,7 @@ export class TransactionService {
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-    const sortBy = filter.sortBy || 'executedAt';
+    const sortBy = filter.sortBy || 'transaction_date';
     const sortOrder = filter.sortOrder || 'DESC';
 
     // 获取总数
@@ -170,7 +170,7 @@ export class TransactionService {
     const query = `
       SELECT * FROM transactions 
       ${whereClause}
-      ORDER BY ${sortBy} ${sortOrder}
+      ORDER BY transaction_date ${sortOrder}
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
     values.push(limit, offset);
@@ -189,8 +189,8 @@ export class TransactionService {
       totalAmount: parseFloat(row.total_amount),
       fees: parseFloat(row.fees || '0'),
       currency: row.currency,
-      executedAt: new Date(row.executed_at),
-      settledAt: row.settled_at ? new Date(row.settled_at) : undefined,
+      executedAt: new Date(row.transaction_date),
+      settledAt: row.settlement_date ? new Date(row.settlement_date) : undefined,
       notes: row.notes,
       tags: [], // 需要单独查询
       liquidityTag: row.liquidity_tag,
@@ -211,7 +211,7 @@ export class TransactionService {
   async getTransactionById(userId: string, transactionId: string): Promise<Transaction | null> {
     const query = `
       SELECT * FROM transactions 
-      WHERE id = $1 AND user_id = $2
+      WHERE id = $1::uuid AND user_id = $2::uuid
     `;
 
     const results = await databaseService.executeRawQuery<any[]>(query, [transactionId, userId]);
@@ -307,7 +307,7 @@ export class TransactionService {
     const query = `
       UPDATE transactions 
       SET ${updateFields.join(', ')}
-      WHERE id = $${paramIndex - 1} AND user_id = $${paramIndex}
+      WHERE id = $${paramIndex - 1}::uuid AND user_id = $${paramIndex}::uuid
       RETURNING *
     `;
 
@@ -333,7 +333,7 @@ export class TransactionService {
 
     const query = `
       DELETE FROM transactions 
-      WHERE id = $1 AND user_id = $2
+      WHERE id = $1::uuid AND user_id = $2::uuid
     `;
 
     await databaseService.executeRawCommand(query, [transactionId, userId]);

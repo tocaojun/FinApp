@@ -69,8 +69,8 @@ export class PortfolioService {
 
   async getPortfoliosByUserId(userId: string): Promise<Portfolio[]> {
     const query = `
-      SELECT * FROM portfolios 
-      WHERE user_id = $1 
+      SELECT * FROM finapp.portfolios 
+      WHERE user_id = $1::uuid 
       ORDER BY created_at DESC
     `;
     
@@ -80,8 +80,8 @@ export class PortfolioService {
 
   async getPortfolioById(userId: string, portfolioId: string): Promise<Portfolio | null> {
     const query = `
-      SELECT * FROM portfolios 
-      WHERE id = $1 AND user_id = $2
+      SELECT * FROM finapp.portfolios 
+      WHERE id = $1::uuid AND user_id = $2::uuid
     `;
     
     const result = await databaseService.executeRawQuery(query, [portfolioId, userId]);
@@ -111,7 +111,7 @@ export class PortfolioService {
     const query = `
       UPDATE portfolios 
       SET name = $3, description = $4, base_currency = $5, updated_at = $6
-      WHERE id = $1 AND user_id = $2
+      WHERE id = $1::uuid AND user_id = $2::uuid
       RETURNING *
     `;
     
@@ -127,9 +127,9 @@ export class PortfolioService {
 
   async deletePortfolio(userId: string, portfolioId: string): Promise<boolean> {
     // 删除相关的持仓和交易账户
-    await databaseService.executeRawCommand('DELETE FROM positions WHERE portfolio_id = $1', [portfolioId]);
-    await databaseService.executeRawCommand('DELETE FROM trading_accounts WHERE portfolio_id = $1', [portfolioId]);
-    await databaseService.executeRawCommand('DELETE FROM portfolios WHERE id = $1 AND user_id = $2', [portfolioId, userId]);
+    await databaseService.executeRawCommand('DELETE FROM positions WHERE portfolio_id = $1::uuid', [portfolioId]);
+    await databaseService.executeRawCommand('DELETE FROM trading_accounts WHERE portfolio_id = $1::uuid', [portfolioId]);
+    await databaseService.executeRawCommand('DELETE FROM portfolios WHERE id = $1::uuid AND user_id = $2::uuid', [portfolioId, userId]);
     
     return true;
   }
@@ -145,7 +145,7 @@ export class PortfolioService {
       SELECT COUNT(*) as account_count, 
              COALESCE(SUM(balance), 0) as total_balance
       FROM trading_accounts 
-      WHERE portfolio_id = $1
+      WHERE portfolio_id = $1::uuid
     `;
     
     const accountsResult = await databaseService.executeRawQuery(accountsQuery, [portfolioId]);
@@ -157,7 +157,7 @@ export class PortfolioService {
              COUNT(DISTINCT asset_symbol) as unique_assets,
              COALESCE(SUM(current_value), 0) as total_position_value
       FROM positions 
-      WHERE portfolio_id = $1
+      WHERE portfolio_id = $1::uuid
     `;
     
     await databaseService.executeRawCommand(positionsQuery, [
@@ -233,7 +233,7 @@ export class PortfolioService {
 
     const query = `
       SELECT * FROM trading_accounts 
-      WHERE portfolio_id = $1 
+      WHERE portfolio_id = $1::uuid 
       ORDER BY created_at DESC
     `;
     
@@ -263,7 +263,7 @@ export class PortfolioService {
           balance = COALESCE($9, balance),
           available_balance = COALESCE($10, available_balance),
           updated_at = $11
-      WHERE id = $1 AND portfolio_id = $2
+      WHERE id = $1::uuid AND portfolio_id = $2::uuid
       RETURNING *
     `;
     
@@ -323,13 +323,13 @@ export class PortfolioService {
     return {
       id: row.id,
       userId: row.user_id,
-      name: row.name,
-      description: row.description,
-      baseCurrency: row.base_currency,
-      totalValue: parseFloat(row.total_value) || 0,
-      totalCost: parseFloat(row.total_cost) || 0,
-      totalGainLoss: parseFloat(row.total_gain_loss) || 0,
-      totalGainLossPercentage: parseFloat(row.total_gain_loss_percentage) || 0,
+      name: row.name || '',
+      description: row.description || '',
+      baseCurrency: row.base_currency || 'CNY',
+      totalValue: 0, // 这些字段需要通过计算得出
+      totalCost: 0,
+      totalGainLoss: 0,
+      totalGainLossPercentage: 0,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at)
     };

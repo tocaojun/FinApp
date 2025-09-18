@@ -1,16 +1,5 @@
 import { apiGet, apiPost, apiPut, apiDelete } from './api';
-
-export interface Portfolio {
-  id: string;
-  name: string;
-  description?: string;
-  totalValue: number;
-  totalCost: number;
-  totalReturn: number;
-  returnRate: number;
-  createdAt: string;
-  updatedAt: string;
-}
+import { Portfolio } from '../types/portfolio';
 
 export interface PortfolioSummary {
   totalAssets: number;
@@ -24,7 +13,8 @@ export interface PortfolioSummary {
 export class PortfolioService {
   static async getPortfolios(): Promise<Portfolio[]> {
     try {
-      return await apiGet<Portfolio[]>('/portfolios');
+      const response = await apiGet<{success: boolean, message: string, data: Portfolio[]}>('/portfolios');
+      return response.data || [];
     } catch (error) {
       console.error('获取投资组合失败:', error);
       throw error;

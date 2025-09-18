@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Row, Col, Card, Statistic, Typography, Spin, message } from 'antd';
 import {
   DollarOutlined,
@@ -32,6 +33,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     totalValue: 0,
@@ -42,6 +44,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     assetCount: 0,
     transactionCount: 0
   });
+
+  // 处理导航的统一函数
+  const handleNavigate = (page: string) => {
+    if (onNavigate) {
+      onNavigate(page);
+    } else {
+      navigate(`/${page}`);
+    }
+  };
 
   useEffect(() => {
     loadDashboardData();
@@ -181,17 +192,17 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           <AssetSummaryCard 
             assetCount={dashboardData.assetCount}
             transactionCount={dashboardData.transactionCount}
-            onNavigate={onNavigate}
+            onNavigate={handleNavigate}
           />
         </Col>
         <Col xs={24} lg={12}>
-          <PortfolioOverview onNavigate={onNavigate} />
+          <PortfolioOverview onNavigate={handleNavigate} />
         </Col>
         <Col xs={24} lg={12}>
-          <QuickActions onNavigate={onNavigate} />
+          <QuickActions onNavigate={handleNavigate} />
         </Col>
         <Col span={24}>
-          <RecentTransactions onNavigate={onNavigate} />
+          <RecentTransactions onNavigate={handleNavigate} />
         </Col>
       </Row>
     </div>

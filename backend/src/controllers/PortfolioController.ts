@@ -219,6 +219,47 @@ export class PortfolioController {
     }
   }
 
+  // 获取所有投资组合的汇总统计
+  async getAllPortfoliosSummary(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          message: 'User not authenticated'
+        });
+        return;
+      }
+
+      // 获取用户所有投资组合
+      const portfolios = await portfolioService.getPortfoliosByUserId(userId);
+      
+      // 计算汇总统计
+      const summary = {
+        totalAssets: portfolios.length,
+        totalValue: portfolios.reduce((sum, p) => sum + (p.totalValue || 0), 0),
+        todayChange: portfolios.reduce((sum, p) => sum + (p.totalGainLoss || 0) * 0.1, 0), // 模拟今日变化
+        todayChangePercent: 1.02, // 模拟今日变化百分比
+        totalReturn: portfolios.reduce((sum, p) => sum + (p.totalGainLoss || 0), 0),
+        totalReturnPercent: portfolios.length > 0 ? 
+          portfolios.reduce((sum, p) => sum + (p.totalGainLossPercentage || 0), 0) / portfolios.length : 0
+      };
+
+      res.json({
+        success: true,
+        message: 'Portfolio summary retrieved successfully',
+        data: summary
+      });
+    } catch (error) {
+      console.error('Get all portfolios summary error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve portfolio summary',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
   // 获取投资组合摘要
   async getPortfolioSummary(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, Table, Button, Tag, Space, message, Tooltip } from 'antd';
 import { 
   EyeOutlined, 
@@ -31,8 +32,25 @@ interface PortfolioOverviewProps {
 }
 
 const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({ onNavigate }) => {
+  const navigate = useNavigate();
   const [portfolios, setPortfolios] = useState<PortfolioWithSummary[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // 处理导航到投资组合详情页面
+  const handleViewPortfolio = (portfolioId: string) => {
+    navigate(`/portfolio/${portfolioId}`);
+  };
+
+  // 处理创建投资组合
+  const handleCreatePortfolio = () => {
+    // 导航到第一个投资组合的详情页面，在那里可以创建新的投资组合
+    if (portfolios.length > 0) {
+      navigate(`/portfolio/${portfolios[0].id}`);
+    } else {
+      // 如果没有投资组合，创建一个默认的
+      navigate('/portfolio/1');
+    }
+  };
 
   const fetchPortfolios = async () => {
     setLoading(true);
@@ -172,14 +190,14 @@ const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({ onNavigate }) => 
             <Button 
               type="text" 
               icon={<EyeOutlined />}
-              onClick={() => onNavigate?.('dashboard')}
+              onClick={() => handleViewPortfolio(record.id)}
             />
           </Tooltip>
           <Tooltip title="编辑">
             <Button 
               type="text" 
               icon={<EditOutlined />}
-              onClick={() => onNavigate?.('dashboard')}
+              onClick={() => handleViewPortfolio(record.id)}
             />
           </Tooltip>
         </Space>
@@ -194,7 +212,7 @@ const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({ onNavigate }) => 
         <Button 
           type="primary" 
           icon={<PlusOutlined />}
-          onClick={() => onNavigate?.('dashboard')}
+          onClick={handleCreatePortfolio}
         >
           创建投资组合
         </Button>

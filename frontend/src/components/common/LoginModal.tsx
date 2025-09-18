@@ -24,7 +24,22 @@ const LoginModal: React.FC<LoginModalProps> = ({ visible, onClose, onSuccess }) 
       onSuccess();
       onClose();
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '登录失败');
+      console.error('Login error:', error);
+      let errorMessage = '登录失败';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('404')) {
+          errorMessage = '服务器连接失败，请检查后端服务是否启动';
+        } else if (error.message.includes('401')) {
+          errorMessage = '邮箱或密码错误';
+        } else if (error.message.includes('Backend service not available')) {
+          errorMessage = '后端服务不可用，请稍后重试';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      message.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -39,7 +54,22 @@ const LoginModal: React.FC<LoginModalProps> = ({ visible, onClose, onSuccess }) 
       onSuccess();
       onClose();
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '注册失败');
+      console.error('Register error:', error);
+      let errorMessage = '注册失败';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('404')) {
+          errorMessage = '服务器连接失败，请检查后端服务是否启动';
+        } else if (error.message.includes('409')) {
+          errorMessage = '邮箱已被注册';
+        } else if (error.message.includes('Backend service not available')) {
+          errorMessage = '后端服务不可用，请稍后重试';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      message.error(errorMessage);
     } finally {
       setLoading(false);
     }

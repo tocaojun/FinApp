@@ -1,0 +1,1 @@
+export { default as SmartModal } from './SmartModal';

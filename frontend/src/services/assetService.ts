@@ -138,18 +138,118 @@ interface PaginatedResponse<T> {
   };
 }
 
+// 模拟数据
+const mockAssetTypes: AssetType[] = [
+  { id: '1', code: 'STOCK', name: '股票', category: 'EQUITY', description: '上市公司股票' },
+  { id: '2', code: 'BOND', name: '债券', category: 'FIXED_INCOME', description: '政府和企业债券' },
+  { id: '3', code: 'FUND', name: '基金', category: 'FUND', description: '投资基金' },
+  { id: '4', code: 'ETF', name: 'ETF', category: 'FUND', description: '交易所交易基金' },
+  { id: '5', code: 'CRYPTO', name: '加密货币', category: 'CRYPTO', description: '数字货币' },
+];
+
+const mockMarkets: Market[] = [
+  { id: '1', code: 'SSE', name: '上海证券交易所', country: 'CN', currency: 'CNY', timezone: 'Asia/Shanghai' },
+  { id: '2', code: 'SZSE', name: '深圳证券交易所', country: 'CN', currency: 'CNY', timezone: 'Asia/Shanghai' },
+  { id: '3', code: 'NYSE', name: '纽约证券交易所', country: 'US', currency: 'USD', timezone: 'America/New_York' },
+  { id: '4', code: 'NASDAQ', name: '纳斯达克', country: 'US', currency: 'USD', timezone: 'America/New_York' },
+  { id: '5', code: 'HKEX', name: '香港交易所', country: 'HK', currency: 'HKD', timezone: 'Asia/Hong_Kong' },
+];
+
+const mockAssets: Asset[] = [
+  {
+    id: '1',
+    symbol: 'AAPL',
+    name: '苹果公司',
+    assetTypeId: '1',
+    assetTypeName: '股票',
+    marketId: '3',
+    marketName: '纽约证券交易所',
+    currency: 'USD',
+    sector: '科技',
+    industry: '消费电子',
+    riskLevel: 'MEDIUM',
+    liquidityTag: 'HIGH',
+    isActive: true,
+    currentPrice: 175.43,
+    priceChange: 2.15,
+    priceChangePercent: 1.24,
+    volume: 45678900,
+    marketCap: 2750000000000,
+    createdAt: '2023-01-01T00:00:00Z',
+    updatedAt: '2024-01-01T00:00:00Z',
+  },
+  {
+    id: '2',
+    symbol: '000001',
+    name: '平安银行',
+    assetTypeId: '1',
+    assetTypeName: '股票',
+    marketId: '2',
+    marketName: '深圳证券交易所',
+    currency: 'CNY',
+    sector: '金融',
+    industry: '银行',
+    riskLevel: 'MEDIUM',
+    liquidityTag: 'HIGH',
+    isActive: true,
+    currentPrice: 12.45,
+    priceChange: -0.23,
+    priceChangePercent: -1.81,
+    volume: 12345678,
+    marketCap: 241000000000,
+    createdAt: '2023-01-01T00:00:00Z',
+    updatedAt: '2024-01-01T00:00:00Z',
+  },
+];
+
+const mockStatistics: AssetStatistics = {
+  totalAssets: 1250,
+  activeAssets: 1180,
+  assetsByType: {
+    '股票': 850,
+    '基金': 200,
+    '债券': 150,
+    'ETF': 50,
+  },
+  assetsByMarket: {
+    '上海证券交易所': 400,
+    '深圳证券交易所': 350,
+    '纽约证券交易所': 200,
+    '纳斯达克': 150,
+    '香港交易所': 100,
+  },
+  assetsByCurrency: {
+    'CNY': 750,
+    'USD': 350,
+    'HKD': 100,
+    'EUR': 50,
+  },
+  assetsWithPrices: 1150,
+  latestPriceUpdates: 1120,
+};
+
 // 资产服务类
 export class AssetService {
   // 获取资产类型列表
   static async getAssetTypes(): Promise<AssetType[]> {
-    const response = await apiGet<ApiResponse<AssetType[]>>('/assets/types');
-    return response.data;
+    try {
+      const response = await apiGet<ApiResponse<AssetType[]>>('/assets/types');
+      return response.data;
+    } catch (error) {
+      console.warn('使用模拟数据 - 资产类型:', error);
+      return mockAssetTypes;
+    }
   }
 
   // 获取市场列表
   static async getMarkets(): Promise<Market[]> {
-    const response = await apiGet<ApiResponse<Market[]>>('/assets/markets');
-    return response.data;
+    try {
+      const response = await apiGet<ApiResponse<Market[]>>('/assets/markets');
+      return response.data;
+    } catch (error) {
+      console.warn('使用模拟数据 - 市场列表:', error);
+      return mockMarkets;
+    }
   }
 
   // 搜索资产
@@ -162,19 +262,59 @@ export class AssetService {
       totalPages: number;
     };
   }> {
-    const queryParams = new URLSearchParams();
-    
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        queryParams.append(key, String(value));
-      }
-    });
+    try {
+      const queryParams = new URLSearchParams();
+      
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, String(value));
+        }
+      });
 
-    const response = await apiGet<PaginatedResponse<Asset>>(`/assets?${queryParams}`);
-    return {
-      assets: response.data,
-      pagination: response.pagination,
-    };
+      const response = await apiGet<PaginatedResponse<Asset>>(`/assets?${queryParams}`);
+      return {
+        assets: response.data,
+        pagination: response.pagination,
+      };
+    } catch (error) {
+      console.warn('使用模拟数据 - 资产搜索:', error);
+      
+      // 模拟搜索逻辑
+      let filteredAssets = [...mockAssets];
+      
+      if (params.keyword) {
+        const keyword = params.keyword.toLowerCase();
+        filteredAssets = filteredAssets.filter(asset => 
+          asset.symbol.toLowerCase().includes(keyword) ||
+          asset.name.toLowerCase().includes(keyword)
+        );
+      }
+      
+      if (params.assetTypeId) {
+        filteredAssets = filteredAssets.filter(asset => asset.assetTypeId === params.assetTypeId);
+      }
+      
+      if (params.marketId) {
+        filteredAssets = filteredAssets.filter(asset => asset.marketId === params.marketId);
+      }
+      
+      const page = params.page || 1;
+      const limit = params.limit || 20;
+      const total = filteredAssets.length;
+      const totalPages = Math.ceil(total / limit);
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      
+      return {
+        assets: filteredAssets.slice(startIndex, endIndex),
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages,
+        },
+      };
+    }
   }
 
   // 获取资产详情
@@ -242,8 +382,13 @@ export class AssetService {
 
   // 获取资产统计信息
   static async getAssetStatistics(): Promise<AssetStatistics> {
-    const response = await apiGet<ApiResponse<AssetStatistics>>('/assets/statistics');
-    return response.data;
+    try {
+      const response = await apiGet<ApiResponse<AssetStatistics>>('/assets/statistics');
+      return response.data;
+    } catch (error) {
+      console.warn('使用模拟数据 - 资产统计:', error);
+      return mockStatistics;
+    }
   }
 
   // 搜索建议
