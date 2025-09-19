@@ -3,8 +3,6 @@ import { Card, Button, Dropdown, Grid, Space } from 'antd';
 import { 
   FullscreenOutlined, 
   DownloadOutlined, 
-  SettingOutlined,
-  ExpandOutlined,
   CompressOutlined
 } from '@ant-design/icons';
 import EChartsWrapper from './EChartsWrapper';
@@ -248,12 +246,14 @@ const ResponsiveChart: React.FC<ResponsiveChartProps> = ({
       }}
     >
       <EChartsWrapper
-        ref={chartRef}
         option={getResponsiveOption()}
         height="100%"
         style={{ 
           width: '100%',
           height: '100%'
+        }}
+        onChartReady={(chart) => {
+          chartRef.current = { getEchartsInstance: () => chart };
         }}
       />
     </Card>

@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { Table, Card, Drawer, Button, Space, Tag, Grid, Typography } from 'antd';
-import { EyeOutlined, FilterOutlined } from '@ant-design/icons';
+import { Table, Card, Drawer, Button, Space, Grid, Typography } from 'antd';
+import { EyeOutlined } from '@ant-design/icons';
 import type { ColumnsType, TableProps } from 'antd/es/table';
 
 const { useBreakpoint } = Grid;
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
-interface ResponsiveTableProps<T = any> extends Omit<TableProps<T>, 'columns'> {
+interface ResponsiveTableProps<T = any> extends Omit<TableProps<T>, 'columns' | 'title'> {
   columns: ColumnsType<T>;
   title?: string;
   mobileCardRender?: (record: T, index: number) => React.ReactNode;
@@ -61,16 +61,16 @@ function ResponsiveTable<T extends Record<string, any>>({
       >
         <div style={{ marginBottom: 8 }}>
           <Text strong style={{ fontSize: 14 }}>
-            {keyColumn.render 
+            {keyColumn.render && 'dataIndex' in keyColumn
               ? keyColumn.render(record[keyColumn.dataIndex as string], record, index)
-              : record[keyColumn.dataIndex as string]
+              : 'dataIndex' in keyColumn ? record[keyColumn.dataIndex as string] : ''
             }
           </Text>
         </div>
         
         <Space direction="vertical" size={4} style={{ width: '100%' }}>
           {valueColumns.map((col, idx) => {
-            const value = record[col.dataIndex as string];
+            const value = 'dataIndex' in col ? record[col.dataIndex as string] : '';
             const renderedValue = col.render 
               ? col.render(value, record, index)
               : value;

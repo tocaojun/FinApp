@@ -11,7 +11,12 @@ import {
   LogoutOutlined, 
   FolderOutlined,
   SettingOutlined,
-  QuestionCircleOutlined
+  QuestionCircleOutlined,
+  SafetyOutlined,
+  TeamOutlined,
+  KeyOutlined,
+  FileTextOutlined,
+  ControlOutlined
 } from '@ant-design/icons';
 
 import Breadcrumb from './Breadcrumb';
@@ -21,6 +26,8 @@ import ResponsiveLayout from './ResponsiveLayout';
 import LoginModal from '../common/LoginModal';
 import { AuthService, User } from '../../services/authService';
 import { useTheme } from '../../hooks/useTheme';
+import { useAuth } from '../../contexts/AuthContext';
+import { Permission } from '../../types/auth';
 
 const { Header, Content, Footer } = Layout;
 const { Title } = Typography;
@@ -33,6 +40,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme: currentTheme, themeConfig, toggleTheme, isDark } = useTheme();
+  const { state, hasPermission } = useAuth();
   
   const [collapsed, setCollapsed] = useState(false);
   const [loginModalVisible, setLoginModalVisible] = useState(false);
@@ -44,9 +52,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     const currentUser = AuthService.getCurrentUser();
     const authenticated = AuthService.isAuthenticated();
     
-    setUser(currentUser);
-    setIsAuthenticated(authenticated);
-  }, []);
+    setUser(currentUser || state.user);
+    setIsAuthenticated(authenticated || state.isAuthenticated);
+  }, [state.user, state.isAuthenticated]);
 
   const handleLogin = () => {
     setLoginModalVisible(true);
@@ -97,70 +105,162 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   ];
 
   // 导航菜单项
-  const menuItems = [
-    {
-      key: '/',
-      icon: <DashboardOutlined />,
-      label: '首页'
-    },
-    {
-      key: '/dashboard',
-      icon: <DashboardOutlined />,
-      label: '仪表板'
-    },
-    {
-      key: '/portfolios',
-      icon: <FolderOutlined />,
-      label: '投资组合'
-    },
-    {
-      key: '/transactions',
-      icon: <WalletOutlined />,
-      label: '交易记录'
-    },
-    {
-      key: '/assets',
-      icon: <DatabaseOutlined />,
-      label: '资产管理'
-    },
-    {
-      key: '/reports',
-      icon: <BarChartOutlined />,
-      label: '报表中心'
-    },
-    {
-      key: '/analytics',
-      icon: <BarChartOutlined />,
-      label: '图表分析'
-    },
-    {
-      key: '/settings',
-      icon: <SettingOutlined />,
-      label: '设置'
+  const getMenuItems = () => {
+    const baseItems = [
+      {
+        key: '/',
+        icon: <DashboardOutlined />,
+        label: '首页'
+      },
+      {
+        key: '/dashboard',
+        icon: <DashboardOutlined />,
+        label: '仪表板'
+      },
+      {
+        key: '/portfolios',
+        icon: <FolderOutlined />,
+        label: '投资组合'
+      },
+      {
+        key: '/transactions',
+        icon: <WalletOutlined />,
+        label: '交易记录'
+      },
+      {
+        key: '/assets',
+        icon: <DatabaseOutlined />,
+        label: '资产管理'
+      },
+      {
+        key: '/reports',
+        icon: <BarChartOutlined />,
+        label: '报表中心'
+      },
+      {
+        key: '/analytics',
+        icon: <BarChartOutlined />,
+        label: '图表分析'
+      }
+    ];
+
+    // 管理功能菜单项（仅管理员可见）
+    const adminItems = [];
+    
+    if (hasPermission(Permission.MANAGE_USERS) || 
+        hasPermission(Permission.MANAGE_PERMISSIONS) || 
+        hasPermission(Permission.VIEW_SYSTEM_LOGS)) {
+      adminItems.push({
+        key: 'admin',
+        icon: <SafetyOutlined />,
+        label: '系统管理',
+        type: 'group',
+        children: []
+      });
+
+      const adminChildren = [];
+      
+      if (hasPermission(Permission.MANAGE_USERS)) {
+        adminChildren.push({
+          key: '/admin/users',
+          icon: <TeamOutlined />,
+          label: '用户管理'
+        });
+      }
+
+      if (hasPermission(Permission.MANAGE_PERMISSIONS)) {
+        adminChildren.push({
+          key: '/admin/roles',
+          icon: <KeyOutlined />,
+          label: '角色管理'
+        });
+        adminChildren.push({
+          key: '/admin/permissions',
+          icon: <ControlOutlined />,
+          label: '权限矩阵'
+        });
+      }
+
+      if (hasPermission(Permission.VIEW_SYSTEM_LOGS)) {
+        adminChildren.push({
+          key: '/admin/logs',
+          icon: <FileTextOutlined />,
+          label: '系统日志'
+        });
+      }
+
+      adminItems[0].children = adminChildren;
     }
-  ];
+
+    // 设置菜单
+    const settingsItems = [
+      {
+        key: '/settings',
+        icon: <SettingOutlined />,
+        label: '设置'
+      }
+    ];
+
+    return [...baseItems, ...adminItems, ...settingsItems];
+  };
+
+  const menuItems = getMenuItems();
 
   // 获取当前页面标题
   const getCurrentPageTitle = () => {
-    const currentItem = menuItems.find(item => {
-      if (item.key === '/') return location.pathname === '/';
-      return location.pathname.startsWith(item.key);
-    });
-    return currentItem?.label || '首页';
+    const path = location.pathname;
+    
+    // 管理功能页面标题
+    if (path.startsWith('/admin/users')) return '用户管理';
+    if (path.startsWith('/admin/roles')) return '角色管理';
+    if (path.startsWith('/admin/permissions')) return '权限矩阵';
+    if (path.startsWith('/admin/logs')) return '系统日志';
+    if (path.startsWith('/auth/login')) return '用户登录';
+    
+    // 查找菜单项中的标题
+    const findTitle = (items: any[]): string | null => {
+      for (const item of items) {
+        if (item.key === '/' && path === '/') return item.label;
+        if (item.key !== '/' && path.startsWith(item.key)) return item.label;
+        if (item.children) {
+          const childTitle = findTitle(item.children);
+          if (childTitle) return childTitle;
+        }
+      }
+      return null;
+    };
+    
+    return findTitle(menuItems) || '首页';
   };
 
   // 获取当前选中的菜单项
   const getSelectedKeys = () => {
-    if (location.pathname === '/') return ['/'];
-    if (location.pathname.startsWith('/portfolios')) return ['/portfolios'];
-    if (location.pathname.startsWith('/portfolio')) return ['/portfolios'];
-    if (location.pathname.startsWith('/dashboard')) return ['/dashboard'];
-    if (location.pathname.startsWith('/transactions')) return ['/transactions'];
-    if (location.pathname.startsWith('/assets')) return ['/assets'];
-    if (location.pathname.startsWith('/reports')) return ['/reports'];
-    if (location.pathname.startsWith('/analytics')) return ['/analytics'];
-    if (location.pathname.startsWith('/settings')) return ['/settings'];
+    const path = location.pathname;
+    
+    if (path === '/') return ['/'];
+    if (path.startsWith('/portfolios')) return ['/portfolios'];
+    if (path.startsWith('/portfolio')) return ['/portfolios'];
+    if (path.startsWith('/dashboard')) return ['/dashboard'];
+    if (path.startsWith('/transactions')) return ['/transactions'];
+    if (path.startsWith('/assets')) return ['/assets'];
+    if (path.startsWith('/reports')) return ['/reports'];
+    if (path.startsWith('/analytics')) return ['/analytics'];
+    if (path.startsWith('/settings')) return ['/settings'];
+    
+    // 管理功能页面
+    if (path.startsWith('/admin/users')) return ['/admin/users'];
+    if (path.startsWith('/admin/roles')) return ['/admin/roles'];
+    if (path.startsWith('/admin/permissions')) return ['/admin/permissions'];
+    if (path.startsWith('/admin/logs')) return ['/admin/logs'];
+    
     return ['/'];
+  };
+
+  // 获取展开的菜单项
+  const getOpenKeys = () => {
+    const path = location.pathname;
+    if (path.startsWith('/admin/')) return ['admin'];
+    return [];
   };
 
   // 侧边栏内容
@@ -188,6 +288,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       <Menu
         mode="inline"
         selectedKeys={getSelectedKeys()}
+        defaultOpenKeys={getOpenKeys()}
         items={menuItems}
         onClick={({ key }) => navigate(key)}
         style={{

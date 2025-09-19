@@ -13,7 +13,13 @@ import {
   SettingsPage
 } from './pages';
 import ChartsPage from './pages/charts/ChartsPage';
+import LoginPage from './pages/auth/LoginPage';
+import UserManagement from './pages/admin/UserManagement';
+import RoleManagement from './pages/admin/RoleManagement';
+import PermissionMatrix from './pages/admin/PermissionMatrix';
+import SystemLogs from './pages/admin/SystemLogs';
 import { AppLayout } from './components/layout';
+import { AuthProvider } from './contexts/AuthContext';
 
 const { Title, Paragraph } = Typography;
 
@@ -25,6 +31,7 @@ const AppLayoutWrapper: React.FC = () => {
     <AppLayout>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/auth/login" element={<LoginPage />} />
         <Route path="/" element={<HomePage />} />
         <Route path="/dashboard" element={<Dashboard onNavigate={(page) => navigate(`/${page}`)} />} />
         <Route path="/portfolios" element={<PortfolioList />} />
@@ -34,6 +41,12 @@ const AppLayoutWrapper: React.FC = () => {
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/analytics" element={<ChartsPage />} />
+        
+        {/* 管理功能路由 */}
+        <Route path="/admin/users" element={<UserManagement />} />
+        <Route path="/admin/roles" element={<RoleManagement />} />
+        <Route path="/admin/permissions" element={<PermissionMatrix />} />
+        <Route path="/admin/logs" element={<SystemLogs />} />
       </Routes>
     </AppLayout>
   );
@@ -121,9 +134,11 @@ const HomePage: React.FC = () => {
 // 主应用组件
 function App() {
   return (
-    <Router>
-      <AppLayoutWrapper />
-    </Router>
+    <AuthProvider>
+      <Router>
+        <AppLayoutWrapper />
+      </Router>
+    </AuthProvider>
   );
 }
 
