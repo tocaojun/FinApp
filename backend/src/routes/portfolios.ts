@@ -55,7 +55,7 @@ const router = Router();
  *         description: 未授权
  */
 router.get('/', 
-  requirePermission('portfolio', 'read'),
+  requirePermission('portfolios', 'read'),
   portfolioController.getPortfolios.bind(portfolioController)
 );
 
@@ -74,7 +74,7 @@ router.get('/',
  *         description: 未授权
  */
 router.get('/summary',
-  requirePermission('portfolio', 'read'),
+  requirePermission('portfolios', 'read'),
   portfolioController.getAllPortfoliosSummary.bind(portfolioController)
 );
 
@@ -130,7 +130,7 @@ router.post('/',
       .withMessage('Currency code must contain only letters')
   ],
   validateRequest,
-  requirePermission('portfolio', 'write'),
+  requirePermission('portfolios', 'create'),
   portfolioController.createPortfolio.bind(portfolioController)
 );
 
@@ -163,7 +163,7 @@ router.get('/:id',
       .withMessage('Portfolio ID is required')
   ],
   validateRequest,
-  requirePermission('portfolio', 'read'),
+  requirePermission('portfolios', 'read'),
   portfolioController.getPortfolio.bind(portfolioController)
 );
 
@@ -221,7 +221,7 @@ router.put('/:id',
       .withMessage('Currency code must contain only letters')
   ],
   validateRequest,
-  requirePermission('portfolio', 'write'),
+  requirePermission('portfolios', 'update'),
   portfolioController.updatePortfolio.bind(portfolioController)
 );
 
@@ -252,7 +252,7 @@ router.delete('/:id',
       .withMessage('Portfolio ID is required')
   ],
   validateRequest,
-  requirePermission('portfolio', 'write'),
+  requirePermission('portfolios', 'delete'),
   portfolioController.deletePortfolio.bind(portfolioController)
 );
 
@@ -283,7 +283,7 @@ router.get('/:id/summary',
       .withMessage('Portfolio ID is required')
   ],
   validateRequest,
-  requirePermission('portfolio', 'read'),
+  requirePermission('portfolios', 'read'),
   portfolioController.getPortfolioSummary.bind(portfolioController)
 );
 
@@ -313,7 +313,7 @@ router.get('/:portfolioId/accounts',
       .withMessage('Portfolio ID is required')
   ],
   validateRequest,
-  requirePermission('portfolio', 'read'),
+  requirePermission('accounts', 'read'),
   portfolioController.getTradingAccounts.bind(portfolioController)
 );
 
@@ -390,7 +390,7 @@ router.post('/accounts',
       .withMessage('Description must not exceed 500 characters')
   ],
   validateRequest,
-  requirePermission('portfolio', 'write'),
+  requirePermission('accounts', 'create'),
   portfolioController.createTradingAccount.bind(portfolioController)
 );
 
@@ -535,7 +535,7 @@ router.post('/assets',
       .withMessage('Description must not exceed 1000 characters')
   ],
   validateRequest,
-  requirePermission('portfolio', 'write'),
+  requirePermission('assets', 'create'),
   portfolioController.createAsset.bind(portfolioController)
 );
 

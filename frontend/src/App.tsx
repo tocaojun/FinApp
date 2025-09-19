@@ -18,6 +18,8 @@ import UserManagement from './pages/admin/UserManagement';
 import RoleManagement from './pages/admin/RoleManagement';
 import PermissionMatrix from './pages/admin/PermissionMatrix';
 import SystemLogs from './pages/admin/SystemLogs';
+import PermissionDemo from './pages/PermissionDemo';
+import SimpleTest from './pages/SimpleTest';
 import { AppLayout } from './components/layout';
 import { AuthProvider } from './contexts/AuthContext';
 
@@ -33,13 +35,15 @@ const AppLayoutWrapper: React.FC = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/auth/login" element={<LoginPage />} />
         <Route path="/" element={<HomePage />} />
-        <Route path="/dashboard" element={<Dashboard onNavigate={(page) => navigate(`/${page}`)} />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/portfolios" element={<PortfolioList />} />
         <Route path="/portfolio/:id" element={<PortfolioDetail />} />
         <Route path="/transactions" element={<TransactionManagement />} />
         <Route path="/assets" element={<AssetManagement />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/permission-demo" element={<PermissionDemo />} />
+            <Route path="/test" element={<SimpleTest />} />
         <Route path="/analytics" element={<ChartsPage />} />
         
         {/* 管理功能路由 */}

@@ -10,7 +10,11 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { RangePickerProps } from 'antd/es/date-picker';
+import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
+import isBetween from 'dayjs/plugin/isBetween';
+
+dayjs.extend(isBetween);
 import { Permission } from '../../types/auth';
 import PermissionGuard from '../../components/auth/PermissionGuard';
 
@@ -502,7 +506,7 @@ const SystemLogs: React.FC = () => {
                 <RangePicker
                   placeholder={['开始日期', '结束日期']}
                   value={filters.dateRange}
-                  onChange={(dates) => setFilters(prev => ({ ...prev, dateRange: dates }))}
+                  onChange={(dates) => setFilters(prev => ({ ...prev, dateRange: dates as [dayjs.Dayjs, dayjs.Dayjs] | null }))}
                   style={{ width: '100%' }}
                 />
               </Col>

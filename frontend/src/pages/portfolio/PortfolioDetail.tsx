@@ -50,8 +50,25 @@ const PortfolioDetail: React.FC = () => {
   const loadPortfolioDetail = async (portfolioId: string) => {
     setLoading(true);
     try {
+      // 先获取基本信息
       const portfolio = await PortfolioService.getPortfolioById(portfolioId);
-      setSelectedPortfolio(portfolio);
+      
+      // 再获取汇总统计信息
+      try {
+        const summary = await PortfolioService.getPortfolioSummaryById(portfolioId);
+        // 将汇总数据合并到投资组合对象中
+        const portfolioWithSummary = {
+          ...portfolio,
+          totalValue: summary.totalValue || 0,
+          totalCost: summary.totalCost || 0,
+          totalGainLoss: summary.totalReturn || 0,
+          totalGainLossPercentage: summary.totalReturnPercent || 0,
+        };
+        setSelectedPortfolio(portfolioWithSummary);
+      } catch (summaryError) {
+        console.warn('获取投资组合汇总失败，使用基本信息:', summaryError);
+        setSelectedPortfolio(portfolio);
+      }
     } catch (error) {
       console.error('加载投资组合详情失败:', error);
       message.error('加载投资组合详情失败');
@@ -89,10 +106,12 @@ const PortfolioDetail: React.FC = () => {
       const newPortfolio = await PortfolioService.createPortfolio({
         name: values.name,
         description: values.description,
+        baseCurrency: 'CNY',
+        userId: 'current-user', // 实际项目中应该从认证状态获取
         totalValue: 0,
         totalCost: 0,
-        totalReturn: 0,
-        returnRate: 0
+        totalGainLoss: 0,
+        totalGainLossPercentage: 0
       });
       
       message.success('投资组合创建成功');

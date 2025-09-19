@@ -502,7 +502,7 @@ const UserManagement: React.FC = () => {
               <Descriptions.Item label="权限">
                 <Space wrap>
                   {selectedUser.permissions.map(permission => (
-                    <Tag key={permission} size="small">
+                    <Tag key={permission}>
                       {permission}
                     </Tag>
                   ))}

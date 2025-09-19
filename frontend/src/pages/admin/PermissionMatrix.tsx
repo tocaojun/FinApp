@@ -245,7 +245,7 @@ const PermissionMatrix: React.FC = () => {
   };
 
   const handlePermissionChange = (roleId: string, permission: Permission, checked: boolean) => {
-    const role = matrixData.find(r => r.id === roleId);
+    const role = matrixData.find(r => r.roleId === roleId);
     if (role?.isSystem) {
       message.warning('系统角色权限不可修改');
       return;
@@ -345,7 +345,7 @@ const PermissionMatrix: React.FC = () => {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <Text strong>{config.name}</Text>
-              <Tag color={riskColor} size="small">
+              <Tag color={riskColor}>
                 {config.risk === 'low' ? '低风险' : config.risk === 'medium' ? '中风险' : '高风险'}
               </Tag>
             </div>
@@ -417,7 +417,7 @@ const PermissionMatrix: React.FC = () => {
         <div style={{ textAlign: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
             {role.roleName}
-            {role.isSystem && <Tag color="blue" size="small">系统</Tag>}
+            {role.isSystem && <Tag color="blue">系统</Tag>}
           </div>
           <div style={{ fontSize: '12px', color: '#666', marginTop: 4 }}>
             <Checkbox
@@ -475,7 +475,7 @@ const PermissionMatrix: React.FC = () => {
         
         <Alert
           message="权限矩阵说明"
-          description="通过权限矩阵可以直观地查看和管理各角色的权限分配。系统角色（标有"系统"标签）的权限不可修改。修改后请及时保存配置。"
+          description="通过权限矩阵可以直观地查看和管理各角色的权限分配。系统角色（标有系统标签）的权限不可修改。修改后请及时保存配置。"
           type="info"
           showIcon
           style={{ marginBottom: 24 }}
@@ -579,9 +579,9 @@ const PermissionMatrix: React.FC = () => {
               <span>共 {filteredPermissions.length} 个权限</span>
               <span>共 {matrixData.length} 个角色</span>
               <span>
-                <Tag color="green" size="small">低风险</Tag>
-                <Tag color="orange" size="small">中风险</Tag>
-                <Tag color="red" size="small">高风险</Tag>
+                <Tag color="green">低风险</Tag>
+                <Tag color="orange">中风险</Tag>
+                <Tag color="red">高风险</Tag>
               </span>
             </Space>
           </div>

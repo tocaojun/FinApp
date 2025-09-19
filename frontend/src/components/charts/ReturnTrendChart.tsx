@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Card, Select, Space, Typography, Tooltip, Radio } from 'antd';
-import { InfoCircleOutlined, TrendingUpOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, RiseOutlined } from '@ant-design/icons';
 import EChartsWrapper, { EChartsOption } from './EChartsWrapper';
 
 const { Title, Text } = Typography;
@@ -244,7 +244,7 @@ const ReturnTrendChart: React.FC<ReturnTrendChartProps> = ({
     <Card
       title={
         <Space align="center">
-          <TrendingUpOutlined />
+          <RiseOutlined />
           <Title level={4} style={{ margin: 0 }}>
             {title}
           </Title>

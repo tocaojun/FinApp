@@ -23,9 +23,20 @@ export class PortfolioService {
 
   static async getPortfolioById(id: string): Promise<Portfolio> {
     try {
-      return await apiGet<Portfolio>(`/portfolios/${id}`);
+      const response = await apiGet<{success: boolean, message: string, data: Portfolio}>(`/portfolios/${id}`);
+      return response.data;
     } catch (error) {
       console.error('获取投资组合详情失败:', error);
+      throw error;
+    }
+  }
+
+  static async getPortfolioSummaryById(id: string): Promise<any> {
+    try {
+      const response = await apiGet<{success: boolean, message: string, data: any}>(`/portfolios/${id}/summary`);
+      return response.data;
+    } catch (error) {
+      console.error('获取投资组合汇总失败:', error);
       throw error;
     }
   }

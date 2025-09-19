@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Card, Space, Typography, Tooltip, Table, Tag, Statistic, Row, Col } from 'antd';
-import { InfoCircleOutlined, FundOutlined, TrendingUpOutlined, TrendingDownOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, FundOutlined, RiseOutlined, FallOutlined } from '@ant-design/icons';
 import EChartsWrapper, { EChartsOption } from './EChartsWrapper';
 
 const { Title, Text } = Typography;
@@ -320,7 +320,7 @@ const IRRAnalysisChart: React.FC<IRRAnalysisChartProps> = ({
             precision={2}
             suffix="%"
             valueStyle={{ color: data.irr >= 0 ? '#3f8600' : '#cf1322' }}
-            prefix={data.irr >= 0 ? <TrendingUpOutlined /> : <TrendingDownOutlined />}
+            prefix={data.irr >= 0 ? <RiseOutlined /> : <FallOutlined />}
           />
         </Col>
         <Col span={6}>

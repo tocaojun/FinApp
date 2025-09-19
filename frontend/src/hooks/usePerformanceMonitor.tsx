@@ -118,7 +118,7 @@ export function usePerformanceMonitor(options: PerformanceOptions = {}) {
       if (typeof window !== 'undefined' && 'performance' in window) {
         const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
         if (navigation) {
-          const loadTime = navigation.loadEventEnd - navigation.navigationStart;
+          const loadTime = navigation.loadEventEnd - navigation.fetchStart;
           setMetrics(prev => ({ ...prev, loadTime }));
           onMetricsUpdate?.({ loadTime });
         }
@@ -223,7 +223,7 @@ export const PerformanceMonitor: React.FC<{
 }) => {
   const { metrics, getPerformanceScore } = usePerformanceMonitor({
     onMetricsUpdate: (newMetrics) => {
-      if (process.env.NODE_ENV === 'development') {
+      if (typeof window !== 'undefined') {
         console.log('Performance Metrics:', newMetrics);
       }
     }

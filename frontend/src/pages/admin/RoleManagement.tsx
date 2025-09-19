@@ -321,7 +321,7 @@ const RoleManagement: React.FC = () => {
           <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
             {text}
             {record.isSystem && (
-              <Tag color="blue" size="small">系统角色</Tag>
+              <Tag color="blue">系统角色</Tag>
             )}
           </div>
           <div style={{ fontSize: '12px', color: '#666' }}>

@@ -19,13 +19,11 @@ import {
   LineChartOutlined,
   PieChartOutlined,
   BarChartOutlined,
-  TrendingUpOutlined,
-  TrendingDownOutlined,
+  RiseOutlined,
+  FallOutlined,
   DollarOutlined,
   CalendarOutlined,
-  InfoCircleOutlined,
-  RiseOutlined,
-  FallOutlined
+  InfoCircleOutlined
 } from '@ant-design/icons';
 import {
   LineChart,
@@ -511,7 +509,7 @@ const AssetAnalyticsCharts: React.FC<AssetAnalyticsChartsProps> = ({
                           cy="50%"
                           outerRadius={80}
                           dataKey="count"
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
+                          label={(props: any) => `${props.name} ${(props.percent * 100).toFixed(1)}%`}
                         >
                           {sectorData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
@@ -532,7 +530,7 @@ const AssetAnalyticsCharts: React.FC<AssetAnalyticsChartsProps> = ({
                           cy="50%"
                           outerRadius={80}
                           dataKey="marketCap"
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
+                          label={(props: any) => `${props.name} ${(props.percent * 100).toFixed(1)}%`}
                         >
                           {sectorData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
@@ -595,7 +593,7 @@ const AssetAnalyticsCharts: React.FC<AssetAnalyticsChartsProps> = ({
             key: 'radar',
             label: (
               <span>
-                <TrendingUpOutlined />
+                <RiseOutlined />
                 综合评价
               </span>
             ),

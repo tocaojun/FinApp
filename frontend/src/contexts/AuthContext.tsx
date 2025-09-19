@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { User, UserRole, Permission, LoginRequest, LoginResponse, ROLE_PERMISSIONS } from '../types/auth';
+import { User, UserRole, Permission, LoginRequest, LoginResponse } from '../types/auth';
 import { AuthService } from '../services/authService';
 import { message } from 'antd';
 
@@ -186,7 +186,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // 权限检查函数
   const hasPermission = (permission: Permission): boolean => {
     if (!state.user) return false;
-    return state.user.permissions.includes(permission);
+    return state.user.permissions?.includes(permission) || false;
   };
 
   // 角色检查函数

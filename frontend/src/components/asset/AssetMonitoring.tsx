@@ -26,9 +26,9 @@ import {
 } from 'antd';
 import {
   BellOutlined,
-  TrendingUpOutlined,
-  TrendingDownOutlined,
-  ExclamationTriangleOutlined,
+  RiseOutlined,
+  FallOutlined,
+  ExclamationCircleOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   EyeOutlined,
@@ -603,7 +603,7 @@ const AssetMonitoring: React.FC<AssetMonitoringProps> = ({
         <Col span={8}>
           <Card title="高风险资产" extra={
             <Tooltip title="基于波动率、Beta值等指标计算的风险评分">
-              <ExclamationTriangleOutlined />
+              <ExclamationCircleOutlined />
             </Tooltip>
           }>
             <List
@@ -789,7 +789,7 @@ const AssetMonitoring: React.FC<AssetMonitoringProps> = ({
                     }}
                     icon={
                       alert.type === 'danger' ? <CloseCircleOutlined /> :
-                      alert.type === 'warning' ? <ExclamationTriangleOutlined /> :
+                      alert.type === 'warning' ? <ExclamationCircleOutlined /> :
                       <CheckCircleOutlined />
                     }
                   />

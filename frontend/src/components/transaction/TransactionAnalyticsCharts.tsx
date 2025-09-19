@@ -17,8 +17,8 @@ import {
   LineChartOutlined,
   PieChartOutlined,
   BarChartOutlined,
-  TrendingUpOutlined,
-  TrendingDownOutlined,
+  RiseOutlined,
+  FallOutlined,
   DollarOutlined,
   CalendarOutlined,
   InfoCircleOutlined
@@ -519,7 +519,7 @@ const TransactionAnalyticsCharts: React.FC<TransactionAnalyticsChartsProps> = ({
                           cy="50%"
                           outerRadius={80}
                           dataKey="value"
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
+                          label={(props: any) => `${props.name} ${(props.percent * 100).toFixed(1)}%`}
                         >
                           {pieData.byType.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
@@ -542,7 +542,7 @@ const TransactionAnalyticsCharts: React.FC<TransactionAnalyticsChartsProps> = ({
                           cy="50%"
                           outerRadius={80}
                           dataKey="value"
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
+                          label={(props: any) => `${props.name} ${(props.percent * 100).toFixed(1)}%`}
                         >
                           {pieData.byAsset.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
@@ -565,7 +565,7 @@ const TransactionAnalyticsCharts: React.FC<TransactionAnalyticsChartsProps> = ({
                           cy="50%"
                           outerRadius={80}
                           dataKey="value"
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
+                          label={(props: any) => `${props.name} ${(props.percent * 100).toFixed(1)}%`}
                         >
                           {pieData.byPortfolio.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />

@@ -18,7 +18,8 @@ import {
   Tag,
   message,
   Row,
-  Col
+  Col,
+  Statistic
 } from 'antd';
 import {
   UploadOutlined,

@@ -49,19 +49,15 @@ export class PortfolioService {
     }
 
     const query = `
-      INSERT INTO portfolios (
-        id, user_id, name, description, base_currency, 
-        total_value, total_cost, total_gain_loss, total_gain_loss_percentage,
-        created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      INSERT INTO finapp.portfolios (
+        id, user_id, name, description, base_currency
+      ) VALUES ($1::uuid, $2::uuid, $3, $4, $5)
       RETURNING *
     `;
     
     await databaseService.executeRawCommand(query, [
       portfolio.id, portfolio.userId, portfolio.name, portfolio.description,
-      portfolio.baseCurrency, portfolio.totalValue, portfolio.totalCost,
-      portfolio.totalGainLoss, portfolio.totalGainLossPercentage,
-      portfolio.createdAt, portfolio.updatedAt
+      portfolio.baseCurrency
     ]);
 
     return portfolio;
@@ -143,8 +139,8 @@ export class PortfolioService {
     // 获取交易账户统计
     const accountsQuery = `
       SELECT COUNT(*) as account_count, 
-             COALESCE(SUM(balance), 0) as total_balance
-      FROM trading_accounts 
+             COALESCE(SUM(current_balance), 0) as total_balance
+      FROM finapp.trading_accounts 
       WHERE portfolio_id = $1::uuid
     `;
     
@@ -154,19 +150,12 @@ export class PortfolioService {
     // 获取持仓统计
     const positionsQuery = `
       SELECT COUNT(*) as position_count,
-             COUNT(DISTINCT asset_symbol) as unique_assets,
-             COALESCE(SUM(current_value), 0) as total_position_value
-      FROM positions 
-      WHERE portfolio_id = $1::uuid
+             COUNT(DISTINCT asset_id) as unique_assets,
+             COALESCE(SUM(total_cost), 0) as total_position_value
+      FROM finapp.positions 
+      WHERE portfolio_id = $1::uuid AND is_active = true
     `;
     
-    await databaseService.executeRawCommand(positionsQuery, [
-      portfolioId, portfolio.userId, portfolio.name, portfolio.description,
-      portfolio.baseCurrency, portfolio.totalValue, portfolio.totalCost,
-      portfolio.totalGainLoss, portfolio.totalGainLossPercentage,
-      portfolio.createdAt, portfolio.updatedAt
-    ]);
-
     const positionsResult = await databaseService.executeRawQuery(positionsQuery, [portfolioId]);
     const positionsData = Array.isArray(positionsResult) ? positionsResult[0] : { 
       position_count: 0, 

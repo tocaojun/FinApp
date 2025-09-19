@@ -437,9 +437,9 @@ const AssetBatchOperations: React.FC<AssetBatchOperationsProps> = ({
       render: (tags: string[]) => (
         <Space wrap>
           {tags?.slice(0, 3).map(tag => (
-            <Tag key={tag} size="small">{tag}</Tag>
+            <Tag key={tag}>{tag}</Tag>
           ))}
-          {tags && tags.length > 3 && <Tag size="small">+{tags.length - 3}</Tag>}
+          {tags && tags.length > 3 && <Tag>+{tags.length - 3}</Tag>}
         </Space>
       )
     },
@@ -530,7 +530,7 @@ const AssetBatchOperations: React.FC<AssetBatchOperationsProps> = ({
           loading={loading}
           rowSelection={{
             selectedRowKeys,
-            onChange: onSelectionChange,
+            onChange: (selectedRowKeys: React.Key[]) => onSelectionChange(selectedRowKeys.map(key => String(key))),
             selections: [
               Table.SELECTION_ALL,
               Table.SELECTION_INVERT,
@@ -732,7 +732,7 @@ const AssetBatchOperations: React.FC<AssetBatchOperationsProps> = ({
                       key={index}
                       message={error}
                       type="error"
-                      size="small"
+
                       style={{ marginBottom: 8 }}
                     />
                   ))}

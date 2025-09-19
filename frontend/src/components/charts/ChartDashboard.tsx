@@ -5,8 +5,8 @@ import {
   LineChartOutlined, 
   BarChartOutlined,
   DashboardOutlined,
-  TrendingUpOutlined,
-  ShieldOutlined
+  RiseOutlined,
+  SafetyCertificateOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -309,7 +309,7 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
         <TabPane
           tab={
             <Space>
-              <TrendingUpOutlined />
+              <RiseOutlined />
               <span>IRR分析</span>
             </Space>
           }
@@ -343,7 +343,7 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
         <TabPane
           tab={
             <Space>
-              <ShieldOutlined />
+              <SafetyCertificateOutlined />
               <span>风险分析</span>
             </Space>
           }

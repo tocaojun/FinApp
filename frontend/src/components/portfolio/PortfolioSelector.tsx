@@ -55,23 +55,27 @@ const PortfolioSelector: React.FC<PortfolioSelectorProps> = ({
       const mockPortfolios: Portfolio[] = [
         {
           id: '1',
+          userId: 'current-user',
           name: '主要投资组合',
           description: '长期价值投资组合',
+          baseCurrency: 'CNY',
           totalValue: 1234567.89,
           totalCost: 1000000.00,
-          totalReturn: 234567.89,
-          returnRate: 23.46,
+          totalGainLoss: 234567.89,
+          totalGainLossPercentage: 23.46,
           createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-09-14T00:00:00Z'
         },
         {
           id: '2',
+          userId: 'current-user',
           name: '成长型投资',
           description: '专注于成长股的投资组合',
+          baseCurrency: 'CNY',
           totalValue: 567890.12,
           totalCost: 500000.00,
-          totalReturn: 67890.12,
-          returnRate: 13.58,
+          totalGainLoss: 67890.12,
+          totalGainLossPercentage: 13.58,
           createdAt: '2024-02-01T00:00:00Z',
           updatedAt: '2024-09-14T00:00:00Z'
         }
@@ -174,10 +178,10 @@ const PortfolioSelector: React.FC<PortfolioSelectorProps> = ({
                     style={{ 
                       fontSize: '16px', 
                       fontWeight: 'bold',
-                      color: selectedPortfolio.totalReturn >= 0 ? '#52c41a' : '#ff4d4f'
+                      color: selectedPortfolio.totalGainLoss >= 0 ? '#52c41a' : '#ff4d4f'
                     }}
                   >
-                    {formatCurrency(selectedPortfolio.totalReturn)}
+                    {formatCurrency(selectedPortfolio.totalGainLoss)}
                   </div>
                 </div>
                 <div>
@@ -188,10 +192,10 @@ const PortfolioSelector: React.FC<PortfolioSelectorProps> = ({
                     style={{ 
                       fontSize: '16px', 
                       fontWeight: 'bold',
-                      color: selectedPortfolio.returnRate >= 0 ? '#52c41a' : '#ff4d4f'
+                      color: selectedPortfolio.totalGainLossPercentage >= 0 ? '#52c41a' : '#ff4d4f'
                     }}
                   >
-                    {formatPercent(selectedPortfolio.returnRate)}
+                    {formatPercent(selectedPortfolio.totalGainLossPercentage)}
                   </div>
                 </div>
               </div>

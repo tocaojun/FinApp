@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Card, Space, Typography, Tooltip, Progress, Alert, Row, Col, Statistic } from 'antd';
-import { InfoCircleOutlined, ExclamationCircleOutlined, ShieldOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, ExclamationCircleOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import EChartsWrapper, { EChartsOption } from './EChartsWrapper';
 
 const { Title, Text } = Typography;
@@ -295,7 +295,7 @@ const RiskMetricsChart: React.FC<RiskMetricsChartProps> = ({
     <Card
       title={
         <Space align="center">
-          <ShieldOutlined />
+          <SafetyCertificateOutlined />
           <Title level={4} style={{ margin: 0 }}>
             {title}
           </Title>

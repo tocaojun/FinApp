@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { LoginRequest, LoginResponse, RegisterRequest, User } from '../types/auth';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
 // 创建 axios 实例
 const authApi = axios.create({
@@ -42,6 +42,29 @@ authApi.interceptors.response.use(
 );
 
 export class AuthService {
+  // 检查用户是否已认证
+  static isAuthenticated(): boolean {
+    const token = localStorage.getItem('auth_token');
+    const user = localStorage.getItem('auth_user');
+    return !!(token && user);
+  }
+
+  // 获取存储的用户信息
+  static getStoredUser(): User | null {
+    try {
+      const userStr = localStorage.getItem('auth_user');
+      return userStr ? JSON.parse(userStr) : null;
+    } catch (error) {
+      console.error('Failed to parse stored user:', error);
+      return null;
+    }
+  }
+
+  // 获取存储的 token
+  static getStoredToken(): string | null {
+    return localStorage.getItem('auth_token');
+  }
+
   // 用户登录
   static async login(credentials: LoginRequest): Promise<LoginResponse> {
     try {

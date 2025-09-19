@@ -22,8 +22,8 @@ import {
   PlusOutlined,
   DeleteOutlined,
   SwapOutlined,
-  TrendingUpOutlined,
-  TrendingDownOutlined,
+  RiseOutlined,
+  FallOutlined,
   InfoCircleOutlined,
   StarOutlined,
   DollarOutlined,
@@ -294,8 +294,8 @@ const AssetComparison: React.FC<AssetComparisonProps> = ({
                   {percentile}th percentile
                 </div>
               )}
-              {performance === 'best' && <TrendingUpOutlined style={{ color: '#52c41a' }} />}
-              {performance === 'worst' && <TrendingDownOutlined style={{ color: '#ff4d4f' }} />}
+              {performance === 'best' && <RiseOutlined style={{ color: '#52c41a' }} />}
+              {performance === 'worst' && <FallOutlined style={{ color: '#ff4d4f' }} />}
             </div>
           );
         }

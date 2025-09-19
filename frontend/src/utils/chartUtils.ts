@@ -322,7 +322,7 @@ export const createLineChartOption = (
       splitLine: {
         lineStyle: {
           color: '#f0f0f0',
-          type: 'dashed',
+          type: 'dashed' as const,
         },
       },
     },
@@ -367,9 +367,8 @@ export const createBarChartOption = (
     tooltipFormatter,
   } = options;
 
-  const xAxis = {
-    type: horizontal ? ('value' as const) : ('category' as const),
-    data: horizontal ? undefined : xAxisData,
+  const xAxis = horizontal ? {
+    type: 'value' as const,
     axisLine: {
       lineStyle: {
         color: '#e8e8e8',
@@ -381,19 +380,34 @@ export const createBarChartOption = (
     axisLabel: {
       color: '#666',
       fontSize: 12,
-      formatter: horizontal ? yAxisFormatter : undefined,
+      formatter: yAxisFormatter,
     },
-    splitLine: horizontal ? {
+    splitLine: {
       lineStyle: {
         color: '#f0f0f0',
         type: 'dashed',
       },
-    } : undefined,
+    },
+  } : {
+    type: 'category' as const,
+    data: xAxisData,
+    axisLine: {
+      lineStyle: {
+        color: '#e8e8e8',
+      },
+    },
+    axisTick: {
+      show: false,
+    },
+    axisLabel: {
+      color: '#666',
+      fontSize: 12,
+    },
   };
 
-  const yAxis = {
-    type: horizontal ? ('category' as const) : ('value' as const),
-    data: horizontal ? xAxisData : undefined,
+  const yAxis = horizontal ? {
+    type: 'category' as const,
+    data: xAxisData,
     axisLine: {
       show: false,
     },
@@ -403,9 +417,21 @@ export const createBarChartOption = (
     axisLabel: {
       color: '#666',
       fontSize: 12,
-      formatter: horizontal ? undefined : yAxisFormatter,
     },
-    splitLine: horizontal ? undefined : {
+  } : {
+    type: 'value' as const,
+    axisLine: {
+      show: false,
+    },
+    axisTick: {
+      show: false,
+    },
+    axisLabel: {
+      color: '#666',
+      fontSize: 12,
+      formatter: yAxisFormatter,
+    },
+    splitLine: {
       lineStyle: {
         color: '#f0f0f0',
         type: 'dashed',
