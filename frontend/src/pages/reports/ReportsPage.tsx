@@ -13,7 +13,8 @@ import {
   Space,
   Typography,
   Empty,
-  Alert
+  Alert,
+  message
 } from 'antd';
 import {
   DownloadOutlined,
@@ -24,47 +25,29 @@ import {
   CalendarOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-
+import {
+  getQuarterlyReports,
+  getQuarterlySummary,
+  generateQuarterlyReport,
+  getIRRAnalysis,
+  recalculateIRR,
+  getCustomReports,
+  createCustomReport,
+  runCustomReport,
+  updateCustomReport,
+  deleteCustomReport,
+  downloadReport,
+  getReportDetails,
+  type QuarterlyReport,
+  type IRRAnalysis,
+  type CustomReport,
+  type QuarterlySummary
+} from '../../services/reportsApi';
 
 const { Title, Text, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 const { TabPane } = Tabs;
-
-// 类型定义
-interface QuarterlyReport {
-  id: string;
-  quarter: string;
-  year: number;
-  totalAssets: number;
-  totalReturn: number;
-  returnRate: number;
-  portfolioCount: number;
-  transactionCount: number;
-  createdAt: string;
-  status: 'completed' | 'generating' | 'failed';
-}
-
-interface IRRAnalysis {
-  portfolioId: string;
-  portfolioName: string;
-  irr: number;
-  npv: number;
-  totalInvestment: number;
-  currentValue: number;
-  period: string;
-  riskLevel: 'low' | 'medium' | 'high';
-}
-
-interface CustomReport {
-  id: string;
-  name: string;
-  type: 'portfolio' | 'transaction' | 'performance' | 'risk';
-  dateRange: [string, string];
-  filters: Record<string, any>;
-  createdAt: string;
-  lastRun: string;
-}
 
 const ReportsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -73,102 +56,65 @@ const ReportsPage: React.FC = () => {
   const [customReports, setCustomReports] = useState<CustomReport[]>([]);
   const [selectedQuarter, setSelectedQuarter] = useState<string>('2024Q3');
   const [selectedPortfolio, setSelectedPortfolio] = useState<string>('all');
+  const [quarterlySummary, setQuarterlySummary] = useState<QuarterlySummary>({
+    totalAssets: 0,
+    totalReturn: 0,
+    returnRate: 0,
+    portfolioCount: 0
+  });
 
-  // 模拟数据
+  // 加载数据
   useEffect(() => {
-    setQuarterlyReports([
-      {
-        id: '1',
-        quarter: 'Q3',
-        year: 2024,
-        totalAssets: 1234567.89,
-        totalReturn: 234567.89,
-        returnRate: 23.46,
-        portfolioCount: 3,
-        transactionCount: 45,
-        createdAt: '2024-09-15',
-        status: 'completed'
-      },
-      {
-        id: '2',
-        quarter: 'Q2',
-        year: 2024,
-        totalAssets: 1000000.00,
-        totalReturn: 150000.00,
-        returnRate: 17.65,
-        portfolioCount: 2,
-        transactionCount: 32,
-        createdAt: '2024-06-30',
-        status: 'completed'
-      },
-      {
-        id: '3',
-        quarter: 'Q1',
-        year: 2024,
-        totalAssets: 850000.00,
-        totalReturn: 85000.00,
-        returnRate: 11.11,
-        portfolioCount: 2,
-        transactionCount: 28,
-        createdAt: '2024-03-31',
-        status: 'completed'
-      }
-    ]);
-
-    setIrrAnalysis([
-      {
-        portfolioId: '1',
-        portfolioName: '核心投资组合',
-        irr: 18.5,
-        npv: 125000.00,
-        totalInvestment: 500000.00,
-        currentValue: 625000.00,
-        period: '2年3个月',
-        riskLevel: 'medium'
-      },
-      {
-        portfolioId: '2',
-        portfolioName: '稳健增长组合',
-        irr: 12.3,
-        npv: 85000.00,
-        totalInvestment: 400000.00,
-        currentValue: 485000.00,
-        period: '1年8个月',
-        riskLevel: 'low'
-      },
-      {
-        portfolioId: '3',
-        portfolioName: '高风险投资组合',
-        irr: 25.7,
-        npv: 45000.00,
-        totalInvestment: 150000.00,
-        currentValue: 195000.00,
-        period: '10个月',
-        riskLevel: 'high'
-      }
-    ]);
-
-    setCustomReports([
-      {
-        id: '1',
-        name: '月度投资组合表现报告',
-        type: 'portfolio',
-        dateRange: ['2024-08-01', '2024-08-31'],
-        filters: { portfolioIds: ['1', '2'] },
-        createdAt: '2024-08-15',
-        lastRun: '2024-09-01'
-      },
-      {
-        id: '2',
-        name: '交易手续费分析报告',
-        type: 'transaction',
-        dateRange: ['2024-01-01', '2024-08-31'],
-        filters: { transactionTypes: ['buy', 'sell'] },
-        createdAt: '2024-07-20',
-        lastRun: '2024-08-31'
-      }
-    ]);
+    loadAllData();
   }, []);
+
+  const loadAllData = async () => {
+    setLoading(true);
+    try {
+      const [quarterlyData, irrData, customData, summaryData] = await Promise.all([
+        getQuarterlyReports(),
+        getIRRAnalysis(),
+        getCustomReports(),
+        getQuarterlySummary(selectedQuarter)
+      ]);
+      
+      setQuarterlyReports(quarterlyData);
+      setIrrAnalysis(irrData);
+      setCustomReports(customData);
+      setQuarterlySummary(summaryData);
+    } catch (error) {
+      message.error('加载报表数据失败');
+      console.error('加载报表数据失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 当选择的季度改变时，重新加载概览数据
+  useEffect(() => {
+    const loadSummary = async () => {
+      try {
+        const summaryData = await getQuarterlySummary(selectedQuarter);
+        setQuarterlySummary(summaryData);
+      } catch (error) {
+        console.error('加载季度概览失败:', error);
+      }
+    };
+    loadSummary();
+  }, [selectedQuarter]);
+
+  // 当选择的投资组合改变时，重新加载IRR数据
+  useEffect(() => {
+    const loadIRR = async () => {
+      try {
+        const irrData = await getIRRAnalysis(selectedPortfolio);
+        setIrrAnalysis(irrData);
+      } catch (error) {
+        console.error('加载IRR数据失败:', error);
+      }
+    };
+    loadIRR();
+  }, [selectedPortfolio]);
 
   // 季度报表列定义
   const quarterlyColumns: ColumnsType<QuarterlyReport> = [
@@ -380,36 +326,104 @@ const ReportsPage: React.FC = () => {
   ];
 
   // 事件处理函数
-  const handleViewReport = (reportId: string) => {
-    console.log('查看报告:', reportId);
+  const handleViewReport = async (reportId: string) => {
+    try {
+      const reportData = await getReportDetails(reportId, 'quarterly');
+      console.log('报告详情:', reportData);
+      message.success('报告加载成功');
+    } catch (error) {
+      message.error('查看报告失败');
+    }
   };
 
-  const handleDownloadReport = (reportId: string) => {
-    console.log('下载报告:', reportId);
+  const handleDownloadReport = async (reportId: string) => {
+    try {
+      const blob = await downloadReport(reportId, 'quarterly');
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `quarterly-report-${reportId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      message.success('报告下载成功');
+    } catch (error) {
+      message.error('下载报告失败');
+    }
   };
 
-  const handleGenerateQuarterlyReport = () => {
+  const handleGenerateQuarterlyReport = async () => {
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const result = await generateQuarterlyReport(selectedQuarter);
+      if (result.success) {
+        message.success('季度报告生成成功');
+        // 重新加载季度报表列表
+        const quarterlyData = await getQuarterlyReports();
+        setQuarterlyReports(quarterlyData);
+      } else {
+        message.error('生成季度报告失败');
+      }
+    } catch (error) {
+      message.error('生成季度报告失败');
+    } finally {
       setLoading(false);
-      console.log('生成季度报告');
-    }, 2000);
+    }
   };
 
-  const handleRunCustomReport = (reportId: string) => {
-    console.log('运行自定义报告:', reportId);
+  const handleRunCustomReport = async (reportId: string) => {
+    try {
+      const result = await runCustomReport(reportId);
+      if (result.success) {
+        message.success('报表运行成功');
+        // 重新加载自定义报表列表
+        const customData = await getCustomReports();
+        setCustomReports(customData);
+      } else {
+        message.error('运行报表失败');
+      }
+    } catch (error) {
+      message.error('运行报表失败');
+    }
   };
 
   const handleEditCustomReport = (reportId: string) => {
+    // TODO: 打开编辑对话框
     console.log('编辑自定义报告:', reportId);
+    message.info('编辑功能开发中');
   };
 
-  const handleDeleteCustomReport = (reportId: string) => {
-    console.log('删除自定义报告:', reportId);
+  const handleDeleteCustomReport = async (reportId: string) => {
+    try {
+      const result = await deleteCustomReport(reportId);
+      if (result.success) {
+        message.success('删除报表成功');
+        // 重新加载自定义报表列表
+        const customData = await getCustomReports();
+        setCustomReports(customData);
+      } else {
+        message.error('删除报表失败');
+      }
+    } catch (error) {
+      message.error('删除报表失败');
+    }
   };
 
   const handleCreateCustomReport = () => {
+    // TODO: 打开创建对话框
     console.log('创建自定义报告');
+    message.info('创建功能开发中');
+  };
+
+  const handleRecalculateIRR = async () => {
+    try {
+      const irrData = await recalculateIRR(selectedPortfolio);
+      setIrrAnalysis(irrData);
+      message.success('IRR重新计算完成');
+    } catch (error) {
+      message.error('IRR计算失败');
+    }
   };
 
   return (
@@ -463,7 +477,7 @@ const ReportsPage: React.FC = () => {
                 <Card size="small">
                   <Statistic
                     title="总资产"
-                    value={1234567.89}
+                    value={quarterlySummary.totalAssets}
                     precision={2}
                     prefix="¥"
                     valueStyle={{ color: '#1890ff' }}
@@ -474,10 +488,10 @@ const ReportsPage: React.FC = () => {
                 <Card size="small">
                   <Statistic
                     title="总收益"
-                    value={234567.89}
+                    value={quarterlySummary.totalReturn}
                     precision={2}
                     prefix="¥"
-                    valueStyle={{ color: '#52c41a' }}
+                    valueStyle={{ color: quarterlySummary.totalReturn >= 0 ? '#52c41a' : '#ff4d4f' }}
                   />
                 </Card>
               </Col>
@@ -485,10 +499,10 @@ const ReportsPage: React.FC = () => {
                 <Card size="small">
                   <Statistic
                     title="收益率"
-                    value={23.46}
+                    value={quarterlySummary.returnRate}
                     precision={2}
                     suffix="%"
-                    valueStyle={{ color: '#52c41a' }}
+                    valueStyle={{ color: quarterlySummary.returnRate >= 0 ? '#52c41a' : '#ff4d4f' }}
                   />
                 </Card>
               </Col>
@@ -496,7 +510,7 @@ const ReportsPage: React.FC = () => {
                 <Card size="small">
                   <Statistic
                     title="投资组合"
-                    value={3}
+                    value={quarterlySummary.portfolioCount}
                     suffix="个"
                     valueStyle={{ color: '#722ed1' }}
                   />
@@ -536,7 +550,7 @@ const ReportsPage: React.FC = () => {
                   <Option value="3">高风险投资组合</Option>
                 </Select>
                 <RangePicker />
-                <Button type="primary">
+                <Button type="primary" onClick={handleRecalculateIRR}>
                   重新计算
                 </Button>
               </Space>

@@ -1,5 +1,7 @@
 export { default as TransactionManagement } from './TransactionManagement';
-export { default as AssetManagement } from './AssetManagement';
+
+export { default as ProductManagement } from './admin/ProductManagement';
+export { default as ExchangeRateManagement } from './admin/ExchangeRateManagement';
 export { default as Dashboard } from './SimpleDashboard';
 export { default as Login } from './Login';
 export { ReportsPage } from './reports';

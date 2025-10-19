@@ -16,7 +16,12 @@ import usersRouter from './routes/users';
 import permissionsRouter from './routes/permissions';
 import { portfoliosRouter } from './routes/portfolios';
 import { transactionsRouter } from './routes/transactions';
+import { tradingAccountsRouter } from './routes/tradingAccounts';
 import assetRoutes from './routes/assets';
+import liquidityTagRoutes from './routes/liquidityTags';
+import exchangeRatesRouter from './routes/exchangeRates';
+import tagRoutes from './routes/tagRoutes';
+import holdingsRouter from './routes/holdings';
 import { databaseService } from './services/DatabaseService';
 import { CacheService } from './services/CacheService';
 import { logger } from './utils/logger';
@@ -61,17 +66,19 @@ class App {
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     }));
 
-    // 速率限制
-    const limiter = rateLimit({
-      windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15分钟
-      max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'), // 限制每个IP 100个请求
-      message: {
-        error: 'Too many requests from this IP, please try again later.',
-      },
-      standardHeaders: true,
-      legacyHeaders: false,
-    });
-    this.app.use('/api/', limiter);
+    // 速率限制 - 开发环境临时禁用
+    if (process.env.NODE_ENV === 'production') {
+      const limiter = rateLimit({
+        windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15分钟
+        max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '1000000'), // 限制每个IP 1000000个请求
+        message: {
+          error: 'Too many requests from this IP, please try again later.',
+        },
+        standardHeaders: true,
+        legacyHeaders: false,
+      });
+      this.app.use('/api/', limiter);
+    }
 
     // 请求解析
     this.app.use(express.json({ limit: '10mb' }));
@@ -126,6 +133,21 @@ class App {
 
     // 资产管理路由（需要认证）
     this.app.use('/api/assets', authenticateToken, assetRoutes);
+
+    // 流动性标签管理路由（需要认证）
+    this.app.use('/api/liquidity-tags', authenticateToken, liquidityTagRoutes);
+
+    // 汇率管理路由（需要认证）
+    this.app.use('/api/exchange-rates', authenticateToken, exchangeRatesRouter);
+
+    // 标签管理路由（需要认证）
+    this.app.use('/api/tags', authenticateToken, tagRoutes);
+
+    // 持仓管理路由（需要认证）
+    this.app.use('/api/holdings', authenticateToken, holdingsRouter);
+
+    // 交易账户管理路由（需要认证）
+    this.app.use('/api/trading-accounts', authenticateToken, tradingAccountsRouter);
 
     // TODO: 添加其他路由
     // this.app.use('/api/reports', authenticateToken, reportsRouter);

@@ -43,18 +43,11 @@ export class PortfolioService {
 
   static async getPortfolioSummary(): Promise<PortfolioSummary> {
     try {
-      return await apiGet<PortfolioSummary>('/portfolios/summary');
+      const response = await apiGet<{success: boolean, message: string, data: PortfolioSummary}>('/portfolios/summary');
+      return response.data;
     } catch (error) {
       console.error('获取投资组合概览失败:', error);
-      // 返回模拟数据作为后备
-      return {
-        totalAssets: 5,
-        totalValue: 1234567.89,
-        todayChange: 12345.67,
-        todayChangePercent: 1.02,
-        totalReturn: 234567.89,
-        totalReturnPercent: 23.45
-      };
+      throw error;
     }
   }
 
@@ -81,6 +74,26 @@ export class PortfolioService {
       await apiDelete<void>(`/portfolios/${id}`);
     } catch (error) {
       console.error('删除投资组合失败:', error);
+      throw error;
+    }
+  }
+
+  static async getTradingAccounts(portfolioId: string): Promise<any[]> {
+    try {
+      const response = await apiGet<{success: boolean, message: string, data: any[]}>(`/portfolios/${portfolioId}/accounts`);
+      return response.data || [];
+    } catch (error) {
+      console.error('获取交易账户失败:', error);
+      throw error;
+    }
+  }
+
+  static async updateTradingAccount(portfolioId: string, accountId: string, data: any): Promise<any> {
+    try {
+      const response = await apiPut<{success: boolean, message: string, data: any}>(`/portfolios/${portfolioId}/accounts/${accountId}`, data);
+      return response.data;
+    } catch (error) {
+      console.error('更新交易账户失败:', error);
       throw error;
     }
   }

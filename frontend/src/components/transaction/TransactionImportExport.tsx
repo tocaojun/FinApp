@@ -33,6 +33,17 @@ import {
 } from '@ant-design/icons';
 import type { UploadFile, UploadProps } from 'antd/es/upload';
 import type { ColumnsType } from 'antd/es/table';
+import { 
+  parseImportFile as parseFile, 
+  importTransactions, 
+  exportTransactions, 
+  getImportTemplate,
+  validateImportData,
+  Transaction,
+  ImportRecord,
+  ExportOptions,
+  ImportResult
+} from '../../services/importExportApi';
 
 const { Option } = Select;
 const { Step } = Steps;
@@ -122,78 +133,27 @@ const TransactionImportExport: React.FC<TransactionImportExportProps> = ({
   const requiredFields = ['portfolioName', 'assetSymbol', 'transactionType', 'quantity', 'price', 'executedAt'];
 
   // 导入处理
-  const handleFileUpload: UploadProps['customRequest'] = (options) => {
+  const handleFileUpload: UploadProps['customRequest'] = async (options) => {
     const { file } = options;
     setUploadedFile(file as UploadFile);
     
-    // 模拟文件解析
-    setTimeout(() => {
-      parseImportFile(file as File);
+    try {
+      await parseImportFile(file as File);
       options.onSuccess?.({});
-    }, 1000);
+    } catch (error) {
+      options.onError?.(error as Error);
+    }
   };
 
-  const parseImportFile = (file: File) => {
-    // 模拟CSV解析
-    const mockData: ImportRecord[] = [
-      {
-        rowIndex: 1,
-        data: {
-          portfolioName: '主投资组合',
-          assetSymbol: 'AAPL',
-          assetName: '苹果公司',
-          transactionType: 'BUY',
-          side: 'LONG',
-          quantity: 100,
-          price: 150.25,
-          amount: 15025,
-          fee: 5.0,
-          executedAt: '2025-09-18T10:30:00Z',
-          status: 'EXECUTED',
-          notes: '定期投资',
-          tags: ['科技股', '长期持有']
-        },
-        errors: [],
-        warnings: [],
-        status: 'valid'
-      },
-      {
-        rowIndex: 2,
-        data: {
-          portfolioName: '主投资组合',
-          assetSymbol: 'MSFT',
-          transactionType: 'BUY',
-          quantity: 50,
-          price: 280.50,
-          // 缺少必填字段
-        },
-        errors: ['缺少必填字段: 执行时间'],
-        warnings: ['建议填写资产名称'],
-        status: 'error'
-      },
-      {
-        rowIndex: 3,
-        data: {
-          portfolioName: '备用组合',
-          assetSymbol: 'GOOGL',
-          assetName: '谷歌',
-          transactionType: 'SELL',
-          side: 'LONG',
-          quantity: 25,
-          price: 2800.00,
-          amount: 70000,
-          fee: 15.0,
-          executedAt: '2025-09-17T14:15:00Z',
-          status: 'EXECUTED'
-        },
-        errors: [],
-        warnings: ['价格异常高，请确认'],
-        status: 'warning'
-      }
-    ];
-
-    setImportRecords(mockData);
-    setImportStep(1);
+  const parseImportFile = async (file: File) => {
+    try {
+      const records = await parseFile(file);
+      setImportRecords(records);
+      setImportStep(1);
+    } catch (error) {
+      console.error('解析文件失败:', error);
+      message.error('解析文件失败，请检查文件格式');
+    }
   };
 
   const validateImportData = () => {
@@ -207,13 +167,8 @@ const TransactionImportExport: React.FC<TransactionImportExportProps> = ({
     setImportProgress(0);
 
     try {
-      // 模拟导入进度
-      for (let i = 0; i <= 100; i += 10) {
-        setImportProgress(i);
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-
-      const result = await onImport(validData);
+      // 使用真实的导入 API
+      const result = await importTransactions(validData);
       setImportResult(result);
       setImportStep(3);
 
@@ -224,6 +179,7 @@ const TransactionImportExport: React.FC<TransactionImportExportProps> = ({
         message.error(`${result.failed} 条记录导入失败`);
       }
     } catch (error) {
+      console.error('导入失败:', error);
       message.error('导入失败');
       setImportStep(1);
     }

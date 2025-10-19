@@ -5,7 +5,6 @@ import { FolderOutlined, WalletOutlined, BarChartOutlined } from '@ant-design/ic
 import { 
   Dashboard, 
   TransactionManagement, 
-  AssetManagement, 
   PortfolioDetail, 
   PortfolioList, 
   Login,
@@ -18,6 +17,9 @@ import UserManagement from './pages/admin/UserManagement';
 import RoleManagement from './pages/admin/RoleManagement';
 import PermissionMatrix from './pages/admin/PermissionMatrix';
 import SystemLogs from './pages/admin/SystemLogs';
+import ProductManagement from './pages/admin/ProductManagement';
+import ExchangeRateManagement from './pages/admin/ExchangeRateManagement';
+import TagManagement from './pages/admin/TagManagement';
 import PermissionDemo from './pages/PermissionDemo';
 import SimpleTest from './pages/SimpleTest';
 import { AppLayout } from './components/layout';
@@ -39,7 +41,7 @@ const AppLayoutWrapper: React.FC = () => {
         <Route path="/portfolios" element={<PortfolioList />} />
         <Route path="/portfolio/:id" element={<PortfolioDetail />} />
         <Route path="/transactions" element={<TransactionManagement />} />
-        <Route path="/assets" element={<AssetManagement />} />
+
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
             <Route path="/permission-demo" element={<PermissionDemo />} />
@@ -51,6 +53,9 @@ const AppLayoutWrapper: React.FC = () => {
         <Route path="/admin/roles" element={<RoleManagement />} />
         <Route path="/admin/permissions" element={<PermissionMatrix />} />
         <Route path="/admin/logs" element={<SystemLogs />} />
+        <Route path="/admin/products" element={<ProductManagement />} />
+        <Route path="/admin/exchange-rates" element={<ExchangeRateManagement />} />
+        <Route path="/admin/tags" element={<TagManagement />} />
       </Routes>
     </AppLayout>
   );

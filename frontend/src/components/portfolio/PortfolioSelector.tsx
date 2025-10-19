@@ -51,42 +51,7 @@ const PortfolioSelector: React.FC<PortfolioSelectorProps> = ({
       }
     } catch (error) {
       console.error('加载投资组合失败:', error);
-      // 使用模拟数据
-      const mockPortfolios: Portfolio[] = [
-        {
-          id: '1',
-          userId: 'current-user',
-          name: '主要投资组合',
-          description: '长期价值投资组合',
-          baseCurrency: 'CNY',
-          totalValue: 1234567.89,
-          totalCost: 1000000.00,
-          totalGainLoss: 234567.89,
-          totalGainLossPercentage: 23.46,
-          createdAt: '2024-01-01T00:00:00Z',
-          updatedAt: '2024-09-14T00:00:00Z'
-        },
-        {
-          id: '2',
-          userId: 'current-user',
-          name: '成长型投资',
-          description: '专注于成长股的投资组合',
-          baseCurrency: 'CNY',
-          totalValue: 567890.12,
-          totalCost: 500000.00,
-          totalGainLoss: 67890.12,
-          totalGainLossPercentage: 13.58,
-          createdAt: '2024-02-01T00:00:00Z',
-          updatedAt: '2024-09-14T00:00:00Z'
-        }
-      ];
-      setPortfolios(mockPortfolios);
-      
-      if (!selectedPortfolioId && mockPortfolios.length > 0) {
-        const firstPortfolio = mockPortfolios[0];
-        setSelectedPortfolio(firstPortfolio);
-        onPortfolioChange(firstPortfolio.id, firstPortfolio);
-      }
+      setPortfolios([]);
     } finally {
       setLoading(false);
     }

@@ -65,8 +65,10 @@ const ResponsiveLayout: React.FC<ResponsiveLayoutProps> = ({
           placement="left"
           onClose={() => setMobileMenuVisible(false)}
           open={mobileMenuVisible}
-          bodyStyle={{ padding: 0 }}
-          headerStyle={{ padding: '16px 24px' }}
+          styles={{ 
+            body: { padding: 0 },
+            header: { padding: '16px 24px' }
+          }}
           closeIcon={<CloseOutlined />}
           width={280}
         >

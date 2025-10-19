@@ -1,7 +1,10 @@
 import axios from 'axios';
 import { LoginRequest, LoginResponse, RegisterRequest, User } from '../types/auth';
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3001/api';
+// 添加缺失的导出
+export type { LoginRequest, RegisterRequest, LoginResponse, User };
+
+const API_BASE_URL = '/api';
 
 // 创建 axios 实例
 const authApi = axios.create({
@@ -111,8 +114,13 @@ export class AuthService {
     }
   }
 
-  // 获取当前用户信息
-  static async getCurrentUser(): Promise<User> {
+  // 获取当前用户信息（从本地存储）
+  static getCurrentUser(): User | null {
+    return this.getStoredUser();
+  }
+
+  // 从服务器获取当前用户信息
+  static async fetchCurrentUser(): Promise<User> {
     try {
       const response = await authApi.get<User>('/me');
       return response.data;

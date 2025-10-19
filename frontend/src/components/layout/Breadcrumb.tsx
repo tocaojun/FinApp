@@ -18,7 +18,7 @@ const Breadcrumb: React.FC = () => {
     '/dashboard': { path: '/dashboard', title: '仪表板', icon: <DashboardOutlined /> },
     '/portfolio': { path: '/portfolio', title: '投资组合', icon: <FolderOutlined /> },
     '/transactions': { path: '/transactions', title: '交易记录', icon: <WalletOutlined /> },
-    '/assets': { path: '/assets', title: '资产管理', icon: <DatabaseOutlined /> },
+
     '/analytics': { path: '/analytics', title: '绩效分析', icon: <BarChartOutlined /> },
   };
 

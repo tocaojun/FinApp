@@ -22,7 +22,8 @@ import {
   Avatar,
   Divider,
   Timeline,
-  notification
+  notification,
+  message
 } from 'antd';
 import {
   BellOutlined,
@@ -43,6 +44,20 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import {
+  getMonitoringRules,
+  createMonitoringRule,
+  updateMonitoringRule,
+  deleteMonitoringRule,
+  getAlerts,
+  markAlertAsRead,
+  markAlertsAsRead,
+  getMonitoringStats,
+  checkMonitoringRules as checkRules,
+  MonitoringRule,
+  Alert as MonitoringAlert,
+  MonitoringStats
+} from '../../services/assetMonitoringApi';
 
 const { Option } = Select;
 const { Title, Text } = Typography;
@@ -126,8 +141,8 @@ const AssetMonitoring: React.FC<AssetMonitoringProps> = ({
 
   // 初始化数据
   useEffect(() => {
-    generateMockData();
-    // 模拟实时监控
+    loadMonitoringData();
+    // 实时监控
     const interval = setInterval(() => {
       if (monitoringEnabled) {
         checkMonitoringRules();
@@ -137,98 +152,41 @@ const AssetMonitoring: React.FC<AssetMonitoringProps> = ({
     return () => clearInterval(interval);
   }, [monitoringEnabled, assets]);
 
-  // 生成模拟数据
-  const generateMockData = () => {
-    // 生成监控规则
-    const rules: MonitoringRule[] = watchedAssets.slice(0, 10).map((assetId, index) => ({
-      id: `rule_${index + 1}`,
-      assetId,
-      type: ['price', 'volume', 'volatility', 'pe', 'marketcap'][index % 5] as any,
-      condition: ['above', 'below', 'change_above', 'change_below'][index % 4] as any,
-      threshold: Math.random() * 100 + 10,
-      isActive: Math.random() > 0.2,
-      createdAt: dayjs().subtract(Math.floor(Math.random() * 30), 'day').toISOString(),
-      triggeredCount: Math.floor(Math.random() * 10)
-    }));
+  // 加载监控数据
+  const loadMonitoringData = async () => {
+    try {
+      const [rules, alertsData, stats] = await Promise.all([
+        getMonitoringRules(watchedAssets),
+        getAlerts({ limit: 50 }),
+        getMonitoringStats()
+      ]);
 
-    // 生成告警
-    const alertsData: Alert[] = rules.slice(0, 8).map((rule, index) => {
-      const asset = assets.find(a => a.id === rule.assetId);
-      return {
-        id: `alert_${index + 1}`,
-        assetId: rule.assetId,
-        ruleId: rule.id,
-        type: ['warning', 'danger', 'info'][index % 3] as any,
-        title: `${asset?.symbol} 价格告警`,
-        message: `${asset?.symbol} 当前价格 $${(Math.random() * 100 + 50).toFixed(2)} ${rule.condition.includes('above') ? '超过' : '低于'} 阈值 $${rule.threshold.toFixed(2)}`,
-        value: Math.random() * 100 + 50,
-        threshold: rule.threshold,
-        createdAt: dayjs().subtract(Math.floor(Math.random() * 24), 'hour').toISOString(),
-        isRead: Math.random() > 0.4,
-        severity: ['low', 'medium', 'high', 'critical'][index % 4] as any
-      };
-    });
-
-    setMonitoringRules(rules);
-    setAlerts(alertsData);
-
-    // 更新统计
-    setMonitoringStats({
-      totalRules: rules.length,
-      activeRules: rules.filter(r => r.isActive).length,
-      triggeredToday: alertsData.filter(a => dayjs(a.createdAt).isAfter(dayjs().startOf('day'))).length,
-      unreadAlerts: alertsData.filter(a => !a.isRead).length
-    });
+      setMonitoringRules(rules);
+      setAlerts(alertsData);
+      setMonitoringStats(stats);
+    } catch (error) {
+      console.error('加载监控数据失败:', error);
+      message.error('加载监控数据失败');
+    }
   };
 
   // 检查监控规则
-  const checkMonitoringRules = () => {
-    const activeRules = monitoringRules.filter(rule => rule.isActive);
-    
-    activeRules.forEach(rule => {
-      const asset = assets.find(a => a.id === rule.assetId);
-      if (!asset) return;
-
-      let currentValue = 0;
-      let shouldTrigger = false;
-
-      switch (rule.type) {
-        case 'price':
-          currentValue = asset.currentPrice || 0;
-          break;
-        case 'volume':
-          currentValue = asset.volume || 0;
-          break;
-        case 'volatility':
-          currentValue = asset.volatility || 0;
-          break;
-        case 'pe':
-          currentValue = asset.peRatio || 0;
-          break;
-        case 'marketcap':
-          currentValue = asset.marketCap || 0;
-          break;
+  const checkMonitoringRules = async () => {
+    try {
+      const result = await checkRules();
+      if (result.newAlerts > 0) {
+        message.info(`检测到 ${result.newAlerts} 个新告警`);
+        // 重新加载告警数据
+        const newAlerts = await getAlerts({ limit: 50 });
+        setAlerts(newAlerts);
+        
+        // 更新统计
+        const newStats = await getMonitoringStats();
+        setMonitoringStats(newStats);
       }
-
-      switch (rule.condition) {
-        case 'above':
-          shouldTrigger = currentValue > rule.threshold;
-          break;
-        case 'below':
-          shouldTrigger = currentValue < rule.threshold;
-          break;
-        case 'change_above':
-          shouldTrigger = Math.abs(asset.priceChange1D || 0) > rule.threshold;
-          break;
-        case 'change_below':
-          shouldTrigger = Math.abs(asset.priceChange1D || 0) < rule.threshold;
-          break;
-      }
-
-      if (shouldTrigger && Math.random() > 0.8) { // 20% 概率触发
-        triggerAlert(rule, asset, currentValue);
-      }
-    });
+    } catch (error) {
+      console.error('检查监控规则失败:', error);
+    }
   };
 
   // 触发告警

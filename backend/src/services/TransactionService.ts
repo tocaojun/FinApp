@@ -1,5 +1,6 @@
 import { databaseService } from './DatabaseService';
 import { CacheService } from './CacheService';
+import { positionService } from './PositionService';
 import { 
   Transaction, 
   CreateTransactionRequest, 
@@ -32,7 +33,8 @@ export class TransactionService {
     }
 
     const transactionId = uuidv4();
-    const totalAmount = request.quantity * request.price;
+    // 交易金额应该始终为正数，表示交易的绝对金额
+    const totalAmount = Math.abs(request.quantity) * request.price;
     const fees = request.fees || 0;
 
     const transaction: Transaction = {
@@ -58,36 +60,40 @@ export class TransactionService {
       updatedAt: new Date()
     };
 
-    // 保存到数据库
+    // 首先验证 portfolio 属于当前用户
+    const portfolioCheck = await databaseService.executeRawQuery(
+      'SELECT id FROM finapp.portfolios WHERE id = $1::uuid AND user_id = $2::uuid',
+      [request.portfolioId, userId]
+    );
+    
+    if (!portfolioCheck || portfolioCheck.length === 0) {
+      throw new Error('Portfolio not found or does not belong to user');
+    }
+
+    // 保存到数据库 (注意：transactions表没有user_id字段)
     const query = `
-      INSERT INTO transactions (
-        id, user_id, portfolio_id, trading_account_id, asset_id,
-        transaction_type, side, quantity, price, total_amount, fees,
-        currency, executed_at, settled_at, notes, liquidity_tag,
-        status, created_at, updated_at
+      INSERT INTO finapp.transactions (
+        id, portfolio_id, trading_account_id, asset_id,
+        transaction_type, quantity, price, total_amount, fees,
+        currency, transaction_date, notes, created_at, updated_at
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+        $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, $10, $11::timestamp, $12, $13::timestamp, $14::timestamp
       ) RETURNING *
     `;
 
     const values = [
       transaction.id,
-      transaction.userId,
       transaction.portfolioId,
       transaction.tradingAccountId,
       transaction.assetId,
       transaction.transactionType,
-      transaction.side,
       transaction.quantity,
       transaction.price,
       transaction.totalAmount,
       transaction.fees,
       transaction.currency,
       transaction.executedAt,
-      transaction.settledAt,
       transaction.notes,
-      transaction.liquidityTag,
-      transaction.status,
       transaction.createdAt,
       transaction.updatedAt
     ];
@@ -97,6 +103,24 @@ export class TransactionService {
     // 处理标签
     if (request.tags && request.tags.length > 0) {
       await this.addTransactionTags(transactionId, request.tags);
+    }
+
+    // 更新持仓数据
+    try {
+      await positionService.updatePositionFromTransaction(
+        transaction.portfolioId,
+        transaction.tradingAccountId,
+        transaction.assetId,
+        transaction.transactionType,
+        transaction.quantity,
+        transaction.price,
+        transaction.currency,
+        transaction.executedAt
+      );
+      console.log('Position updated successfully for transaction:', transactionId);
+    } catch (error) {
+      console.error('Failed to update position for transaction:', transactionId, error);
+      // 不抛出错误，避免影响交易创建
     }
 
     // 清除相关缓存
@@ -116,61 +140,66 @@ export class TransactionService {
     const limit = filter.limit || 50;
     const offset = (page - 1) * limit;
 
-    // 构建查询条件
-    const conditions: string[] = ['user_id = $1::uuid'];
+    // 构建查询条件 (通过 portfolios 表关联用户)
+    const conditions: string[] = ['p.user_id = $1::uuid'];
     const values: any[] = [userId];
     let paramIndex = 2;
 
     if (filter.portfolioId) {
-      conditions.push(`portfolio_id = $${paramIndex}::uuid`);
+      conditions.push(`t.portfolio_id = $${paramIndex}::uuid`);
       values.push(filter.portfolioId);
       paramIndex++;
     }
 
     if (filter.transactionType) {
-      conditions.push(`transaction_type = $${paramIndex}`);
+      conditions.push(`t.transaction_type = $${paramIndex}`);
       values.push(filter.transactionType);
       paramIndex++;
     }
 
-    if (filter.side) {
-      conditions.push(`side = $${paramIndex}`);
-      values.push(filter.side);
-      paramIndex++;
-    }
-
-    if (filter.status) {
-      conditions.push(`status = $${paramIndex}`);
-      values.push(filter.status);
+    if (filter.tradingAccountId) {
+      conditions.push(`t.trading_account_id = $${paramIndex}::uuid`);
+      values.push(filter.tradingAccountId);
       paramIndex++;
     }
 
     if (filter.dateFrom) {
-      conditions.push(`executed_at >= $${paramIndex}`);
+      conditions.push(`t.transaction_date >= $${paramIndex}`);
       values.push(filter.dateFrom);
       paramIndex++;
     }
 
     if (filter.dateTo) {
-      conditions.push(`executed_at <= $${paramIndex}`);
+      conditions.push(`t.transaction_date <= $${paramIndex}`);
       values.push(filter.dateTo);
       paramIndex++;
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-    const sortBy = filter.sortBy || 'transaction_date';
     const sortOrder = filter.sortOrder || 'DESC';
 
     // 获取总数
-    const countQuery = `SELECT COUNT(*) as count FROM transactions ${whereClause}`;
+    const countQuery = `
+      SELECT COUNT(*) as count 
+      FROM finapp.transactions t 
+      JOIN finapp.portfolios p ON t.portfolio_id = p.id 
+      ${whereClause}
+    `;
     const countResult = await databaseService.executeRawQuery<Array<{count: string}>>(countQuery, values);
     const total = parseInt(countResult[0]?.count || '0');
 
-    // 获取交易记录
+    // 获取交易记录 (包含关联数据)
     const query = `
-      SELECT * FROM transactions 
+      SELECT 
+        t.*,
+        p.name as portfolio_name,
+        a.name as asset_name,
+        a.symbol as asset_symbol
+      FROM finapp.transactions t 
+      JOIN finapp.portfolios p ON t.portfolio_id = p.id 
+      LEFT JOIN finapp.assets a ON t.asset_id = a.id
       ${whereClause}
-      ORDER BY transaction_date ${sortOrder}
+      ORDER BY t.transaction_date ${sortOrder}
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
     values.push(limit, offset);
@@ -178,17 +207,20 @@ export class TransactionService {
     const results = await databaseService.executeRawQuery<any[]>(query, values);
     const transactions: Transaction[] = results.map((row: any) => ({
       id: row.id,
-      userId: row.user_id,
+      userId: userId, // 从参数获取，因为表中没有这个字段
       portfolioId: row.portfolio_id,
       tradingAccountId: row.trading_account_id,
       assetId: row.asset_id,
       transactionType: row.transaction_type,
-      side: row.side,
+      side: 'BUY', // 默认值，因为表中没有这个字段
       quantity: parseFloat(row.quantity),
       price: parseFloat(row.price),
       totalAmount: parseFloat(row.total_amount),
       fees: parseFloat(row.fees || '0'),
       currency: row.currency,
+      portfolioName: row.portfolio_name,
+      assetName: row.asset_name,
+      assetSymbol: row.asset_symbol,
       executedAt: new Date(row.transaction_date),
       settledAt: row.settlement_date ? new Date(row.settlement_date) : undefined,
       notes: row.notes,
@@ -210,8 +242,15 @@ export class TransactionService {
   // 获取单个交易记录
   async getTransactionById(userId: string, transactionId: string): Promise<Transaction | null> {
     const query = `
-      SELECT * FROM transactions 
-      WHERE id = $1::uuid AND user_id = $2::uuid
+      SELECT 
+        t.*,
+        p.name as portfolio_name,
+        a.name as asset_name,
+        a.symbol as asset_symbol
+      FROM finapp.transactions t 
+      JOIN finapp.portfolios p ON t.portfolio_id = p.id 
+      LEFT JOIN finapp.assets a ON t.asset_id = a.id
+      WHERE t.id = $1::uuid AND p.user_id = $2::uuid
     `;
 
     const results = await databaseService.executeRawQuery<any[]>(query, [transactionId, userId]);
@@ -291,7 +330,8 @@ export class TransactionService {
     if (request.quantity !== undefined || request.price !== undefined) {
       const newQuantity = request.quantity ?? existingTransaction.quantity;
       const newPrice = request.price ?? existingTransaction.price;
-      const newTotalAmount = newQuantity * newPrice;
+      // 交易金额应该始终为正数
+      const newTotalAmount = Math.abs(newQuantity) * newPrice;
       
       updateFields.push(`total_amount = $${paramIndex}`);
       values.push(newTotalAmount);
@@ -305,9 +345,11 @@ export class TransactionService {
     values.push(transactionId, userId);
 
     const query = `
-      UPDATE transactions 
+      UPDATE finapp.transactions 
       SET ${updateFields.join(', ')}
-      WHERE id = $${paramIndex - 1}::uuid AND user_id = $${paramIndex}::uuid
+      WHERE id = $${paramIndex - 1}::uuid AND portfolio_id IN (
+        SELECT id FROM finapp.portfolios WHERE user_id = $${paramIndex}::uuid
+      )
       RETURNING *
     `;
 
@@ -325,21 +367,62 @@ export class TransactionService {
 
   // 删除交易记录
   async deleteTransaction(userId: string, transactionId: string): Promise<void> {
-    // 验证交易存在且属于用户
-    const existingTransaction = await this.getTransactionById(userId, transactionId);
-    if (!existingTransaction) {
-      throw new Error('Transaction not found');
+    try {
+      console.log(`Attempting to delete transaction: ${transactionId} for user: ${userId}`);
+      
+      // 验证交易存在且属于用户
+      const existingTransaction = await this.getTransactionById(userId, transactionId);
+      if (!existingTransaction) {
+        console.log('Transaction not found during validation');
+        throw new Error('Transaction not found');
+      }
+
+      console.log('Transaction found, proceeding with deletion');
+
+      // 使用 executeRawCommand 方法删除交易，并获取删除的行数
+      const deletedRows = await databaseService.executeRawCommand(
+        'DELETE FROM finapp.transactions WHERE id = $1::uuid AND portfolio_id IN (SELECT id FROM finapp.portfolios WHERE user_id = $2::uuid)',
+        [transactionId, userId]
+      );
+
+      console.log(`Deletion result: ${deletedRows} rows affected`);
+
+      if (deletedRows === 0) {
+        throw new Error('No transaction was deleted - transaction may not exist or access denied');
+      }
+
+      // 验证删除是否成功
+      const verifyDeleted = await this.getTransactionById(userId, transactionId);
+      if (verifyDeleted) {
+        console.error('Transaction still exists after deletion attempt');
+        throw new Error('Transaction deletion failed - record still exists');
+      }
+
+      console.log('Transaction successfully deleted and verified');
+
+      // 调整持仓数据（删除交易的反向操作）
+      try {
+        await positionService.adjustPositionForDeletedTransaction(
+          existingTransaction.portfolioId,
+          existingTransaction.tradingAccountId,
+          existingTransaction.assetId,
+          existingTransaction.transactionType,
+          existingTransaction.quantity,
+          existingTransaction.price,
+          existingTransaction.executedAt
+        );
+        console.log('Position adjusted successfully for deleted transaction:', transactionId);
+      } catch (error) {
+        console.error('Failed to adjust position for deleted transaction:', transactionId, error);
+        // 不抛出错误，交易已经删除成功
+      }
+
+      // 清除缓存
+      this.clearTransactionCache(userId);
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+      throw error;
     }
-
-    const query = `
-      DELETE FROM transactions 
-      WHERE id = $1::uuid AND user_id = $2::uuid
-    `;
-
-    await databaseService.executeRawCommand(query, [transactionId, userId]);
-
-    // 清除缓存
-    this.clearTransactionCache(userId);
   }
 
   // 批量导入交易记录
@@ -410,13 +493,14 @@ export class TransactionService {
     const query = `
       SELECT 
         COUNT(*) as total_transactions,
-        SUM(CASE WHEN side = 'BUY' THEN total_amount ELSE 0 END) as total_buy_amount,
-        SUM(CASE WHEN side = 'SELL' THEN total_amount ELSE 0 END) as total_sell_amount,
+        SUM(CASE WHEN transaction_type = 'BUY' THEN total_amount ELSE 0 END) as total_buy_amount,
+        SUM(CASE WHEN transaction_type = 'SELL' THEN total_amount ELSE 0 END) as total_sell_amount,
         SUM(fees) as total_fees,
         COUNT(DISTINCT asset_id) as unique_assets,
         AVG(total_amount) as avg_transaction_amount,
         MAX(total_amount) as max_transaction_amount
-      FROM transactions 
+      FROM finapp.transactions t
+      JOIN finapp.portfolios p ON t.portfolio_id = p.id
       ${whereClause}
     `;
 
@@ -480,13 +564,27 @@ export class TransactionService {
 
   // 添加交易标签
   private async addTransactionTags(transactionId: string, tags: string[]): Promise<void> {
-    for (const tag of tags) {
-      const query = `
-        INSERT INTO transaction_tags (transaction_id, tag)
-        VALUES ($1, $2)
-        ON CONFLICT (transaction_id, tag) DO NOTHING
-      `;
-      await databaseService.executeRawCommand(query, [transactionId, tag]);
+    for (const tagName of tags) {
+      try {
+        // 首先查找标签ID
+        const tagQuery = `SELECT id FROM finapp.transaction_tags WHERE name = $1 LIMIT 1`;
+        const tagResult = await databaseService.executeRawQuery(tagQuery, [tagName]);
+        
+        if (Array.isArray(tagResult) && tagResult.length > 0) {
+          const tagId = tagResult[0].id;
+          
+          // 插入交易标签映射
+          const mappingQuery = `
+            INSERT INTO finapp.transaction_tag_mappings (transaction_id, tag_id)
+            VALUES ($1::uuid, $2::uuid)
+            ON CONFLICT (transaction_id, tag_id) DO NOTHING
+          `;
+          await databaseService.executeRawCommand(mappingQuery, [transactionId, tagId]);
+        }
+      } catch (error) {
+        console.error(`Error adding tag ${tagName} to transaction ${transactionId}:`, error);
+        // 继续处理其他标签，不中断整个流程
+      }
     }
   }
 

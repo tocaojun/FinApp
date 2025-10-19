@@ -150,22 +150,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response: LoginResponse = await AuthService.login(credentials);
       
+      // 处理后端返回的数据结构（可能包装在data中）
+      const userData = (response as any).data?.user || response.user;
+      const tokensData = (response as any).data?.tokens || response.tokens;
+      
+      if (!userData || !tokensData?.accessToken) {
+        throw new Error('登录响应格式错误');
+      }
+      
       // 保存到本地存储
-      localStorage.setItem('auth_token', response.token);
-      localStorage.setItem('auth_user', JSON.stringify(response.user));
+      localStorage.setItem('auth_token', tokensData.accessToken);
+      localStorage.setItem('auth_user', JSON.stringify(userData));
       
       dispatch({
         type: 'LOGIN_SUCCESS',
         payload: {
-          user: response.user,
-          token: response.token
+          user: userData,
+          token: tokensData.accessToken
         }
       });
       
       message.success('登录成功');
       return true;
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || '登录失败';
+      console.error('Login error in AuthContext:', error);
+      
+      let errorMessage = '登录失败';
+      
+      // 处理不同类型的错误
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
       dispatch({
         type: 'LOGIN_FAILURE',
         payload: errorMessage

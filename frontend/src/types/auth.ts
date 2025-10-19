@@ -46,7 +46,7 @@ export interface User {
 
 // 登录请求接口
 export interface LoginRequest {
-  username: string;
+  email: string;
   password: string;
   rememberMe?: boolean;
 }
@@ -54,9 +54,11 @@ export interface LoginRequest {
 // 登录响应接口
 export interface LoginResponse {
   user: User;
-  token: string;
-  refreshToken: string;
-  expiresIn: number;
+  tokens: {
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+  };
 }
 
 // 注册请求接口

@@ -38,51 +38,30 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({ onNavigate }) =
   const fetchRecentTransactions = async () => {
     try {
       setLoading(true);
-      // 使用模拟数据
-      const mockTransactions: Transaction[] = [
-        {
-          id: '1',
-          type: 'buy',
-          assetSymbol: 'AAPL',
-          assetName: '苹果公司',
-          quantity: 100,
-          price: 150.25,
-          totalAmount: 15025.00,
-          fee: 5.99,
-          currency: 'USD',
-          executedAt: new Date().toISOString()
-        },
-        {
-          id: '2',
-          type: 'sell',
-          assetSymbol: 'MSFT',
-          assetName: '微软公司',
-          quantity: 50,
-          price: 280.50,
-          totalAmount: 14025.00,
-          fee: 7.50,
-          currency: 'USD',
-          executedAt: new Date(Date.now() - 86400000).toISOString()
-        },
-        {
-          id: '3',
-          type: 'buy',
-          assetSymbol: 'GOOGL',
-          assetName: '谷歌公司',
-          quantity: 25,
-          price: 2750.80,
-          totalAmount: 68770.00,
-          fee: 12.50,
-          currency: 'USD',
-          executedAt: new Date(Date.now() - 172800000).toISOString()
-        }
-      ];
+      // 导入TransactionService
+      const { TransactionService } = await import('../../services/transactionService');
+      const response = await TransactionService.getTransactions();
       
-      // 模拟网络延迟
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setTransactions(mockTransactions);
+      // 转换数据格式以匹配组件需要的类型，只取前5条
+      const recentTransactions: Transaction[] = (response.data || [])
+        .slice(0, 5)
+        .map(transaction => ({
+          id: transaction.id,
+          type: transaction.transaction_type || 'buy',
+          assetSymbol: transaction.asset_symbol || 'N/A',
+          assetName: transaction.asset_name || 'Unknown Asset',
+          quantity: transaction.quantity,
+          price: transaction.price,
+          totalAmount: transaction.total_amount,
+          fee: 0, // 暂时设为0，后续可以从API获取
+          currency: 'CNY', // 暂时设为CNY，后续可以从API获取
+          executedAt: transaction.transaction_date || new Date().toISOString()
+        }));
+      
+      setTransactions(recentTransactions);
     } catch (error) {
       console.error('获取最近交易失败:', error);
+      setTransactions([]);
     } finally {
       setLoading(false);
     }
@@ -215,7 +194,7 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({ onNavigate }) =
                     }}
                   >
                     {transaction.type.toLowerCase() === 'buy' ? '-' : '+'}
-                    {formatCurrency(transaction.totalAmount, transaction.currency)}
+                    {formatCurrency(Math.abs(transaction.totalAmount), transaction.currency)}
                   </Text>
                 </div>
                 {transaction.fee > 0 && (

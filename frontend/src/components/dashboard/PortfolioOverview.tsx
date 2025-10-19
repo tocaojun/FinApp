@@ -55,36 +55,28 @@ const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({ onNavigate }) => 
   const fetchPortfolios = async () => {
     setLoading(true);
     try {
-      // 使用模拟数据，避免API调用错误
-      const mockPortfolios: PortfolioWithSummary[] = [
-        {
-          id: '1',
-          name: '我的投资组合',
-          description: '主要投资组合',
-          isActive: true,
-          summary: {
-            totalValue: 125000.50,
-            totalReturn: 15000.25,
-            totalAssets: 8
-          }
-        },
-        {
-          id: '2', 
-          name: '稳健型投资',
-          description: '低风险投资组合',
-          isActive: true,
-          summary: {
-            totalValue: 85000.00,
-            totalReturn: 5000.00,
-            totalAssets: 5
-          }
+      // 导入PortfolioService
+      const { PortfolioService } = await import('../../services/portfolioService');
+      const data = await PortfolioService.getPortfolios();
+      
+      // 转换数据格式以匹配组件需要的类型
+      const portfoliosWithSummary: PortfolioWithSummary[] = data.map(portfolio => ({
+        id: portfolio.id,
+        name: portfolio.name,
+        description: portfolio.description,
+        isActive: true, // 假设所有投资组合都是活跃的
+        summary: {
+          totalValue: portfolio.totalValue || 0,
+          totalReturn: portfolio.totalGainLoss || 0,
+          totalAssets: 0 // 暂时设为0，后续可以通过API获取
         }
-      ];
+      }));
 
-      setPortfolios(mockPortfolios);
+      setPortfolios(portfoliosWithSummary);
     } catch (error) {
       console.error('获取投资组合失败:', error);
       message.error('获取投资组合失败');
+      setPortfolios([]);
     } finally {
       setLoading(false);
     }

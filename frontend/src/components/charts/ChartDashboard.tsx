@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Row, Col, Card, Tabs, Space, Typography, Button, Select, DatePicker, Switch } from 'antd';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Row, Col, Card, Tabs, Space, Typography, Button, Select, DatePicker, Switch, Spin, message } from 'antd';
 import { 
   PieChartOutlined, 
   LineChartOutlined, 
@@ -16,97 +16,93 @@ import LiquidityDistributionChart from './LiquidityDistributionChart';
 import IRRAnalysisChart from './IRRAnalysisChart';
 import RiskMetricsChart from './RiskMetricsChart';
 import InteractiveChartWrapper from './InteractiveChartWrapper';
+import { getPortfolioSummary, getAllPortfoliosSummary, getPortfolioHoldings, convertHoldingsToChartData, generateLiquidityData } from '../../services/portfolioApi';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
 const { RangePicker } = DatePicker;
 
-// 模拟数据生成函数
-const generateMockData = () => {
-  // 投资组合数据
-  const portfolioData = [
-    { name: '股票', value: 450000, percentage: 45, color: '#1890ff' },
-    { name: '债券', value: 300000, percentage: 30, color: '#52c41a' },
-    { name: '基金', value: 150000, percentage: 15, color: '#faad14' },
-    { name: '现金', value: 100000, percentage: 10, color: '#722ed1' },
-  ];
-
-  // 收益率趋势数据
-  const returnTrendData = Array.from({ length: 30 }, (_, i) => {
-    const date = dayjs().subtract(29 - i, 'day').format('YYYY-MM-DD');
-    const portfolioReturn = Math.random() * 0.1 - 0.05 + Math.sin(i / 5) * 0.02;
-    const benchmarkReturn = Math.random() * 0.08 - 0.04 + Math.sin(i / 5) * 0.015;
-    return {
-      date,
-      portfolioReturn,
-      benchmarkReturn,
-      cumulativeReturn: portfolioReturn * (i + 1) * 0.1,
-    };
-  });
-
-  // 流动性分布数据
-  const liquidityData = [
-    { category: '高流动性', amount: 550000, percentage: 55, description: '可在1天内变现' },
-    { category: '中等流动性', amount: 300000, percentage: 30, description: '可在1周内变现' },
-    { category: '低流动性', amount: 150000, percentage: 15, description: '需要1个月以上变现' },
-  ];
-
-  // IRR分析数据
-  const irrData = {
-    cashFlows: [
-      { date: '2024-01-01', amount: -100000, type: 'investment' },
-      { date: '2024-03-01', amount: -50000, type: 'investment' },
-      { date: '2024-06-01', amount: 10000, type: 'dividend' },
-      { date: '2024-09-01', amount: 15000, type: 'dividend' },
-      { date: '2024-12-01', amount: 180000, type: 'redemption' },
-    ],
-    timeSeriesData: Array.from({ length: 12 }, (_, i) => {
-      const date = dayjs().subtract(11 - i, 'month').format('YYYY-MM-DD');
-      return {
-        date,
-        portfolioValue: 100000 + i * 8000 + Math.random() * 10000,
-        cumulativeCashFlow: -150000 + i * 5000,
-        irr: 0.08 + Math.random() * 0.04,
-      };
-    }),
-    currentIRR: 0.125,
-    annualizedReturn: 0.115,
+// 定义数据类型
+interface ChartDataType {
+  portfolioData: Array<{
+    name: string;
+    value: number;
+    percentage: number;
+    color: string;
+  }>;
+  returnTrendData: Array<{
+    date: string;
+    portfolioReturn: number;
+    benchmarkReturn: number;
+    cumulativeReturn: number;
+  }>;
+  liquidityData: Array<{
+    category: string;
+    amount: number;
+    percentage: number;
+    description: string;
+  }>;
+  irrData: {
+    cashFlows: Array<{
+      date: string;
+      amount: number;
+      type: string;
+    }>;
+    timeSeriesData: Array<{
+      date: string;
+      portfolioValue: number;
+      cumulativeCashFlow: number;
+      irr: number;
+    }>;
+    currentIRR: number;
+    annualizedReturn: number;
   };
-
-  // 风险指标数据
-  const riskMetrics = {
-    volatility: 0.18,
-    sharpeRatio: 1.25,
-    maxDrawdown: 0.08,
-    var95: -0.035,
-    var99: -0.055,
-    beta: 1.15,
-    alpha: 0.025,
-    informationRatio: 0.85,
-    calmarRatio: 1.56,
-    sortinoRatio: 1.78,
+  riskMetrics: {
+    volatility: number;
+    sharpeRatio: number;
+    maxDrawdown: number;
+    var95: number;
+    var99: number;
+    beta: number;
+    alpha: number;
+    informationRatio: number;
+    calmarRatio: number;
+    sortinoRatio: number;
   };
+  riskTimeSeriesData: Array<{
+    date: string;
+    volatility: number;
+    drawdown: number;
+    var95: number;
+    portfolioValue: number;
+  }>;
+}
 
-  const riskTimeSeriesData = Array.from({ length: 30 }, (_, i) => {
-    const date = dayjs().subtract(29 - i, 'day').format('YYYY-MM-DD');
-    return {
-      date,
-      volatility: 0.15 + Math.random() * 0.1,
-      drawdown: Math.random() * 0.1,
-      var95: -0.02 - Math.random() * 0.03,
-      portfolioValue: 1000000 + i * 1000 + Math.random() * 10000,
-    };
-  });
-
-  return {
-    portfolioData,
-    returnTrendData,
-    liquidityData,
-    irrData,
-    riskMetrics,
-    riskTimeSeriesData,
-  };
-};
+// 生成默认的空数据结构
+const getEmptyData = (): ChartDataType => ({
+  portfolioData: [],
+  returnTrendData: [],
+  liquidityData: [],
+  irrData: {
+    cashFlows: [],
+    timeSeriesData: [],
+    currentIRR: 0,
+    annualizedReturn: 0,
+  },
+  riskMetrics: {
+    volatility: 0,
+    sharpeRatio: 0,
+    maxDrawdown: 0,
+    var95: 0,
+    var99: 0,
+    beta: 0,
+    alpha: 0,
+    informationRatio: 0,
+    calmarRatio: 0,
+    sortinoRatio: 0,
+  },
+  riskTimeSeriesData: [],
+});
 
 interface ChartDashboardProps {
   portfolioId?: string;
@@ -127,9 +123,86 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
   const [timeFrame, setTimeFrame] = useState<'1M' | '3M' | '6M' | '1Y' | 'ALL'>('1M');
   const [showBenchmark, setShowBenchmark] = useState(true);
   const [chartHeight, setChartHeight] = useState(400);
+  const [loading, setLoading] = useState(false);
+  const [chartData, setChartData] = useState<ChartDataType>(getEmptyData());
 
-  // 生成模拟数据
-  const mockData = useMemo(() => generateMockData(), [portfolioId]);
+  // 加载投资组合数据
+  useEffect(() => {
+    const loadPortfolioData = async () => {
+      if (!portfolioId) {
+        // 如果没有指定投资组合ID，加载所有投资组合的汇总数据
+        try {
+          setLoading(true);
+          const summary = await getAllPortfoliosSummary();
+          
+          setChartData({
+            portfolioData: summary.assetAllocation || [],
+            returnTrendData: summary.performanceData || [],
+            liquidityData: summary.liquidityDistribution || [],
+            irrData: {
+              cashFlows: [],
+              timeSeriesData: [],
+              currentIRR: 0,
+              annualizedReturn: 0,
+            },
+            riskMetrics: summary.riskMetrics || getEmptyData().riskMetrics,
+            riskTimeSeriesData: [],
+          });
+        } catch (error) {
+          console.error('Failed to load portfolio summary:', error);
+          message.error('加载投资组合数据失败');
+          setChartData(getEmptyData());
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const [summary, holdings] = await Promise.all([
+          getPortfolioSummary(portfolioId),
+          getPortfolioHoldings(portfolioId)
+        ]);
+
+        // 转换持仓数据为图表数据
+        const portfolioData = convertHoldingsToChartData(holdings);
+        const totalValue = holdings.reduce((sum, h) => sum + h.marketValue, 0);
+        
+        // 计算百分比
+        portfolioData.forEach(item => {
+          item.percentage = totalValue > 0 ? Math.round((item.value / totalValue) * 100) : 0;
+        });
+
+        // 生成流动性分布数据
+        const liquidityData = generateLiquidityData(holdings);
+
+        setChartData({
+          portfolioData,
+          returnTrendData: summary.performanceData || [],
+          liquidityData,
+          irrData: {
+            cashFlows: [],
+            timeSeriesData: [],
+            currentIRR: 0,
+            annualizedReturn: 0,
+          },
+          riskMetrics: summary.riskMetrics || getEmptyData().riskMetrics,
+          riskTimeSeriesData: [],
+        });
+      } catch (error) {
+        console.error('Failed to load portfolio data:', error);
+        message.error('加载投资组合数据失败');
+        setChartData(getEmptyData());
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPortfolioData();
+  }, [portfolioId]);
+
+
 
   // 控制面板
   const controlPanel = useMemo(() => {
@@ -158,7 +231,11 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
             <Text strong>自定义日期:</Text>
             <RangePicker
               value={dateRange}
-              onChange={(dates) => dates && setDateRange(dates)}
+              onChange={(dates) => {
+                if (dates && dates[0] && dates[1]) {
+                  setDateRange([dates[0], dates[1]]);
+                }
+              }}
               format="YYYY-MM-DD"
             />
           </Space>
@@ -205,12 +282,13 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
 
       {controlPanel}
 
-      <Tabs
-        activeKey={activeTab}
-        onChange={setActiveTab}
-        type="card"
-        size="large"
-      >
+      <Spin spinning={loading} tip="加载数据中...">
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          type="card"
+          size="large"
+        >
         <TabPane
           tab={
             <Space>
@@ -232,7 +310,7 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
                 showRefresh
               >
                 <PortfolioPieChart
-                  data={mockData.portfolioData}
+                  data={chartData.portfolioData}
                   title="资产配置分布"
                   height={chartHeight}
                   showLegend
@@ -264,11 +342,10 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
                 showRefresh
               >
                 <ReturnTrendChart
-                  data={mockData.returnTrendData}
+                  data={chartData.returnTrendData}
                   title="收益率趋势"
                   height={chartHeight}
                   showBenchmark={showBenchmark}
-                  showCumulative
                 />
               </InteractiveChartWrapper>
             </Col>
@@ -296,7 +373,7 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
                 showRefresh
               >
                 <LiquidityDistributionChart
-                  data={mockData.liquidityData}
+                  data={chartData.liquidityData}
                   title="流动性分布"
                   height={chartHeight}
                   showDetails
@@ -327,13 +404,9 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
                 showRefresh
               >
                 <IRRAnalysisChart
-                  cashFlows={mockData.irrData.cashFlows}
-                  timeSeriesData={mockData.irrData.timeSeriesData}
-                  currentIRR={mockData.irrData.currentIRR}
-                  annualizedReturn={mockData.irrData.annualizedReturn}
+                  data={chartData.irrData}
                   title="IRR分析"
                   height={chartHeight}
-                  showCashFlow
                 />
               </InteractiveChartWrapper>
             </Col>
@@ -361,8 +434,8 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
                 showRefresh
               >
                 <RiskMetricsChart
-                  currentMetrics={mockData.riskMetrics}
-                  timeSeriesData={mockData.riskTimeSeriesData}
+                  currentMetrics={chartData.riskMetrics}
+                  timeSeriesData={chartData.riskTimeSeriesData}
                   title="风险指标"
                   height={chartHeight}
                   showComparison={showBenchmark}
@@ -384,7 +457,7 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
           <Row gutter={[16, 16]}>
             <Col span={12}>
               <PortfolioPieChart
-                data={mockData.portfolioData}
+                data={chartData.portfolioData}
                 title="资产配置"
                 height={300}
                 showLegend
@@ -392,7 +465,7 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
             </Col>
             <Col span={12}>
               <ReturnTrendChart
-                data={mockData.returnTrendData}
+                data={chartData.returnTrendData}
                 title="收益趋势"
                 height={300}
                 showBenchmark={showBenchmark}
@@ -400,24 +473,22 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
             </Col>
             <Col span={12}>
               <LiquidityDistributionChart
-                data={mockData.liquidityData}
+                data={chartData.liquidityData}
                 title="流动性分布"
                 height={300}
               />
             </Col>
             <Col span={12}>
               <IRRAnalysisChart
-                cashFlows={mockData.irrData.cashFlows}
-                timeSeriesData={mockData.irrData.timeSeriesData}
-                currentIRR={mockData.irrData.currentIRR}
-                annualizedReturn={mockData.irrData.annualizedReturn}
+                data={chartData.irrData}
                 title="IRR分析"
                 height={300}
               />
             </Col>
           </Row>
         </TabPane>
-      </Tabs>
+        </Tabs>
+      </Spin>
     </div>
   );
 };

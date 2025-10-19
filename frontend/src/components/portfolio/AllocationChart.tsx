@@ -28,53 +28,72 @@ const AllocationChart: React.FC<AllocationChartProps> = ({ portfolioId }) => {
   const loadAllocations = async () => {
     setLoading(true);
     try {
-      // 这里应该调用实际的API
-      // const data = await PortfolioService.getAllocations(portfolioId, allocationBy);
+      // 导入HoldingService获取持仓数据
+      const { HoldingService } = await import('../../services/holdingService');
+      const holdings = await HoldingService.getHoldingsByPortfolio(portfolioId);
       
-      // 使用模拟数据
-      const mockAllocations = getMockAllocations(allocationBy);
-      setAllocations(mockAllocations);
+      // 根据选择的分配方式计算配置
+      const calculatedAllocations = calculateAllocations(holdings, allocationBy);
+      setAllocations(calculatedAllocations);
     } catch (error) {
       console.error('加载资产配置数据失败:', error);
+      setAllocations([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const getMockAllocations = (type: AllocationBy): AssetAllocation[] => {
-    switch (type) {
-      case 'assetType':
-        return [
-          { assetType: '股票', value: 650000, percentage: 52.4, color: '#1890ff' },
-          { assetType: '基金', value: 300000, percentage: 24.2, color: '#52c41a' },
-          { assetType: '债券', value: 200000, percentage: 16.1, color: '#faad14' },
-          { assetType: '现金', value: 90000, percentage: 7.3, color: '#722ed1' }
-        ];
-      case 'region':
-        return [
-          { assetType: '美国', value: 500000, percentage: 40.3, color: '#1890ff' },
-          { assetType: '中国', value: 400000, percentage: 32.3, color: '#f5222d' },
-          { assetType: '欧洲', value: 200000, percentage: 16.1, color: '#52c41a' },
-          { assetType: '其他', value: 140000, percentage: 11.3, color: '#faad14' }
-        ];
-      case 'sector':
-        return [
-          { assetType: '科技', value: 400000, percentage: 32.3, color: '#1890ff' },
-          { assetType: '金融', value: 300000, percentage: 24.2, color: '#52c41a' },
-          { assetType: '医疗', value: 200000, percentage: 16.1, color: '#faad14' },
-          { assetType: '消费', value: 180000, percentage: 14.5, color: '#722ed1' },
-          { assetType: '其他', value: 160000, percentage: 12.9, color: '#eb2f96' }
-        ];
-      case 'currency':
-        return [
-          { assetType: 'USD', value: 700000, percentage: 56.5, color: '#1890ff' },
-          { assetType: 'CNY', value: 350000, percentage: 28.2, color: '#f5222d' },
-          { assetType: 'HKD', value: 150000, percentage: 12.1, color: '#52c41a' },
-          { assetType: 'EUR', value: 40000, percentage: 3.2, color: '#faad14' }
-        ];
-      default:
-        return [];
+  const calculateAllocations = (holdings: any[], type: AllocationBy): AssetAllocation[] => {
+    if (!holdings || holdings.length === 0) {
+      return [];
     }
+
+    const totalValue = holdings.reduce((sum, holding) => sum + holding.marketValue, 0);
+    const groupedData: Record<string, number> = {};
+
+    // 根据类型分组数据
+    holdings.forEach(holding => {
+      let key: string;
+      switch (type) {
+        case 'assetType':
+          key = holding.assetType || '未知类型';
+          break;
+        case 'currency':
+          key = holding.currency || 'CNY';
+          break;
+        case 'region':
+          // 根据资产符号判断地区（简化逻辑）
+          if (holding.assetSymbol?.includes('.SZ') || holding.assetSymbol?.includes('.SS')) {
+            key = '中国';
+          } else if (holding.assetSymbol?.includes('.HK')) {
+            key = '香港';
+          } else {
+            key = '美国';
+          }
+          break;
+        case 'sector':
+          // 这里需要从资产数据中获取行业信息，暂时使用默认值
+          key = '其他';
+          break;
+        default:
+          key = '其他';
+      }
+      
+      groupedData[key] = (groupedData[key] || 0) + holding.marketValue;
+    });
+
+    // 颜色配置
+    const colors = ['#1890ff', '#52c41a', '#faad14', '#722ed1', '#eb2f96', '#13c2c2', '#fa541c'];
+    
+    // 转换为配置数组
+    return Object.entries(groupedData)
+      .map(([key, value], index) => ({
+        assetType: key,
+        value,
+        percentage: totalValue > 0 ? (value / totalValue) * 100 : 0,
+        color: colors[index % colors.length]
+      }))
+      .sort((a, b) => b.value - a.value); // 按价值降序排列
   };
 
   const formatCurrency = (amount: number) => {

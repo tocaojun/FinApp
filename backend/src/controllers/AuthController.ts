@@ -60,6 +60,27 @@ export class AuthController {
   });
 
   /**
+   * 验证访问令牌
+   */
+  static validateToken = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const userId = (req as any).user?.id;
+
+    if (!userId) {
+      throw new AppError('User not authenticated', 401);
+    }
+
+    // 如果能到达这里，说明 token 是有效的（通过了 authenticateToken 中间件）
+    res.status(200).json({
+      success: true,
+      message: 'Token is valid',
+      data: {
+        valid: true,
+        userId: userId
+      }
+    });
+  });
+
+  /**
    * 用户登出
    */
   static logout = asyncHandler(async (req: Request, res: Response): Promise<void> => {
@@ -169,5 +190,47 @@ export class AuthController {
     });
 
     logger.info(`Account deleted for user: ${userId}`);
+  });
+
+  /**
+   * 清除权限缓存
+   */
+  static clearPermissionCache = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const userId = (req as any).user?.id;
+
+    if (!userId) {
+      throw new AppError('User not authenticated', 401);
+    }
+
+    try {
+      // 导入缓存服务
+      const { cacheService } = await import('../services/CacheService');
+      
+      // 清除用户的所有权限缓存
+      const cacheKeys = cacheService.keys();
+      const userPermissionKeys = cacheKeys.filter(key => key.startsWith(`user:${userId}:permission:`));
+      const userRoleKeys = cacheKeys.filter(key => key.startsWith(`user:${userId}:role:`));
+      
+      const allKeysToDelete = [...userPermissionKeys, ...userRoleKeys];
+      
+      if (allKeysToDelete.length > 0) {
+        cacheService.del(allKeysToDelete);
+        logger.info(`Cleared ${allKeysToDelete.length} cache entries for user ${userId}`);
+      }
+      
+      res.status(200).json({
+        success: true,
+        message: 'Permission cache cleared successfully',
+        data: {
+          userId,
+          clearedKeys: allKeysToDelete.length,
+          permissionKeys: userPermissionKeys.length,
+          roleKeys: userRoleKeys.length
+        }
+      });
+    } catch (error) {
+      logger.error('Clear permission cache error:', error);
+      throw new AppError('Failed to clear permission cache', 500);
+    }
   });
 }

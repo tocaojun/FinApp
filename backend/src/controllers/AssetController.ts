@@ -491,4 +491,158 @@ export class AssetController {
       });
     }
   };
+
+  // 资产类型管理
+  createAssetType = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const assetType = await this.assetService.createAssetType(req.body);
+      
+      res.status(201).json({
+        success: true,
+        data: assetType,
+        message: 'Asset type created successfully'
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to create asset type'
+      });
+    }
+  };
+
+  updateAssetType = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Asset type ID is required'
+        });
+        return;
+      }
+      
+      const assetType = await this.assetService.updateAssetType(id, req.body);
+      
+      res.json({
+        success: true,
+        data: assetType,
+        message: 'Asset type updated successfully'
+      });
+    } catch (error) {
+      const statusCode = error instanceof Error && error.message === 'Asset type not found' ? 404 : 400;
+      res.status(statusCode).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to update asset type'
+      });
+    }
+  };
+
+  deleteAssetType = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Asset type ID is required'
+        });
+        return;
+      }
+      
+      const success = await this.assetService.deleteAssetType(id);
+      
+      if (success) {
+        res.json({
+          success: true,
+          message: 'Asset type deleted successfully'
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          message: 'Asset type not found'
+        });
+      }
+    } catch (error) {
+      // 根据错误类型返回不同的状态码和错误信息
+      if (error instanceof Error) {
+        if (error.message.includes('not found')) {
+          res.status(404).json({
+            success: false,
+            message: error.message
+          });
+        } else if (error.message.includes('being used by')) {
+          res.status(409).json({
+            success: false,
+            message: error.message,
+            code: 'ASSET_TYPE_IN_USE'
+          });
+        } else {
+          res.status(400).json({
+            success: false,
+            message: error.message
+          });
+        }
+      } else {
+        res.status(500).json({
+          success: false,
+          message: 'Failed to delete asset type'
+        });
+      }
+    }
+  };
+
+  // 获取资产类型使用情况
+  getAssetTypeUsage = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Asset type ID is required'
+        });
+        return;
+      }
+      
+      const usage = await this.assetService.getAssetTypeUsage(id);
+      
+      res.json({
+        success: true,
+        message: 'Asset type usage retrieved successfully',
+        data: usage
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('not found')) {
+        res.status(404).json({
+          success: false,
+          message: error.message
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: error instanceof Error ? error.message : 'Failed to get asset type usage'
+        });
+      }
+    }
+  };
+
+  // 批量价格更新
+  bulkUpdatePrices = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const result = await this.assetService.bulkUpdatePrices(req.body);
+      
+      const statusCode = result.success ? 200 : 207; // 207 Multi-Status for partial success
+      
+      res.status(statusCode).json({
+        success: result.success,
+        data: result,
+        message: result.success 
+          ? 'Prices updated successfully' 
+          : 'Prices updated with some errors'
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to update prices'
+      });
+    }
+  };
 }

@@ -138,118 +138,20 @@ interface PaginatedResponse<T> {
   };
 }
 
-// 模拟数据
-const mockAssetTypes: AssetType[] = [
-  { id: '1', code: 'STOCK', name: '股票', category: 'EQUITY', description: '上市公司股票' },
-  { id: '2', code: 'BOND', name: '债券', category: 'FIXED_INCOME', description: '政府和企业债券' },
-  { id: '3', code: 'FUND', name: '基金', category: 'FUND', description: '投资基金' },
-  { id: '4', code: 'ETF', name: 'ETF', category: 'FUND', description: '交易所交易基金' },
-  { id: '5', code: 'CRYPTO', name: '加密货币', category: 'CRYPTO', description: '数字货币' },
-];
-
-const mockMarkets: Market[] = [
-  { id: '1', code: 'SSE', name: '上海证券交易所', country: 'CN', currency: 'CNY', timezone: 'Asia/Shanghai' },
-  { id: '2', code: 'SZSE', name: '深圳证券交易所', country: 'CN', currency: 'CNY', timezone: 'Asia/Shanghai' },
-  { id: '3', code: 'NYSE', name: '纽约证券交易所', country: 'US', currency: 'USD', timezone: 'America/New_York' },
-  { id: '4', code: 'NASDAQ', name: '纳斯达克', country: 'US', currency: 'USD', timezone: 'America/New_York' },
-  { id: '5', code: 'HKEX', name: '香港交易所', country: 'HK', currency: 'HKD', timezone: 'Asia/Hong_Kong' },
-];
-
-const mockAssets: Asset[] = [
-  {
-    id: '1',
-    symbol: 'AAPL',
-    name: '苹果公司',
-    assetTypeId: '1',
-    assetTypeName: '股票',
-    marketId: '3',
-    marketName: '纽约证券交易所',
-    currency: 'USD',
-    sector: '科技',
-    industry: '消费电子',
-    riskLevel: 'MEDIUM',
-    liquidityTag: 'HIGH',
-    isActive: true,
-    currentPrice: 175.43,
-    priceChange: 2.15,
-    priceChangePercent: 1.24,
-    volume: 45678900,
-    marketCap: 2750000000000,
-    createdAt: '2023-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  {
-    id: '2',
-    symbol: '000001',
-    name: '平安银行',
-    assetTypeId: '1',
-    assetTypeName: '股票',
-    marketId: '2',
-    marketName: '深圳证券交易所',
-    currency: 'CNY',
-    sector: '金融',
-    industry: '银行',
-    riskLevel: 'MEDIUM',
-    liquidityTag: 'HIGH',
-    isActive: true,
-    currentPrice: 12.45,
-    priceChange: -0.23,
-    priceChangePercent: -1.81,
-    volume: 12345678,
-    marketCap: 241000000000,
-    createdAt: '2023-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-];
-
-const mockStatistics: AssetStatistics = {
-  totalAssets: 1250,
-  activeAssets: 1180,
-  assetsByType: {
-    '股票': 850,
-    '基金': 200,
-    '债券': 150,
-    'ETF': 50,
-  },
-  assetsByMarket: {
-    '上海证券交易所': 400,
-    '深圳证券交易所': 350,
-    '纽约证券交易所': 200,
-    '纳斯达克': 150,
-    '香港交易所': 100,
-  },
-  assetsByCurrency: {
-    'CNY': 750,
-    'USD': 350,
-    'HKD': 100,
-    'EUR': 50,
-  },
-  assetsWithPrices: 1150,
-  latestPriceUpdates: 1120,
-};
+// 移除所有模拟数据，完全依赖后端API
 
 // 资产服务类
 export class AssetService {
   // 获取资产类型列表
   static async getAssetTypes(): Promise<AssetType[]> {
-    try {
-      const response = await apiGet<ApiResponse<AssetType[]>>('/assets/types');
-      return response.data;
-    } catch (error) {
-      console.warn('使用模拟数据 - 资产类型:', error);
-      return mockAssetTypes;
-    }
+    const response = await apiGet<ApiResponse<AssetType[]>>('/assets/types');
+    return response.data;
   }
 
   // 获取市场列表
   static async getMarkets(): Promise<Market[]> {
-    try {
-      const response = await apiGet<ApiResponse<Market[]>>('/assets/markets');
-      return response.data;
-    } catch (error) {
-      console.warn('使用模拟数据 - 市场列表:', error);
-      return mockMarkets;
-    }
+    const response = await apiGet<ApiResponse<Market[]>>('/assets/markets');
+    return response.data;
   }
 
   // 搜索资产
@@ -262,59 +164,19 @@ export class AssetService {
       totalPages: number;
     };
   }> {
-    try {
-      const queryParams = new URLSearchParams();
-      
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          queryParams.append(key, String(value));
-        }
-      });
+    const queryParams = new URLSearchParams();
+    
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, String(value));
+      }
+    });
 
-      const response = await apiGet<PaginatedResponse<Asset>>(`/assets?${queryParams}`);
-      return {
-        assets: response.data,
-        pagination: response.pagination,
-      };
-    } catch (error) {
-      console.warn('使用模拟数据 - 资产搜索:', error);
-      
-      // 模拟搜索逻辑
-      let filteredAssets = [...mockAssets];
-      
-      if (params.keyword) {
-        const keyword = params.keyword.toLowerCase();
-        filteredAssets = filteredAssets.filter(asset => 
-          asset.symbol.toLowerCase().includes(keyword) ||
-          asset.name.toLowerCase().includes(keyword)
-        );
-      }
-      
-      if (params.assetTypeId) {
-        filteredAssets = filteredAssets.filter(asset => asset.assetTypeId === params.assetTypeId);
-      }
-      
-      if (params.marketId) {
-        filteredAssets = filteredAssets.filter(asset => asset.marketId === params.marketId);
-      }
-      
-      const page = params.page || 1;
-      const limit = params.limit || 20;
-      const total = filteredAssets.length;
-      const totalPages = Math.ceil(total / limit);
-      const startIndex = (page - 1) * limit;
-      const endIndex = startIndex + limit;
-      
-      return {
-        assets: filteredAssets.slice(startIndex, endIndex),
-        pagination: {
-          total,
-          page,
-          limit,
-          totalPages,
-        },
-      };
-    }
+    const response = await apiGet<PaginatedResponse<Asset>>(`/assets?${queryParams}`);
+    return {
+      assets: response.data,
+      pagination: response.pagination,
+    };
   }
 
   // 获取资产详情
@@ -382,13 +244,8 @@ export class AssetService {
 
   // 获取资产统计信息
   static async getAssetStatistics(): Promise<AssetStatistics> {
-    try {
-      const response = await apiGet<ApiResponse<AssetStatistics>>('/assets/statistics');
-      return response.data;
-    } catch (error) {
-      console.warn('使用模拟数据 - 资产统计:', error);
-      return mockStatistics;
-    }
+    const response = await apiGet<ApiResponse<AssetStatistics>>('/assets/statistics');
+    return response.data;
   }
 
   // 搜索建议
@@ -447,5 +304,125 @@ export class AssetService {
     }
 
     return response.blob();
+  }
+
+  // 资产类型管理
+  static async createAssetType(data: {
+    code: string;
+    name: string;
+    category: string;
+    description?: string;
+  }): Promise<AssetType> {
+    const response = await apiPost<ApiResponse<AssetType>>('/assets/types', data);
+    return response.data;
+  }
+
+  static async updateAssetType(id: string, data: Partial<{
+    code: string;
+    name: string;
+    category: string;
+    description?: string;
+    isActive: boolean;
+  }>): Promise<AssetType> {
+    const response = await apiPut<ApiResponse<AssetType>>(`/assets/types/${id}`, data);
+    return response.data;
+  }
+
+  static async deleteAssetType(id: string): Promise<void> {
+    await apiDelete<ApiResponse<void>>(`/assets/types/${id}`);
+  }
+
+  // 获取资产类型使用情况
+  static async getAssetTypeUsage(id: string): Promise<{
+    count: number;
+    assets: Array<{
+      id: string;
+      name: string;
+      symbol: string;
+    }>;
+  }> {
+    const response = await apiGet<ApiResponse<{
+      count: number;
+      assets: Array<{
+        id: string;
+        name: string;
+        symbol: string;
+      }>;
+    }>>(`/assets/types/${id}/usage`);
+    return response.data;
+  }
+
+  // 批量价格更新
+  static async bulkUpdatePrices(data: {
+    updates: Array<{
+      assetId: string;
+      priceDate: string;
+      closePrice: number;
+      openPrice?: number;
+      highPrice?: number;
+      lowPrice?: number;
+      volume?: number;
+      adjustedPrice?: number;
+    }>;
+    source?: string;
+  }): Promise<{
+    success: boolean;
+    totalRecords: number;
+    successCount: number;
+    errorCount: number;
+    errors: Array<{
+      row: number;
+      assetId: string;
+      priceDate: string;
+      message: string;
+    }>;
+  }> {
+    const response = await apiPost<ApiResponse<any>>('/assets/prices/bulk-update', data);
+    return response.data;
+  }
+
+  // 批量导入资产
+  static async bulkImportAssets(data: {
+    assets: AssetCreateRequest[];
+    skipDuplicates?: boolean;
+    updateExisting?: boolean;
+  }): Promise<{
+    success: boolean;
+    totalRecords: number;
+    successCount: number;
+    errorCount: number;
+    skippedCount: number;
+    updatedCount: number;
+    errors: Array<{
+      row: number;
+      symbol: string;
+      message: string;
+    }>;
+  }> {
+    const response = await apiPost<ApiResponse<any>>('/assets/import', data);
+    return response.data;
+  }
+
+  // 批量导入价格
+  static async bulkImportPrices(data: {
+    prices: PriceCreateRequest[];
+    skipDuplicates?: boolean;
+    updateExisting?: boolean;
+  }): Promise<{
+    success: boolean;
+    totalRecords: number;
+    successCount: number;
+    errorCount: number;
+    skippedCount: number;
+    updatedCount: number;
+    errors: Array<{
+      row: number;
+      assetId: string;
+      priceDate: string;
+      message: string;
+    }>;
+  }> {
+    const response = await apiPost<ApiResponse<any>>('/assets/prices/import', data);
+    return response.data;
   }
 }

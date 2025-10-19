@@ -394,6 +394,87 @@ router.post('/accounts',
   portfolioController.createTradingAccount.bind(portfolioController)
 );
 
+/**
+ * @swagger
+ * /api/portfolios/{portfolioId}/accounts/{accountId}:
+ *   put:
+ *     summary: 更新交易账户
+ *     tags: [Trading Accounts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: portfolioId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: accountId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               broker:
+ *                 type: string
+ *               accountType:
+ *                 type: string
+ *                 enum: [BROKERAGE, BANK, CRYPTO, OTHER]
+ *               currency:
+ *                 type: string
+ *               balance:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: 交易账户更新成功
+ */
+router.put('/:portfolioId/accounts/:accountId',
+  [
+    param('portfolioId')
+      .notEmpty()
+      .withMessage('Portfolio ID is required'),
+    param('accountId')
+      .notEmpty()
+      .withMessage('Account ID is required'),
+    body('name')
+      .optional()
+      .isLength({ min: 1, max: 100 })
+      .withMessage('Account name must be between 1 and 100 characters'),
+    body('broker')
+      .optional()
+      .isLength({ min: 1, max: 100 })
+      .withMessage('Broker name must be between 1 and 100 characters'),
+    body('accountType')
+      .optional()
+      .isIn(['BROKERAGE', 'BANK', 'CRYPTO', 'OTHER'])
+      .withMessage('Invalid account type'),
+    body('currency')
+      .optional()
+      .isLength({ min: 3, max: 3 })
+      .withMessage('Currency code must be 3 characters'),
+    body('balance')
+      .optional()
+      .isNumeric()
+      .withMessage('Balance must be a number')
+      .custom((value) => {
+        if (value !== undefined && parseFloat(value) < 0) {
+          throw new Error('Balance cannot be negative');
+        }
+        return true;
+      })
+  ],
+  validateRequest,
+  requirePermission('accounts', 'update'),
+  portfolioController.updateTradingAccount.bind(portfolioController)
+);
+
 // 资产管理路由
 /**
  * @swagger

@@ -61,68 +61,34 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
   const loadHoldings = async () => {
     setLoading(true);
     try {
-      // 这里应该调用实际的API
-      // const data = await HoldingService.getHoldingsByPortfolio(portfolioId);
+      // 导入HoldingService
+      const { HoldingService } = await import('../../services/holdingService');
+      const data = await HoldingService.getHoldingsByPortfolio(portfolioId);
       
-      // 使用模拟数据
-      const mockHoldings: Holding[] = [
-        {
-          id: '1',
-          portfolioId,
-          assetId: 'AAPL',
-          assetSymbol: 'AAPL',
-          assetName: '苹果公司',
-          assetType: 'STOCK',
-          quantity: 100,
-          averagePrice: 150.00,
-          currentPrice: 175.50,
-          marketValue: 17550.00,
-          totalCost: 15000.00,
-          unrealizedPnL: 2550.00,
-          unrealizedPnLPercent: 17.00,
-          currency: 'USD',
-          lastUpdated: '2024-09-14T10:30:00Z'
-        },
-        {
-          id: '2',
-          portfolioId,
-          assetId: 'TSLA',
-          assetSymbol: 'TSLA',
-          assetName: '特斯拉',
-          assetType: 'STOCK',
-          quantity: 50,
-          averagePrice: 200.00,
-          currentPrice: 185.25,
-          marketValue: 9262.50,
-          totalCost: 10000.00,
-          unrealizedPnL: -737.50,
-          unrealizedPnLPercent: -7.38,
-          currency: 'USD',
-          lastUpdated: '2024-09-14T10:30:00Z'
-        },
-        {
-          id: '3',
-          portfolioId,
-          assetId: 'SPY',
-          assetSymbol: 'SPY',
-          assetName: 'SPDR S&P 500 ETF',
-          assetType: 'FUND',
-          quantity: 200,
-          averagePrice: 400.00,
-          currentPrice: 425.80,
-          marketValue: 85160.00,
-          totalCost: 80000.00,
-          unrealizedPnL: 5160.00,
-          unrealizedPnLPercent: 6.45,
-          currency: 'USD',
-          lastUpdated: '2024-09-14T10:30:00Z'
-        }
-      ];
+      // 转换数据格式以匹配组件需要的类型
+      const convertedHoldings: Holding[] = data.map(holding => ({
+        id: holding.id,
+        portfolioId: holding.portfolioId,
+        assetId: holding.assetId,
+        assetSymbol: holding.assetSymbol,
+        assetName: holding.assetName,
+        assetType: holding.assetType,
+        quantity: holding.quantity,
+        averagePrice: holding.averageCost,
+        currentPrice: holding.currentPrice,
+        marketValue: holding.marketValue,
+        totalCost: holding.totalCost,
+        unrealizedPnL: holding.unrealizedPnL,
+        unrealizedPnLPercent: holding.unrealizedPnLPercent,
+        currency: holding.currency,
+        lastUpdated: holding.updatedAt
+      }));
       
-      setHoldings(mockHoldings);
+      setHoldings(convertedHoldings);
     } catch (error) {
       console.error('加载持仓数据失败:', error);
       message.error('加载持仓数据失败');
+      setHoldings([]);
     } finally {
       setLoading(false);
     }

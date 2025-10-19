@@ -43,9 +43,46 @@ const IRRAnalysisChart: React.FC<IRRAnalysisChartProps> = ({
   showCashFlow = true,
   showComparison = true,
 }) => {
+  // 数据验证和默认值
+  if (!data || !data.dataPoints || data.dataPoints.length === 0) {
+    return (
+      <Card
+        title={
+          <Space align="center">
+            <FundOutlined />
+            <Title level={4} style={{ margin: 0 }}>
+              {title}
+            </Title>
+          </Space>
+        }
+        bodyStyle={{ padding: '16px' }}
+      >
+        <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
+          <Text>暂无IRR分析数据</Text>
+        </div>
+      </Card>
+    );
+  }
+
   // 计算分析指标
   const analysis = useMemo(() => {
-    const { totalInvestment, currentValue, totalReturn, irr, xirr, holdingPeriod, benchmarkIRR } = data;
+    if (!data) return {
+      annualizedReturn: 0,
+      outperformance: 0,
+      sharpeRatio: 0,
+      investmentEfficiency: 0,
+      volatility: 0,
+    };
+
+    const { 
+      totalInvestment = 0, 
+      currentValue = 0, 
+      totalReturn = 0, 
+      irr = 0, 
+      xirr = 0, 
+      holdingPeriod = 1, 
+      benchmarkIRR = 0 
+    } = data;
     
     // 年化收益率
     const annualizedReturn = Math.pow(currentValue / totalInvestment, 365 / holdingPeriod) - 1;
@@ -91,10 +128,19 @@ const IRRAnalysisChart: React.FC<IRRAnalysisChartProps> = ({
 
   // ECharts 配置
   const option: EChartsOption = useMemo(() => {
-    const dates = data.dataPoints.map(d => d.date);
-    const portfolioValues = data.dataPoints.map(d => d.portfolioValue);
-    const cumulativeCashFlows = data.dataPoints.map(d => d.cumulativeCashFlow);
-    const irrValues = data.dataPoints.map(d => d.irr * 100);
+    if (!data || !data.dataPoints || data.dataPoints.length === 0) {
+      return {
+        title: { text: title, left: 'center' },
+        xAxis: { type: 'category', data: [] },
+        yAxis: { type: 'value' },
+        series: [],
+      };
+    }
+
+    const dates = data.dataPoints.map(d => d.date || '');
+    const portfolioValues = data.dataPoints.map(d => d.portfolioValue || 0);
+    const cumulativeCashFlows = data.dataPoints.map(d => d.cumulativeCashFlow || 0);
+    const irrValues = data.dataPoints.map(d => (d.irr || 0) * 100);
 
     return {
       title: {
@@ -238,16 +284,20 @@ const IRRAnalysisChart: React.FC<IRRAnalysisChartProps> = ({
 
   // 现金流表格数据
   const cashFlowTableData = useMemo(() => {
+    if (!data || !data.dataPoints || data.dataPoints.length === 0) {
+      return [];
+    }
+    
     return data.dataPoints
-      .filter(point => point.cashFlow !== 0)
+      .filter(point => point && point.cashFlow !== 0)
       .map((point, index) => ({
         key: index,
-        date: point.date,
-        cashFlow: point.cashFlow,
-        type: point.cashFlow > 0 ? '流入' : '流出',
-        cumulativeCashFlow: point.cumulativeCashFlow,
+        date: point.date || '',
+        cashFlow: point.cashFlow || 0,
+        type: (point.cashFlow || 0) > 0 ? '流入' : '流出',
+        cumulativeCashFlow: point.cumulativeCashFlow || 0,
       }));
-  }, [data.dataPoints]);
+  }, [data?.dataPoints]);
 
   const cashFlowColumns = [
     {

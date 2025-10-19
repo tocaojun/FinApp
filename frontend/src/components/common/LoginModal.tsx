@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Form, Input, Button, message, Tabs } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
 import { AuthService, LoginRequest, RegisterRequest } from '../../services/authService';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface LoginModalProps {
   visible: boolean;
@@ -14,32 +15,19 @@ const LoginModal: React.FC<LoginModalProps> = ({ visible, onClose, onSuccess }) 
   const [activeTab, setActiveTab] = useState('login');
   const [loginForm] = Form.useForm();
   const [registerForm] = Form.useForm();
+  const { login } = useAuth();
 
   const handleLogin = async (values: LoginRequest) => {
     setLoading(true);
     try {
-      await AuthService.login(values);
-      message.success('登录成功');
-      loginForm.resetFields();
-      onSuccess();
-      onClose();
+      const success = await login(values);
+      if (success) {
+        loginForm.resetFields();
+        onSuccess();
+        onClose();
+      }
     } catch (error) {
       console.error('Login error:', error);
-      let errorMessage = '登录失败';
-      
-      if (error instanceof Error) {
-        if (error.message.includes('404')) {
-          errorMessage = '服务器连接失败，请检查后端服务是否启动';
-        } else if (error.message.includes('401')) {
-          errorMessage = '邮箱或密码错误';
-        } else if (error.message.includes('Backend service not available')) {
-          errorMessage = '后端服务不可用，请稍后重试';
-        } else {
-          errorMessage = error.message;
-        }
-      }
-      
-      message.error(errorMessage);
     } finally {
       setLoading(false);
     }

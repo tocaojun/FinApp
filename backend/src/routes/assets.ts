@@ -9,6 +9,10 @@ const assetController = new AssetController();
 router.get('/', assetController.searchAssets);
 router.post('/', requirePermission('asset', 'create'), assetController.createAsset);
 router.get('/types', assetController.getAssetTypes);
+router.post('/types', requirePermission('asset', 'create'), assetController.createAssetType);
+router.get('/types/:id/usage', requirePermission('asset', 'read'), assetController.getAssetTypeUsage);
+router.put('/types/:id', requirePermission('asset', 'update'), assetController.updateAssetType);
+router.delete('/types/:id', requirePermission('asset', 'delete'), assetController.deleteAssetType);
 router.get('/markets', assetController.getMarkets);
 router.get('/statistics', assetController.getAssetStatistics);
 router.get('/search', assetController.searchSuggestions);
@@ -24,6 +28,7 @@ router.get('/:id/prices', assetController.getAssetPrices);
 router.post('/:id/prices', requirePermission('price', 'create'), assetController.addPrice);
 router.get('/:id/prices/export', requirePermission('price', 'export'), assetController.exportPrices);
 router.post('/prices/import', requirePermission('price', 'import'), assetController.bulkImportPrices);
+router.post('/prices/bulk-update', requirePermission('price', 'update'), assetController.bulkUpdatePrices);
 
 router.put('/prices/:id', requirePermission('price', 'update'), assetController.updatePrice);
 router.delete('/prices/:id', requirePermission('price', 'delete'), assetController.deletePrice);

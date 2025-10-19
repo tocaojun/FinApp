@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ant-design/plots": "^2.6.5",
+    "@types/xlsx": "^0.0.35",
     "antd": "^5.12.8",
     "axios": "^1.6.2",
     "dayjs": "^1.11.18",
@@ -21,6 +23,7 @@
     "react-window": "^2.1.1",
     "react-window-infinite-loader": "^2.0.0",
     "recharts": "^3.2.1",
+    "xlsx": "^0.18.5",
     "zustand": "^4.4.7"
   },
   "devDependencies": {

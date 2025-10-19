@@ -27,6 +27,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { Account } from '../../types/portfolio';
+import { PortfolioService } from '../../services/portfolioService';
 
 const { Option } = Select;
 const { Text } = Typography;
@@ -52,56 +53,30 @@ const AccountsTab: React.FC<AccountsTabProps> = ({ portfolioId }) => {
   const loadAccounts = async () => {
     setLoading(true);
     try {
-      // 这里应该调用实际的API
-      // const data = await AccountService.getAccountsByPortfolio(portfolioId);
+      // 导入PortfolioService
+      const { PortfolioService } = await import('../../services/portfolioService');
+      const data = await PortfolioService.getTradingAccounts(portfolioId);
       
-      // 使用模拟数据
-      const mockAccounts: Account[] = [
-        {
-          id: '1',
-          portfolioId,
-          name: '富途证券账户',
-          type: 'BROKERAGE',
-          broker: '富途证券',
-          accountNumber: '****1234',
-          balance: 125000.50,
-          currency: 'USD',
-          isActive: true,
-          createdAt: '2024-01-01T00:00:00Z',
-          updatedAt: '2024-09-14T00:00:00Z'
-        },
-        {
-          id: '2',
-          portfolioId,
-          name: '招商银行储蓄',
-          type: 'SAVINGS',
-          broker: '招商银行',
-          accountNumber: '****5678',
-          balance: 50000.00,
-          currency: 'CNY',
-          isActive: true,
-          createdAt: '2024-02-01T00:00:00Z',
-          updatedAt: '2024-09-14T00:00:00Z'
-        },
-        {
-          id: '3',
-          portfolioId,
-          name: '401K退休账户',
-          type: 'RETIREMENT',
-          broker: 'Fidelity',
-          accountNumber: '****9012',
-          balance: 75000.00,
-          currency: 'USD',
-          isActive: true,
-          createdAt: '2024-03-01T00:00:00Z',
-          updatedAt: '2024-09-14T00:00:00Z'
-        }
-      ];
+      // 转换数据格式以匹配组件需要的类型
+      const convertedAccounts: Account[] = data.map(account => ({
+        id: account.id,
+        portfolioId: account.portfolioId,
+        name: account.name,
+        type: account.accountType,
+        broker: account.broker,
+        accountNumber: account.accountNumber,
+        balance: account.balance,
+        currency: account.currency,
+        isActive: true, // 假设所有账户都是活跃的
+        createdAt: account.createdAt,
+        updatedAt: account.updatedAt
+      }));
       
-      setAccounts(mockAccounts);
+      setAccounts(convertedAccounts);
     } catch (error) {
       console.error('加载账户数据失败:', error);
       message.error('加载账户数据失败');
+      setAccounts([]);
     } finally {
       setLoading(false);
     }
@@ -171,11 +146,21 @@ const AccountsTab: React.FC<AccountsTabProps> = ({ portfolioId }) => {
       
       if (editingAccount) {
         // 更新账户
-        const updatedAccount = { ...editingAccount, ...values };
-        setAccounts(prev => prev.map(a => a.id === editingAccount.id ? updatedAccount : a));
-        message.success('账户更新成功');
+        try {
+          const updatedAccount = await PortfolioService.updateTradingAccount(
+            portfolioId, 
+            editingAccount.id, 
+            values
+          );
+          setAccounts(prev => prev.map(a => a.id === editingAccount.id ? updatedAccount : a));
+          message.success('账户更新成功');
+        } catch (error) {
+          console.error('更新账户失败:', error);
+          message.error('更新账户失败，请重试');
+          return;
+        }
       } else {
-        // 创建新账户
+        // 创建新账户 - 这里需要实现创建API
         const newAccount: Account = {
           id: Date.now().toString(),
           portfolioId,
@@ -191,6 +176,7 @@ const AccountsTab: React.FC<AccountsTabProps> = ({ portfolioId }) => {
       form.resetFields();
     } catch (error) {
       console.error('保存账户失败:', error);
+      message.error('保存账户失败，请重试');
     }
   };
 

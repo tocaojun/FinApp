@@ -14,9 +14,7 @@ const createTransactionValidation = [
   body('tradingAccountId').isUUID().withMessage('Trading account ID must be a valid UUID'),
   body('assetId').isUUID().withMessage('Asset ID must be a valid UUID'),
   body('transactionType').isIn([
-    'STOCK_BUY', 'STOCK_SELL', 'FUND_SUBSCRIBE', 'FUND_REDEEM',
-    'BOND_BUY', 'BOND_SELL', 'OPTION_BUY', 'OPTION_SELL', 'OPTION_EXERCISE',
-    'DEPOSIT', 'WITHDRAWAL', 'DIVIDEND', 'INTEREST', 'FEE', 'TRANSFER_IN', 'TRANSFER_OUT'
+    'buy', 'sell', 'dividend', 'split', 'merger', 'spin_off', 'deposit', 'withdrawal'
   ]).withMessage('Invalid transaction type'),
   body('side').isIn(['BUY', 'SELL', 'DEPOSIT', 'WITHDRAWAL']).withMessage('Invalid transaction side'),
   body('quantity').isFloat({ min: 0.000001 }).withMessage('Quantity must be greater than 0'),
@@ -33,9 +31,7 @@ const createTransactionValidation = [
 const updateTransactionValidation = [
   param('id').isUUID().withMessage('Transaction ID must be a valid UUID'),
   body('transactionType').optional().isIn([
-    'STOCK_BUY', 'STOCK_SELL', 'FUND_SUBSCRIBE', 'FUND_REDEEM',
-    'BOND_BUY', 'BOND_SELL', 'OPTION_BUY', 'OPTION_SELL', 'OPTION_EXERCISE',
-    'DEPOSIT', 'WITHDRAWAL', 'DIVIDEND', 'INTEREST', 'FEE', 'TRANSFER_IN', 'TRANSFER_OUT'
+    'buy', 'sell', 'dividend', 'split', 'merger', 'spin_off', 'deposit', 'withdrawal'
   ]).withMessage('Invalid transaction type'),
   body('side').optional().isIn(['BUY', 'SELL', 'DEPOSIT', 'WITHDRAWAL']).withMessage('Invalid transaction side'),
   body('quantity').optional().isFloat({ min: 0.000001 }).withMessage('Quantity must be greater than 0'),
@@ -56,9 +52,7 @@ const batchImportValidation = [
   body('transactions.*.tradingAccountId').isUUID().withMessage('Trading account ID must be a valid UUID'),
   body('transactions.*.assetId').isUUID().withMessage('Asset ID must be a valid UUID'),
   body('transactions.*.transactionType').isIn([
-    'STOCK_BUY', 'STOCK_SELL', 'FUND_SUBSCRIBE', 'FUND_REDEEM',
-    'BOND_BUY', 'BOND_SELL', 'OPTION_BUY', 'OPTION_SELL', 'OPTION_EXERCISE',
-    'DEPOSIT', 'WITHDRAWAL', 'DIVIDEND', 'INTEREST', 'FEE', 'TRANSFER_IN', 'TRANSFER_OUT'
+    'buy', 'sell', 'dividend', 'split', 'merger', 'spin_off', 'deposit', 'withdrawal'
   ]).withMessage('Invalid transaction type'),
   body('transactions.*.side').isIn(['BUY', 'SELL', 'DEPOSIT', 'WITHDRAWAL']).withMessage('Invalid transaction side'),
   body('transactions.*.quantity').isFloat({ min: 0.000001 }).withMessage('Quantity must be greater than 0'),
@@ -83,7 +77,7 @@ const queryValidation = [
 // 获取交易记录列表
 router.get('/', 
   authenticateToken, 
-  requirePermission('transaction', 'read'),
+  requirePermission('transactions', 'read'),
   queryValidation,
   validateRequest,
   transactionController.getTransactions
@@ -92,7 +86,7 @@ router.get('/',
 // 创建交易记录
 router.post('/', 
   authenticateToken, 
-  requirePermission('transaction', 'write'),
+  requirePermission('transactions', 'create'),
   createTransactionValidation,
   validateRequest,
   transactionController.createTransaction
@@ -101,7 +95,7 @@ router.post('/',
 // 获取单个交易记录
 router.get('/:id', 
   authenticateToken, 
-  requirePermission('transaction', 'read'),
+  requirePermission('transactions', 'read'),
   param('id').isUUID().withMessage('Transaction ID must be a valid UUID'),
   validateRequest,
   transactionController.getTransactionById
@@ -110,7 +104,7 @@ router.get('/:id',
 // 更新交易记录
 router.put('/:id', 
   authenticateToken, 
-  requirePermission('transaction', 'write'),
+  requirePermission('transactions', 'update'),
   updateTransactionValidation,
   validateRequest,
   transactionController.updateTransaction
@@ -119,7 +113,7 @@ router.put('/:id',
 // 删除交易记录
 router.delete('/:id', 
   authenticateToken, 
-  requirePermission('transaction', 'write'),
+  requirePermission('transactions', 'delete'),
   param('id').isUUID().withMessage('Transaction ID must be a valid UUID'),
   validateRequest,
   transactionController.deleteTransaction
@@ -128,7 +122,7 @@ router.delete('/:id',
 // 批量导入交易记录
 router.post('/import', 
   authenticateToken, 
-  requirePermission('transaction', 'write'),
+  requirePermission('transactions', 'import'),
   batchImportValidation,
   validateRequest,
   transactionController.batchImportTransactions
@@ -137,7 +131,7 @@ router.post('/import',
 // 导出交易记录
 router.get('/export/data', 
   authenticateToken, 
-  requirePermission('transaction', 'read'),
+  requirePermission('transactions', 'read'),
   query('format').optional().isIn(['CSV', 'JSON', 'XLSX']).withMessage('Invalid export format'),
   queryValidation,
   validateRequest,
@@ -154,7 +148,7 @@ router.get('/import/template',
 // 获取交易汇总统计
 router.get('/summary/stats', 
   authenticateToken, 
-  requirePermission('transaction', 'read'),
+  requirePermission('transactions', 'read'),
   query('portfolioId').optional().isUUID().withMessage('Portfolio ID must be a valid UUID'),
   validateRequest,
   transactionController.getTransactionSummary

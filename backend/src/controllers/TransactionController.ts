@@ -150,6 +150,12 @@ export class TransactionController {
 
   // 删除交易记录
   deleteTransaction = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    console.log('=== DELETE TRANSACTION REQUEST RECEIVED ===');
+    console.log('User ID:', req.user?.id);
+    console.log('Transaction ID:', req.params.id);
+    console.log('Request method:', req.method);
+    console.log('Request URL:', req.url);
+    
     try {
       const userId = req.user!.id;
       const transactionId = req.params.id;

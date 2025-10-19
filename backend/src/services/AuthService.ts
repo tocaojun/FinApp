@@ -250,11 +250,11 @@ export class AuthService {
       const decoded = jwt.decode(accessToken) as any;
       
       if (decoded && decoded.userId) {
-        // 删除用户会话记录
+        // 删除用户会话记录 - 由于token已经哈希，我们删除该用户的所有会话
         await databaseService.prisma.userSession.deleteMany({
           where: {
             userId: decoded.userId,
-            sessionToken: accessToken,
+            isActive: true,
           },
         });
 
@@ -409,16 +409,20 @@ export class AuthService {
       const decoded = jwt.decode(token) as any;
       const expiresAt = new Date(decoded.exp * 1000);
 
+      // 对token进行哈希处理以提高安全性
+      const tokenHash = await bcrypt.hash(token, 10);
+
       await databaseService.prisma.userSession.create({
         data: {
           userId,
-          sessionToken: token,
+          tokenHash,
           expiresAt,
           isActive: true,
         },
       });
     } catch (error) {
       logger.error('Failed to record user session:', error);
+      // 不抛出错误，因为会话记录失败不应该影响登录
     }
   }
 

@@ -19,10 +19,12 @@ router.post('/login', AuthController.login);
 router.post('/refresh', AuthController.refreshToken);
 
 // 受保护路由 - 需要认证
+router.get('/validate', authenticateToken, AuthController.validateToken);
 router.post('/logout', authenticateToken, AuthController.logout);
 router.get('/profile', authenticateToken, AuthController.getProfile);
 router.put('/profile', authenticateToken, AuthController.updateProfile);
 router.put('/change-password', authenticateToken, AuthController.changePassword);
 router.delete('/account', authenticateToken, AuthController.deleteAccount);
+router.post('/clear-cache', authenticateToken, AuthController.clearPermissionCache);
 
 export default router;

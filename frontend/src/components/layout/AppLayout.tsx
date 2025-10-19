@@ -16,7 +16,10 @@ import {
   TeamOutlined,
   KeyOutlined,
   FileTextOutlined,
-  ControlOutlined
+  ControlOutlined,
+  TagOutlined,
+  ShopOutlined,
+  DollarOutlined
 } from '@ant-design/icons';
 
 import Breadcrumb from './Breadcrumb';
@@ -30,7 +33,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../contexts/AuthContext';
 import { Permission } from '../../types/auth';
 
-const { Header, Content, Footer } = Layout;
+const { Content } = Layout;
 const { Title } = Typography;
 
 interface AppLayoutProps {
@@ -128,11 +131,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         icon: <WalletOutlined />,
         label: '交易记录'
       },
-      {
-        key: '/assets',
-        icon: <DatabaseOutlined />,
-        label: '资产管理'
-      },
+
       {
         key: '/reports',
         icon: <BarChartOutlined />,
@@ -145,12 +144,16 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       }
     ];
 
-    // 管理功能菜单项（仅管理员可见）
-    const adminItems = [];
+    // 管理功能菜单项
+    const adminItems: any[] = [];
     
-    if (hasPermission(Permission.MANAGE_USERS) || 
+    // 检查是否需要显示系统管理菜单
+    const hasAnyAdminPermission = hasPermission(Permission.MANAGE_USERS) || 
         hasPermission(Permission.MANAGE_PERMISSIONS) || 
-        hasPermission(Permission.VIEW_SYSTEM_LOGS)) {
+        hasPermission(Permission.VIEW_SYSTEM_LOGS) ||
+        isAuthenticated; // 登录用户都可以访问标签管理等基础功能
+
+    if (hasAnyAdminPermission) {
       adminItems.push({
         key: 'admin',
         icon: <SafetyOutlined />,
@@ -159,7 +162,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         children: []
       });
 
-      const adminChildren = [];
+      const adminChildren: any[] = [];
       
       if (hasPermission(Permission.MANAGE_USERS)) {
         adminChildren.push({
@@ -190,6 +193,30 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         });
       }
 
+      // 所有登录用户都可以访问的管理功能
+      if (isAuthenticated) {
+        // 添加标签管理
+        adminChildren.push({
+          key: '/admin/tags',
+          icon: <TagOutlined />,
+          label: '标签管理'
+        });
+
+        // 添加产品管理
+        adminChildren.push({
+          key: '/admin/products',
+          icon: <ShopOutlined />,
+          label: '产品管理'
+        });
+
+        // 添加汇率管理
+        adminChildren.push({
+          key: '/admin/exchange-rates',
+          icon: <DollarOutlined />,
+          label: '汇率管理'
+        });
+      }
+
       adminItems[0].children = adminChildren;
     }
 
@@ -216,6 +243,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     if (path.startsWith('/admin/roles')) return '角色管理';
     if (path.startsWith('/admin/permissions')) return '权限矩阵';
     if (path.startsWith('/admin/logs')) return '系统日志';
+    if (path.startsWith('/admin/tags')) return '标签管理';
+    if (path.startsWith('/admin/products')) return '产品管理';
+    if (path.startsWith('/admin/exchange-rates')) return '汇率管理';
     if (path.startsWith('/auth/login')) return '用户登录';
     
     // 查找菜单项中的标题
@@ -243,7 +273,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     if (path.startsWith('/portfolio')) return ['/portfolios'];
     if (path.startsWith('/dashboard')) return ['/dashboard'];
     if (path.startsWith('/transactions')) return ['/transactions'];
-    if (path.startsWith('/assets')) return ['/assets'];
+
     if (path.startsWith('/reports')) return ['/reports'];
     if (path.startsWith('/analytics')) return ['/analytics'];
     if (path.startsWith('/settings')) return ['/settings'];
@@ -253,6 +283,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     if (path.startsWith('/admin/roles')) return ['/admin/roles'];
     if (path.startsWith('/admin/permissions')) return ['/admin/permissions'];
     if (path.startsWith('/admin/logs')) return ['/admin/logs'];
+    if (path.startsWith('/admin/tags')) return ['/admin/tags'];
+    if (path.startsWith('/admin/products')) return ['/admin/products'];
+    if (path.startsWith('/admin/exchange-rates')) return ['/admin/exchange-rates'];
     
     return ['/'];
   };
@@ -333,7 +366,15 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
               {/* 用户信息 */}
               {isAuthenticated && user ? (
                 <Dropdown 
-                  menu={{ items: userMenuItems }} 
+                  menu={{ 
+                    items: userMenuItems,
+                    onClick: ({ key }) => {
+                      const item = userMenuItems.find(item => item.key === key);
+                      if (item && item.onClick) {
+                        item.onClick();
+                      }
+                    }
+                  }} 
                   placement="bottomRight"
                   trigger={['click']}
                 >

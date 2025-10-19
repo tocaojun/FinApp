@@ -17,7 +17,8 @@ import {
   Col,
   Statistic,
   Drawer,
-  Typography
+  Typography,
+  Tooltip
 } from 'antd';
 import {
   PlusOutlined,
@@ -33,6 +34,13 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import { TransactionService } from '../services/transactionService';
+import { PortfolioService } from '../services/portfolioService';
+import { Portfolio } from '../types/portfolio';
+import { AssetService, Asset } from '../services/assetService';
+import { TagService, Tag as TagType } from '../services/tagService';
+import { TradingAccountService, TradingAccount } from '../services/tradingAccountService';
+import CategoryTagSelector from '../components/common/CategoryTagSelector';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -61,6 +69,7 @@ interface Transaction {
 
 interface TransactionFormData {
   portfolioId: string;
+  tradingAccountId: string;
   assetId: string;
   transactionType: string;
   side: string;
@@ -85,7 +94,15 @@ interface TransactionStats {
 
 const TransactionManagement: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [tags, setTags] = useState<TagType[]>([]);
+  const [tradingAccounts, setTradingAccounts] = useState<TradingAccount[]>([]);
   const [loading, setLoading] = useState(false);
+  const [portfoliosLoading, setPortfoliosLoading] = useState(false);
+  const [assetsLoading, setAssetsLoading] = useState(false);
+  const [tagsLoading, setTagsLoading] = useState(false);
+  const [tradingAccountsLoading, setTradingAccountsLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [filterDrawerVisible, setFilterDrawerVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -107,134 +124,139 @@ const TransactionManagement: React.FC = () => {
     avgTransactionSize: 0
   });
 
-  // 模拟数据
-  const mockTransactions: Transaction[] = [
-    {
-      id: '1',
-      portfolioId: 'p1',
-      portfolioName: '核心投资组合',
-      assetId: 'a1',
-      assetName: '苹果公司',
-      assetSymbol: 'AAPL',
-      transactionType: 'BUY',
-      side: 'LONG',
-      quantity: 100,
-      price: 150.25,
-      amount: 15025,
-      fee: 5.0,
-      executedAt: '2024-09-15 10:30:00',
-      status: 'EXECUTED',
-      notes: '看好苹果长期发展',
-      tags: ['科技股', '长期持有'],
-      createdAt: '2024-09-15 10:25:00',
-      updatedAt: '2024-09-15 10:30:00'
-    },
-    {
-      id: '2',
-      portfolioId: 'p1',
-      portfolioName: '核心投资组合',
-      assetId: 'a2',
-      assetName: '微软公司',
-      assetSymbol: 'MSFT',
-      transactionType: 'BUY',
-      side: 'LONG',
-      quantity: 50,
-      price: 280.50,
-      amount: 14025,
-      fee: 4.5,
-      executedAt: '2024-09-14 14:20:00',
-      status: 'EXECUTED',
-      notes: 'AI概念股',
-      tags: ['科技股', 'AI'],
-      createdAt: '2024-09-14 14:15:00',
-      updatedAt: '2024-09-14 14:20:00'
-    },
-    {
-      id: '3',
-      portfolioId: 'p2',
-      portfolioName: '稳健增长组合',
-      assetId: 'a3',
-      assetName: '中国平安',
-      assetSymbol: '601318',
-      transactionType: 'SELL',
-      side: 'LONG',
-      quantity: 200,
-      price: 45.80,
-      amount: 9160,
-      fee: 3.2,
-      executedAt: '2024-09-13 11:45:00',
-      status: 'EXECUTED',
-      notes: '获利了结',
-      tags: ['保险股', '获利了结'],
-      createdAt: '2024-09-13 11:40:00',
-      updatedAt: '2024-09-13 11:45:00'
-    },
-    {
-      id: '4',
-      portfolioId: 'p1',
-      portfolioName: '核心投资组合',
-      assetId: 'cash',
-      assetName: '现金存入',
-      assetSymbol: 'CASH',
-      transactionType: 'DEPOSIT',
-      side: 'LONG',
-      quantity: 1,
-      price: 50000,
-      amount: 50000,
-      fee: 0,
-      executedAt: '2024-09-12 09:00:00',
-      status: 'EXECUTED',
-      notes: '资金注入',
-      tags: ['资金管理'],
-      createdAt: '2024-09-12 09:00:00',
-      updatedAt: '2024-09-12 09:00:00'
-    },
-    {
-      id: '5',
-      portfolioId: 'p1',
-      portfolioName: '核心投资组合',
-      assetId: 'a1',
-      assetName: '苹果公司',
-      assetSymbol: 'AAPL',
-      transactionType: 'DIVIDEND',
-      side: 'LONG',
-      quantity: 100,
-      price: 0.24,
-      amount: 24,
-      fee: 0,
-      executedAt: '2024-09-10 16:00:00',
-      status: 'EXECUTED',
-      notes: '季度分红',
-      tags: ['分红收入'],
-      createdAt: '2024-09-10 16:00:00',
-      updatedAt: '2024-09-10 16:00:00'
-    },
-    {
-      id: '6',
-      portfolioId: 'p2',
-      portfolioName: '稳健增长组合',
-      assetId: 'a4',
-      assetName: '腾讯控股',
-      assetSymbol: '00700',
-      transactionType: 'BUY',
-      side: 'LONG',
-      quantity: 30,
-      price: 320.50,
-      amount: 9615,
-      fee: 8.5,
-      executedAt: '2024-09-18 15:30:00',
-      status: 'PENDING',
-      notes: '港股投资',
-      tags: ['港股', '科技股'],
-      createdAt: '2024-09-18 15:25:00',
-      updatedAt: '2024-09-18 15:25:00'
+  // 获取交易数据
+  const fetchTransactions = async () => {
+    try {
+      setLoading(true);
+      
+      // 直接获取投资组合数据（避免依赖状态）
+      const portfolioData = await PortfolioService.getPortfolios();
+      setPortfolios(portfolioData);
+      
+      // 创建投资组合ID到名称的映射
+      const portfolioMap = new Map<string, string>();
+      portfolioData.forEach(p => portfolioMap.set(p.id, p.name));
+      
+      // 获取交易数据
+      const response = await TransactionService.getTransactions();
+      const transactionData = response.data?.transactions || [];
+      
+      const formattedTransactions: Transaction[] = transactionData.map((tx: any) => {
+        // 优先使用后端返回的投资组合名称
+        const portfolioName = tx.portfolio?.name || portfolioMap.get(tx.portfolioId) || '未知投资组合';
+        
+        return {
+          id: tx.id,
+          portfolioId: tx.portfolioId || '',
+          portfolioName,
+          assetId: tx.assetId,
+          assetName: tx.asset?.name || tx.assetName || '未知资产',
+          assetSymbol: tx.asset?.symbol || tx.assetSymbol || '',
+          transactionType: tx.transactionType?.toUpperCase() || tx.type?.toUpperCase() || 'BUY',
+          side: 'LONG',
+          quantity: Number(tx.quantity || 0),
+          price: Number(tx.price || 0),
+          amount: Number(tx.totalAmount || tx.amount || 0),
+          fee: Number(tx.fees || tx.fee || 0),
+          executedAt: tx.transactionDate || tx.executedAt || tx.createdAt,
+          status: 'EXECUTED',
+          notes: tx.notes || '',
+          tags: [],
+          createdAt: tx.createdAt,
+          updatedAt: tx.updatedAt
+        };
+      });
+      
+      setTransactions(formattedTransactions);
+      calculateStatistics(formattedTransactions);
+    } catch (error) {
+      console.error('获取交易数据失败:', error);
+      message.error('获取交易数据失败');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  // 获取投资组合数据
+  const fetchPortfolios = async () => {
+    try {
+      setPortfoliosLoading(true);
+      const portfolioData = await PortfolioService.getPortfolios();
+      setPortfolios(portfolioData);
+    } catch (error) {
+      console.error('获取投资组合数据失败:', error);
+      message.error('获取投资组合数据失败');
+    } finally {
+      setPortfoliosLoading(false);
+    }
+  };
+
+  // 获取资产/产品数据
+  const fetchAssets = async () => {
+    try {
+      setAssetsLoading(true);
+      const response = await AssetService.searchAssets({ limit: 1000 });
+      setAssets(response.assets);
+    } catch (error) {
+      console.error('获取产品数据失败:', error);
+      message.error('获取产品数据失败');
+    } finally {
+      setAssetsLoading(false);
+    }
+  };
+
+  // 获取标签数据
+  const fetchTags = async () => {
+    try {
+      setTagsLoading(true);
+      const response = await TagService.getAllTags();
+      // 确保 response 是数组
+      if (Array.isArray(response)) {
+        setTags(response);
+      } else {
+        console.warn('标签数据格式不正确:', response);
+        setTags([]);
+      }
+    } catch (error) {
+      console.error('获取标签数据失败:', error);
+      message.error('获取标签数据失败');
+      setTags([]); // 设置为空数组避免 map 错误
+    } finally {
+      setTagsLoading(false);
+    }
+  };
+
+  // 获取交易账户数据
+  const fetchTradingAccounts = async (portfolioId?: string) => {
+    try {
+      setTradingAccountsLoading(true);
+      let accountData: TradingAccount[] = [];
+      
+      if (portfolioId) {
+        // 获取指定投资组合的交易账户
+        accountData = await TradingAccountService.getTradingAccounts(portfolioId);
+      } else {
+        // 获取所有交易账户
+        accountData = await TradingAccountService.getAllTradingAccounts();
+      }
+      
+      setTradingAccounts(accountData);
+    } catch (error) {
+      console.error('获取交易账户数据失败:', error);
+      message.error('获取交易账户数据失败');
+      setTradingAccounts([]);
+    } finally {
+      setTradingAccountsLoading(false);
+    }
+  };
 
   // 初始化数据
   useEffect(() => {
-    setTransactions(mockTransactions);
-    calculateStatistics(mockTransactions);
+    fetchTransactions();
+    fetchPortfolios();
+    fetchAssets();
+    fetchTags();
+    fetchTradingAccounts(); // 获取所有交易账户
   }, []);
 
   // 计算统计数据
@@ -273,14 +295,14 @@ const TransactionManagement: React.FC = () => {
       dataIndex: 'portfolioName',
       key: 'portfolioName',
       width: 120,
-      filters: [
-        { text: '核心投资组合', value: '核心投资组合' },
-        { text: '稳健增长组合', value: '稳健增长组合' },
-      ],
+      filters: portfolios.map(portfolio => ({
+        text: portfolio.name,
+        value: portfolio.name,
+      })),
       onFilter: (value, record) => record.portfolioName === value,
     },
     {
-      title: '资产',
+      title: '产品',
       key: 'asset',
       width: 150,
       render: (_, record) => (
@@ -326,24 +348,39 @@ const TransactionManagement: React.FC = () => {
       render: (value) => value.toLocaleString(),
     },
     {
-      title: '价格',
-      dataIndex: 'price',
+      title: '单价 (每份净值)',
       key: 'price',
       width: 100,
       align: 'right',
-      render: (value) => `¥${value.toFixed(2)}`,
+      render: (_, record) => `¥${record.price.toFixed(4)}`,
     },
     {
-      title: '金额',
+      title: '金额 (数量×单价)',
       dataIndex: 'amount',
       key: 'amount',
       width: 120,
       align: 'right',
-      render: (value, record) => (
-        <Text type={['SELL', 'WITHDRAWAL'].includes(record.transactionType) ? 'success' : undefined}>
-          {['SELL', 'WITHDRAWAL'].includes(record.transactionType) ? '+' : '-'}¥{value.toLocaleString()}
-        </Text>
-      ),
+      render: (amount, record) => {
+        // 修正资金流向逻辑：
+        // 资金流入（绿色+）：卖出、取出、分红、利息
+        // 资金流出（红色-）：买入、存入
+        const isInflow = ['SELL', 'WITHDRAWAL', 'DIVIDEND', 'INTEREST'].includes(record.transactionType);
+        const color = isInflow ? '#52c41a' : '#f5222d'; // 流入绿色，流出红色
+        const sign = isInflow ? '+' : '-';
+        
+        // 确保金额始终显示为正数
+        const displayAmount = Math.abs(amount);
+        
+        return (
+          <Tooltip 
+            title={`${isInflow ? '资金流入' : '资金流出'} (${record.transactionType})`}
+          >
+            <Text style={{ color }}>
+              {sign}¥{displayAmount.toFixed(2)}
+            </Text>
+          </Tooltip>
+        );
+      },
       sorter: (a, b) => a.amount - b.amount,
     },
     {
@@ -352,7 +389,11 @@ const TransactionManagement: React.FC = () => {
       key: 'fee',
       width: 80,
       align: 'right',
-      render: (value) => `¥${value.toFixed(2)}`,
+      render: (value) => (
+        <Text style={{ color: '#f5222d' }}>
+          -¥{Math.abs(value).toFixed(2)}
+        </Text>
+      ),
     },
     {
       title: '状态',
@@ -447,13 +488,16 @@ const TransactionManagement: React.FC = () => {
   const handleDelete = async (id: string) => {
     setLoading(true);
     try {
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // 调用真正的API删除交易
+      await TransactionService.deleteTransaction(id);
+      
+      // 删除成功后，从本地状态中移除该交易
       const newTransactions = transactions.filter(t => t.id !== id);
       setTransactions(newTransactions);
       calculateStatistics(newTransactions);
       message.success('删除成功');
     } catch (error) {
+      console.error('删除交易失败:', error);
       message.error('删除失败');
     } finally {
       setLoading(false);
@@ -463,47 +507,47 @@ const TransactionManagement: React.FC = () => {
   const handleSubmit = async (values: TransactionFormData) => {
     setLoading(true);
     try {
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const newTransaction: Transaction = {
-        id: editingTransaction?.id || Date.now().toString(),
+      // 准备交易数据，匹配后端API格式
+      const transactionData = {
         portfolioId: values.portfolioId,
+        tradingAccountId: values.tradingAccountId, // 使用表单选择的交易账户ID
         assetId: values.assetId,
-        transactionType: values.transactionType as Transaction['transactionType'],
-        side: values.side as Transaction['side'],
+        transactionType: values.transactionType, // 已经是正确格式
+        type: values.transactionType, // 添加 type 字段
+        side: values.transactionType === 'buy' ? 'BUY' : 
+              values.transactionType === 'sell' ? 'SELL' :
+              values.transactionType === 'deposit' ? 'DEPOSIT' :
+              values.transactionType === 'withdrawal' ? 'WITHDRAWAL' : 'BUY',
         quantity: values.quantity,
         price: values.price,
-        fee: values.fee || 0,
+        totalAmount: values.price * values.quantity, // 添加 totalAmount 字段
+        fee: values.fee || 0, // 添加 fee 字段
+        fees: values.fee || 0,
+        currency: 'CNY', // 默认货币
+        executedAt: values.executedAt.toISOString(), // 使用ISO格式
+        settledAt: values.executedAt.toISOString(), // 使用相同的时间
+        notes: values.notes || '',
         tags: values.tags || [],
-        notes: values.notes,
-        amount: values.quantity * values.price,
-        executedAt: values.executedAt.format('YYYY-MM-DD HH:mm:ss'),
-        status: 'EXECUTED',
-        portfolioName: '核心投资组合', // 模拟数据
-        assetName: 'Apple Inc.', // 模拟数据
-        assetSymbol: 'AAPL', // 模拟数据
-        createdAt: editingTransaction?.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+        liquidityTag: 'MEDIUM' // 默认流动性标签
+      } as any; // 临时使用 any 类型避免类型错误
 
-      let newTransactions;
       if (editingTransaction) {
-        newTransactions = transactions.map(t => 
-          t.id === editingTransaction.id ? newTransaction : t
-        );
+        // 更新交易记录
+        await TransactionService.updateTransaction(editingTransaction.id, transactionData);
         message.success('交易记录更新成功');
       } else {
-        newTransactions = [newTransaction, ...transactions];
+        // 创建新交易记录
+        await TransactionService.createTransaction(transactionData);
         message.success('交易记录添加成功');
       }
 
-      setTransactions(newTransactions);
-      calculateStatistics(newTransactions);
+      // 重新获取交易数据以确保数据同步
+      await fetchTransactions();
       setModalVisible(false);
       form.resetFields();
     } catch (error) {
-      message.error('操作失败');
+      console.error('交易操作失败:', error);
+      message.error('操作失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -618,7 +662,7 @@ const TransactionManagement: React.FC = () => {
           <Col>
             <Space>
               <Input.Search
-                placeholder="搜索资产名称或代码"
+                placeholder="搜索产品名称或代码"
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 style={{ width: 250 }}
@@ -725,30 +769,67 @@ const TransactionManagement: React.FC = () => {
           onFinish={handleSubmit}
         >
           <Row gutter={16}>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item
                 label="投资组合"
                 name="portfolioId"
                 rules={[{ required: true, message: '请选择投资组合' }]}
               >
-                <Select placeholder="选择投资组合">
-                  <Option value="p1">核心投资组合</Option>
-                  <Option value="p2">稳健增长组合</Option>
-                  <Option value="p3">高风险投资组合</Option>
+                <Select 
+                  placeholder="选择投资组合" 
+                  loading={portfoliosLoading}
+                  onChange={(portfolioId) => {
+                    // 当选择投资组合时，清空交易账户选择并重新加载
+                    form.setFieldsValue({ tradingAccountId: undefined });
+                    fetchTradingAccounts(portfolioId);
+                  }}
+                >
+                  {portfolios.map(portfolio => (
+                    <Option key={portfolio.id} value={portfolio.id}>
+                      {portfolio.name}
+                    </Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item
-                label="资产"
-                name="assetId"
-                rules={[{ required: true, message: '请选择资产' }]}
+                label="交易账户"
+                name="tradingAccountId"
+                rules={[{ required: true, message: '请选择交易账户' }]}
               >
-                <Select placeholder="选择资产" showSearch>
-                  <Option value="a1">AAPL - 苹果公司</Option>
-                  <Option value="a2">MSFT - 微软公司</Option>
-                  <Option value="a3">601318 - 中国平安</Option>
-                  <Option value="a4">00700 - 腾讯控股</Option>
+                <Select 
+                  placeholder="选择交易账户" 
+                  loading={tradingAccountsLoading}
+                  disabled={!form.getFieldValue('portfolioId')}
+                >
+                  {tradingAccounts.map(account => (
+                    <Option key={account.id} value={account.id}>
+                      {account.name} ({account.accountType})
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                label="产品"
+                name="assetId"
+                rules={[{ required: true, message: '请选择产品' }]}
+              >
+                <Select 
+                  placeholder="选择产品" 
+                  showSearch
+                  loading={assetsLoading}
+                  filterOption={(input, option) =>
+                    option?.children?.toString().toLowerCase().includes(input.toLowerCase()) || false
+                  }
+                >
+                  {assets.map(asset => (
+                    <Option key={asset.id} value={asset.id}>
+                      {asset.symbol} - {asset.name}
+                    </Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>
@@ -762,25 +843,26 @@ const TransactionManagement: React.FC = () => {
                 rules={[{ required: true, message: '请选择交易类型' }]}
               >
                 <Select placeholder="选择交易类型">
-                  <Option value="BUY">买入</Option>
-                  <Option value="SELL">卖出</Option>
-                  <Option value="DEPOSIT">存入</Option>
-                  <Option value="WITHDRAWAL">取出</Option>
-                  <Option value="DIVIDEND">分红</Option>
-                  <Option value="INTEREST">利息</Option>
+                  <Option value="buy">买入</Option>
+                  <Option value="sell">卖出</Option>
+                  <Option value="deposit">存入</Option>
+                  <Option value="withdrawal">取出</Option>
+                  <Option value="dividend">分红</Option>
+                  <Option value="split">拆股</Option>
+                  <Option value="merger">合并</Option>
+                  <Option value="spin_off">分拆</Option>
                 </Select>
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item
-                label="方向"
-                name="side"
-                rules={[{ required: true, message: '请选择交易方向' }]}
+                label="备注信息"
+                name="notes"
               >
-                <Select placeholder="选择交易方向">
-                  <Option value="LONG">做多</Option>
-                  <Option value="SHORT">做空</Option>
-                </Select>
+                <Input
+                  placeholder="交易备注（可选）"
+                  style={{ width: '100%' }}
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -801,15 +883,15 @@ const TransactionManagement: React.FC = () => {
             </Col>
             <Col span={8}>
               <Form.Item
-                label="价格"
+                label="单价"
                 name="price"
-                rules={[{ required: true, message: '请输入价格' }]}
+                rules={[{ required: true, message: '请输入单价' }]}
               >
                 <InputNumber
-                  placeholder="价格"
+                  placeholder="单价"
                   style={{ width: '100%' }}
                   min={0}
-                  precision={2}
+                  precision={5}
                 />
               </Form.Item>
             </Col>
@@ -844,28 +926,15 @@ const TransactionManagement: React.FC = () => {
             label="标签"
             name="tags"
           >
-            <Select
-              mode="tags"
-              placeholder="添加标签"
+            <CategoryTagSelector
+              tags={tags}
+              placeholder="选择标签（同分类单选，不同分类可多选）"
+              loading={tagsLoading}
               style={{ width: '100%' }}
-            >
-              <Option value="科技股">科技股</Option>
-              <Option value="长期持有">长期持有</Option>
-              <Option value="短期交易">短期交易</Option>
-              <Option value="获利了结">获利了结</Option>
-              <Option value="止损">止损</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            label="备注"
-            name="notes"
-          >
-            <Input.TextArea
-              placeholder="交易备注"
-              rows={3}
             />
           </Form.Item>
+
+
 
           <Form.Item>
             <Space>
@@ -894,10 +963,12 @@ const TransactionManagement: React.FC = () => {
           onFinish={handleFilter}
         >
           <Form.Item label="投资组合" name="portfolioIds">
-            <Select mode="multiple" placeholder="选择投资组合">
-              <Option value="p1">核心投资组合</Option>
-              <Option value="p2">稳健增长组合</Option>
-              <Option value="p3">高风险投资组合</Option>
+            <Select mode="multiple" placeholder="选择投资组合" loading={portfoliosLoading}>
+              {portfolios.map(portfolio => (
+                <Option key={portfolio.id} value={portfolio.id}>
+                  {portfolio.name}
+                </Option>
+              ))}
             </Select>
           </Form.Item>
 
@@ -933,13 +1004,12 @@ const TransactionManagement: React.FC = () => {
           </Form.Item>
 
           <Form.Item label="标签" name="tags">
-            <Select mode="multiple" placeholder="选择标签">
-              <Option value="科技股">科技股</Option>
-              <Option value="长期持有">长期持有</Option>
-              <Option value="短期交易">短期交易</Option>
-              <Option value="获利了结">获利了结</Option>
-              <Option value="止损">止损</Option>
-            </Select>
+            <CategoryTagSelector
+              tags={tags}
+              placeholder="选择标签进行筛选（可多选）"
+              loading={tagsLoading}
+              style={{ width: '100%' }}
+            />
           </Form.Item>
 
           <Form.Item>

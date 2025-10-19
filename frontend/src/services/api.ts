@@ -3,7 +3,7 @@ const API_BASE_URL = '/api';
 
 // 获取认证令牌
 const getAuthToken = (): string | null => {
-  return localStorage.getItem('accessToken');
+  return localStorage.getItem('auth_token');
 };
 
 // 创建带认证的请求头
@@ -46,8 +46,8 @@ export const apiRequest = async <T = any>(
     if (!response.ok) {
       if (response.status === 401) {
         // 认证失败，清除本地令牌并跳转到登录页
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
         window.location.href = '/login';
         throw new Error('Authentication failed');
       }

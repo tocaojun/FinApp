@@ -10,18 +10,10 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { Permission, UserRole } from '../../types/auth';
 import PermissionGuard from '../../components/auth/PermissionGuard';
+import { getPermissionMatrix, updateRolePermissions, PermissionMatrixData } from '../../services/permissionApi';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
-
-// 权限矩阵数据接口
-interface PermissionMatrixData {
-  roleId: string;
-  roleName: string;
-  roleCode: string;
-  isSystem: boolean;
-  permissions: Record<Permission, boolean>;
-}
 
 // 权限分组和描述
 const PERMISSION_CONFIG = {
@@ -146,103 +138,42 @@ const PermissionMatrix: React.FC = () => {
   const fetchPermissionMatrix = async () => {
     setLoading(true);
     try {
-      // 模拟数据 - 实际项目中应该调用 API
-      const mockData: PermissionMatrixData[] = [
-        {
-          roleId: '1',
-          roleName: '系统管理员',
-          roleCode: 'admin',
-          isSystem: true,
-          permissions: Object.values(Permission).reduce((acc, permission) => {
-            acc[permission] = true;
-            return acc;
-          }, {} as Record<Permission, boolean>)
-        },
-        {
-          roleId: '2',
-          roleName: '普通用户',
-          roleCode: 'user',
-          isSystem: true,
-          permissions: {
-            [Permission.MANAGE_USERS]: false,
-            [Permission.MANAGE_PERMISSIONS]: false,
-            [Permission.VIEW_SYSTEM_LOGS]: false,
-            [Permission.SYSTEM_SETTINGS]: false,
-            [Permission.MANAGE_PRODUCTS]: false,
-            [Permission.UPDATE_PRICES]: false,
-            [Permission.MANAGE_EXCHANGE_RATES]: false,
-            [Permission.MANAGE_PORTFOLIOS]: true,
-            [Permission.CREATE_TRANSACTIONS]: true,
-            [Permission.VIEW_TRANSACTIONS]: true,
-            [Permission.EDIT_TRANSACTIONS]: true,
-            [Permission.DELETE_TRANSACTIONS]: true,
-            [Permission.MANAGE_TAGS]: true,
-            [Permission.VIEW_REPORTS]: true,
-            [Permission.EXPORT_DATA]: true,
-            [Permission.VIEW_DASHBOARD]: true,
-            [Permission.EDIT_PROFILE]: true
-          }
-        },
-        {
-          roleId: '3',
-          roleName: '产品经理',
-          roleCode: 'product_manager',
-          isSystem: false,
-          permissions: {
-            [Permission.MANAGE_USERS]: false,
-            [Permission.MANAGE_PERMISSIONS]: false,
-            [Permission.VIEW_SYSTEM_LOGS]: false,
-            [Permission.SYSTEM_SETTINGS]: false,
-            [Permission.MANAGE_PRODUCTS]: true,
-            [Permission.UPDATE_PRICES]: true,
-            [Permission.MANAGE_EXCHANGE_RATES]: true,
-            [Permission.MANAGE_PORTFOLIOS]: false,
-            [Permission.CREATE_TRANSACTIONS]: false,
-            [Permission.VIEW_TRANSACTIONS]: false,
-            [Permission.EDIT_TRANSACTIONS]: false,
-            [Permission.DELETE_TRANSACTIONS]: false,
-            [Permission.MANAGE_TAGS]: false,
-            [Permission.VIEW_REPORTS]: true,
-            [Permission.EXPORT_DATA]: true,
-            [Permission.VIEW_DASHBOARD]: true,
-            [Permission.EDIT_PROFILE]: true
-          }
-        },
-        {
-          roleId: '4',
-          roleName: '只读用户',
-          roleCode: 'readonly',
-          isSystem: false,
-          permissions: {
-            [Permission.MANAGE_USERS]: false,
-            [Permission.MANAGE_PERMISSIONS]: false,
-            [Permission.VIEW_SYSTEM_LOGS]: false,
-            [Permission.SYSTEM_SETTINGS]: false,
-            [Permission.MANAGE_PRODUCTS]: false,
-            [Permission.UPDATE_PRICES]: false,
-            [Permission.MANAGE_EXCHANGE_RATES]: false,
-            [Permission.MANAGE_PORTFOLIOS]: false,
-            [Permission.CREATE_TRANSACTIONS]: false,
-            [Permission.VIEW_TRANSACTIONS]: true,
-            [Permission.EDIT_TRANSACTIONS]: false,
-            [Permission.DELETE_TRANSACTIONS]: false,
-            [Permission.MANAGE_TAGS]: false,
-            [Permission.VIEW_REPORTS]: true,
-            [Permission.EXPORT_DATA]: false,
-            [Permission.VIEW_DASHBOARD]: true,
-            [Permission.EDIT_PROFILE]: true
-          }
-        }
-      ];
-      
-      setMatrixData(mockData);
-      setOriginalData(JSON.parse(JSON.stringify(mockData)));
-    } catch (error: any) {
+      const data = await getPermissionMatrix();
+      setMatrixData(data);
+      setOriginalData(JSON.parse(JSON.stringify(data)));
+    } catch (error) {
+      console.error('获取权限矩阵失败:', error);
       message.error('获取权限矩阵失败');
     } finally {
       setLoading(false);
     }
   };
+
+  // 保存权限变更
+  const handleSaveChanges = async () => {
+    try {
+      const updates = matrixData.map(role => ({
+        roleId: role.roleId,
+        permissions: role.permissions
+      }));
+      
+      await updateRolePermissions(updates);
+      message.success('权限矩阵更新成功');
+      setHasChanges(false);
+      setOriginalData(JSON.parse(JSON.stringify(matrixData)));
+    } catch (error) {
+      console.error('保存权限矩阵失败:', error);
+      message.error('保存权限矩阵失败');
+    }
+  };
+
+  // 重置变更
+  const handleResetChanges = () => {
+    setMatrixData(JSON.parse(JSON.stringify(originalData)));
+    setHasChanges(false);
+  };
+
+
 
   const handlePermissionChange = (roleId: string, permission: Permission, checked: boolean) => {
     const role = matrixData.find(r => r.roleId === roleId);

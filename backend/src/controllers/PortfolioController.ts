@@ -369,6 +369,9 @@ export class PortfolioController {
 
       const accounts = await portfolioService.getTradingAccounts(userId, portfolioId);
       
+      // 设置正确的字符编码
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      
       res.json({
         success: true,
         message: 'Trading accounts retrieved successfully',
@@ -379,6 +382,57 @@ export class PortfolioController {
       res.status(500).json({
         success: false,
         message: 'Failed to retrieve trading accounts',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  // 更新交易账户
+  async updateTradingAccount(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          message: 'User not authenticated'
+        });
+        return;
+      }
+
+      const { portfolioId, accountId } = req.params;
+      if (!portfolioId || !accountId) {
+        res.status(400).json({
+          success: false,
+          message: 'Portfolio ID and Account ID are required'
+        });
+        return;
+      }
+
+      const data = req.body;
+      
+      const account = await portfolioService.updateTradingAccount(userId, portfolioId, accountId, data);
+      
+      if (!account) {
+        res.status(404).json({
+          success: false,
+          message: 'Trading account not found'
+        });
+        return;
+      }
+
+      // 设置正确的字符编码
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      
+      res.json({
+        success: true,
+        message: 'Trading account updated successfully',
+        data: account
+      });
+    } catch (error) {
+      console.error('Update trading account error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update trading account',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
@@ -492,6 +546,28 @@ export class PortfolioController {
       res.status(500).json({
         success: false,
         message: 'Failed to retrieve asset',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  // 获取用户所有交易账户
+  async getAllTradingAccounts(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.userId;
+
+      const accounts = await portfolioService.getAllTradingAccounts(userId);
+
+      res.json({
+        success: true,
+        message: 'All trading accounts retrieved successfully',
+        data: accounts
+      });
+    } catch (error) {
+      console.error('Get all trading accounts error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve all trading accounts',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
