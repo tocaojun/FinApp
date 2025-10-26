@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   Table,
@@ -23,6 +23,10 @@ import {
   Upload,
   Steps
 } from 'antd';
+import { 
+  getActiveLiquidityTags,
+  type LiquidityTag 
+} from '../../services/liquidityTagsApi';
 import {
   EditOutlined,
   DeleteOutlined,
@@ -116,8 +120,22 @@ const AssetBatchOperations: React.FC<AssetBatchOperationsProps> = ({
   const [operationLoading, setOperationLoading] = useState(false);
   const [importStep, setImportStep] = useState(0);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [liquidityTags, setLiquidityTags] = useState<LiquidityTag[]>([]);
   const [form] = Form.useForm();
   const [tagForm] = Form.useForm();
+
+  // 加载流动性标签
+  useEffect(() => {
+    const fetchLiquidityTags = async () => {
+      try {
+        const tags = await getActiveLiquidityTags();
+        setLiquidityTags(tags);
+      } catch (error) {
+        console.error('加载流动性标签失败:', error);
+      }
+    };
+    fetchLiquidityTags();
+  }, []);
 
   // 批量操作定义
   const batchOperations: BatchOperation[] = [
@@ -597,9 +615,11 @@ const AssetBatchOperations: React.FC<AssetBatchOperationsProps> = ({
             <Col span={12}>
               <Form.Item name="liquidityTag" label="流动性标签">
                 <Select placeholder="选择流动性" allowClear>
-                  <Option value="HIGH">高流动性</Option>
-                  <Option value="MEDIUM">中流动性</Option>
-                  <Option value="LOW">低流动性</Option>
+                  {liquidityTags.map(tag => (
+                    <Option key={tag.id} value={tag.id}>
+                      <span style={{ color: tag.color }}>{tag.name}</span>
+                    </Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>

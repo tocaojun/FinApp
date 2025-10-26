@@ -50,6 +50,10 @@ import {
   AssetStatistics,
   PriceCreateRequest 
 } from '../services/assetService';
+import { 
+  getActiveLiquidityTags,
+  type LiquidityTag 
+} from '../services/liquidityTagsApi';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -61,6 +65,7 @@ const AssetManagement: React.FC = () => {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
   const [markets, setMarkets] = useState<Market[]>([]);
+  const [liquidityTags, setLiquidityTags] = useState<LiquidityTag[]>([]);
   const [statistics, setStatistics] = useState<AssetStatistics | null>(null);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -136,6 +141,16 @@ const AssetManagement: React.FC = () => {
       setMarkets(markets);
     } catch (error) {
       console.error('Error fetching markets:', error);
+    }
+  };
+
+  const fetchLiquidityTags = async () => {
+    try {
+      const tags = await getActiveLiquidityTags();
+      setLiquidityTags(tags);
+    } catch (error) {
+      console.error('Error fetching liquidity tags:', error);
+      message.error('加载流动性标签失败');
     }
   };
 
@@ -421,6 +436,7 @@ const AssetManagement: React.FC = () => {
   useEffect(() => {
     fetchAssetTypes();
     fetchMarkets();
+    fetchLiquidityTags();
     fetchStatistics();
     fetchAssets();
   }, []);
@@ -706,9 +722,11 @@ const AssetManagement: React.FC = () => {
                 rules={[{ required: true, message: '请选择流动性标签' }]}
               >
                 <Select placeholder="请选择流动性标签">
-                  <Option value="HIGH">高流动性</Option>
-                  <Option value="MEDIUM">中流动性</Option>
-                  <Option value="LOW">低流动性</Option>
+                  {liquidityTags.map(tag => (
+                    <Option key={tag.id} value={tag.id}>
+                      <span style={{ color: tag.color }}>{tag.name}</span>
+                    </Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>

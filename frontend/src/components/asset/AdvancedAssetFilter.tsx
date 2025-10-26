@@ -17,8 +17,13 @@ import {
   Tooltip,
   Badge,
   TreeSelect,
-  Rate
+  Rate,
+  message
 } from 'antd';
+import { 
+  getActiveLiquidityTags,
+  type LiquidityTag 
+} from '../../services/liquidityTagsApi';
 import {
   SearchOutlined,
   FilterOutlined,
@@ -101,6 +106,20 @@ const AdvancedAssetFilter: React.FC<AdvancedAssetFilterProps> = ({
   const [filterCount, setFilterCount] = useState(0);
   const [saveFilterVisible, setSaveFilterVisible] = useState(false);
   const [filterName, setFilterName] = useState('');
+  const [liquidityTags, setLiquidityTags] = useState<LiquidityTag[]>([]);
+
+  // 加载流动性标签
+  useEffect(() => {
+    const fetchLiquidityTags = async () => {
+      try {
+        const tags = await getActiveLiquidityTags();
+        setLiquidityTags(tags);
+      } catch (error) {
+        console.error('加载流动性标签失败:', error);
+      }
+    };
+    fetchLiquidityTags();
+  }, []);
 
   // 模拟数据
   const assetTypes = [
@@ -149,11 +168,7 @@ const AdvancedAssetFilter: React.FC<AdvancedAssetFilterProps> = ({
     { value: 'VERY_HIGH', label: '极高风险', color: 'volcano' }
   ];
 
-  const liquidityTags = [
-    { value: 'HIGH', label: '高流动性', color: 'green' },
-    { value: 'MEDIUM', label: '中流动性', color: 'orange' },
-    { value: 'LOW', label: '低流动性', color: 'red' }
-  ];
+  // liquidityTags 现在从数据库加载，不再使用硬编码
 
   const analystRatings = [
     { value: 'STRONG_BUY', label: '强烈买入', color: 'green' },
@@ -355,8 +370,8 @@ const AdvancedAssetFilter: React.FC<AdvancedAssetFilterProps> = ({
                     allowClear
                   >
                     {liquidityTags.map(tag => (
-                      <Option key={tag.value} value={tag.value}>
-                        <Tag color={tag.color}>{tag.label}</Tag>
+                      <Option key={tag.id} value={tag.id}>
+                        <Tag color={tag.color}>{tag.name}</Tag>
                       </Option>
                     ))}
                   </Select>
