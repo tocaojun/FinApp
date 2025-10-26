@@ -72,9 +72,16 @@ export class AuthService {
   static async login(credentials: LoginRequest): Promise<LoginResponse> {
     try {
       const response = await authApi.post<LoginResponse>('/login', credentials);
-      return response.data;
+      
+      // 后端返回的数据结构: { success: true, data: { user, tokens } }
+      if (response.data.success) {
+        return response.data; // 返回整个响应对象，包含 data 字段
+      } else {
+        throw new Error(response.data.message || '登录失败');
+      }
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || '登录失败');
+      console.error('AuthService login error:', error);
+      throw new Error(error.response?.data?.message || error.message || '登录失败');
     }
   }
 

@@ -56,4 +56,39 @@ export class HoldingService {
     const response = await apiGet<ApiResponse<HoldingSummary>>(`/holdings/portfolio/${portfolioId}/summary`);
     return response.data;
   }
+
+  // 获取用户所有投资组合的持仓资产总数
+  static async getUserTotalHoldingAssets(): Promise<number> {
+    try {
+      // 先获取用户的所有投资组合
+      const portfoliosResponse = await apiGet<ApiResponse<any[]>>('/portfolios');
+      const portfolios = portfoliosResponse.data || [];
+      
+      // 获取所有投资组合的持仓，并统计唯一资产数量
+      const allHoldings: Holding[] = [];
+      const uniqueAssetIds = new Set<string>();
+      
+      for (const portfolio of portfolios) {
+        try {
+          const holdings = await this.getHoldingsByPortfolio(portfolio.id);
+          allHoldings.push(...holdings);
+          
+          // 统计唯一的资产ID
+          holdings.forEach(holding => {
+            if (holding.isActive && holding.quantity > 0) {
+              uniqueAssetIds.add(holding.assetId);
+            }
+          });
+        } catch (error) {
+          console.warn(`获取投资组合 ${portfolio.id} 持仓失败:`, error);
+          // 继续处理其他投资组合
+        }
+      }
+      
+      return uniqueAssetIds.size;
+    } catch (error) {
+      console.error('获取用户持仓资产总数失败:', error);
+      return 0;
+    }
+  }
 }

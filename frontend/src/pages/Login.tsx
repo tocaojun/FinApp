@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   Form, 
   Input, 
@@ -21,36 +22,20 @@ interface LoginForm {
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (values: LoginForm) => {
     try {
       setLoading(true);
       
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(values),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // 保存认证信息
-        localStorage.setItem('accessToken', data.data.tokens.accessToken);
-        localStorage.setItem('refreshToken', data.data.tokens.refreshToken);
-        localStorage.setItem('user', JSON.stringify(data.data.user));
-        
-        message.success('登录成功');
+      const success = await login(values);
+      
+      if (success) {
         navigate('/dashboard');
-      } else {
-        message.error(data.error?.message || '登录失败');
       }
     } catch (error) {
       console.error('Login error:', error);
-      message.error('登录失败，请检查网络连接');
     } finally {
       setLoading(false);
     }

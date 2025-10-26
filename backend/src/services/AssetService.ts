@@ -13,7 +13,9 @@ interface SimpleAsset {
   symbol: string;
   name: string;
   assetTypeId: string;
+  assetTypeName?: string;
   marketId?: string;
+  marketName?: string;
   currency: string;
   sector?: string;
   industry?: string;
@@ -356,7 +358,9 @@ export class AssetService {
           symbol: row.symbol,
           name: row.name,
           assetTypeId: row.asset_type_id,
+          assetTypeName: row.assetTypeName,
           marketId: row.market_id,
+          marketName: row.marketName,
           currency: row.currency,
           sector: row.sector,
           industry: row.industry,
@@ -397,7 +401,9 @@ export class AssetService {
         symbol: row.symbol,
         name: row.name,
         assetTypeId: row.asset_type_id,
+        assetTypeName: row.assetTypeName,
         marketId: row.market_id,
+        marketName: row.marketName,
         currency: row.currency,
         sector: row.sector,
         industry: row.industry,
@@ -449,7 +455,9 @@ export class AssetService {
         symbol: row.symbol,
         name: row.name,
         assetTypeId: row.asset_type_id,
+        assetTypeName: row.assetTypeName,
         marketId: row.market_id,
+        marketName: row.marketName,
         currency: row.currency,
         sector: row.sector,
         industry: row.industry,
@@ -470,7 +478,7 @@ export class AssetService {
   async getAssetById(id: string): Promise<SimpleAsset | null> {
     try {
       const result = await this.db.prisma.$queryRaw`
-        SELECT a.*, at.name as asset_type_name, m.name as market_name
+        SELECT a.*, at.name as "assetTypeName", m.name as "marketName"
         FROM assets a
         LEFT JOIN asset_types at ON a.asset_type_id = at.id
         LEFT JOIN markets m ON a.market_id = m.id
@@ -487,7 +495,9 @@ export class AssetService {
         symbol: row.symbol,
         name: row.name,
         assetTypeId: row.asset_type_id,
+        assetTypeName: row.assetTypeName,
         marketId: row.market_id,
+        marketName: row.marketName,
         currency: row.currency,
         sector: row.sector,
         industry: row.industry,

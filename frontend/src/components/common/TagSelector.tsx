@@ -83,7 +83,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({
 
       const response = await fetch(`/api/tags?${params}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
       });
 
@@ -106,7 +106,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({
     try {
       const response = await fetch('/api/tags/categories/list', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
       });
 
@@ -139,7 +139,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({
           ...values,
@@ -179,7 +179,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({
           tagId,
@@ -205,7 +205,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({
           tagId,

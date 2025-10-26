@@ -234,15 +234,27 @@ export class PortfolioController {
       // 获取用户所有投资组合
       const portfolios = await portfolioService.getPortfoliosByUserId(userId);
       
-      // 计算汇总统计
+      // 计算汇总统计 - 使用真实数据库数据
+      const totalValue = portfolios.reduce((sum, p) => sum + (p.totalValue || 0), 0);
+      const totalCost = portfolios.reduce((sum, p) => sum + (p.totalCost || 0), 0);
+      const totalReturn = portfolios.reduce((sum, p) => sum + (p.totalGainLoss || 0), 0);
+      
+      // 计算今日收益 - 基于实际持仓变化，如果没有今日数据则为0
+      const todayChange = portfolios.reduce((sum, p) => {
+        // 这里应该从持仓表或价格变化表获取今日变化，暂时使用0
+        return sum + 0;
+      }, 0);
+      
+      // 计算今日收益率
+      const todayChangePercent = totalValue > 0 ? (todayChange / totalValue) * 100 : 0;
+      
       const summary = {
         totalAssets: portfolios.length,
-        totalValue: portfolios.reduce((sum, p) => sum + (p.totalValue || 0), 0),
-        todayChange: portfolios.reduce((sum, p) => sum + (p.totalGainLoss || 0) * 0.1, 0), // 模拟今日变化
-        todayChangePercent: 1.02, // 模拟今日变化百分比
-        totalReturn: portfolios.reduce((sum, p) => sum + (p.totalGainLoss || 0), 0),
-        totalReturnPercent: portfolios.length > 0 ? 
-          portfolios.reduce((sum, p) => sum + (p.totalGainLossPercentage || 0), 0) / portfolios.length : 0
+        totalValue: totalValue,
+        todayChange: todayChange,
+        todayChangePercent: todayChangePercent,
+        totalReturn: totalReturn,
+        totalReturnPercent: totalCost > 0 ? (totalReturn / totalCost) * 100 : 0
       };
 
       res.json({

@@ -34,7 +34,7 @@ const AssetSummaryCard: React.FC<AssetSummaryCardProps> = ({
       <Row gutter={16}>
         <Col xs={24} sm={8}>
           <Statistic
-            title="管理资产数量"
+            title="持仓资产数量"
             value={assetCount}
             prefix={<DollarOutlined />}
             valueStyle={{ color: '#1890ff' }}

@@ -43,7 +43,7 @@ export const getMonitoringRules = async (assetIds?: string[]): Promise<Monitorin
     const response = await axios.get(`${API_BASE_URL}/monitoring/rules`, {
       params: assetIds ? { assetIds: assetIds.join(',') } : {},
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       }
     });
@@ -60,7 +60,7 @@ export const createMonitoringRule = async (rule: Omit<MonitoringRule, 'id' | 'cr
   try {
     const response = await axios.post(`${API_BASE_URL}/monitoring/rules`, rule, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       }
     });
@@ -76,7 +76,7 @@ export const updateMonitoringRule = async (id: string, updates: Partial<Monitori
   try {
     const response = await axios.put(`${API_BASE_URL}/monitoring/rules/${id}`, updates, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       }
     });
@@ -92,7 +92,7 @@ export const deleteMonitoringRule = async (id: string): Promise<void> => {
   try {
     await axios.delete(`${API_BASE_URL}/monitoring/rules/${id}`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       }
     });
@@ -113,7 +113,7 @@ export const getAlerts = async (params?: {
     const response = await axios.get(`${API_BASE_URL}/monitoring/alerts`, {
       params,
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       }
     });
@@ -130,7 +130,7 @@ export const markAlertAsRead = async (alertId: string): Promise<void> => {
   try {
     await axios.put(`${API_BASE_URL}/monitoring/alerts/${alertId}/read`, {}, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       }
     });
@@ -147,7 +147,7 @@ export const markAlertsAsRead = async (alertIds: string[]): Promise<void> => {
       alertIds
     }, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       }
     });
@@ -162,7 +162,7 @@ export const getMonitoringStats = async (): Promise<MonitoringStats> => {
   try {
     const response = await axios.get(`${API_BASE_URL}/monitoring/stats`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       }
     });
@@ -184,7 +184,7 @@ export const checkMonitoringRules = async (): Promise<{ triggeredRules: number; 
   try {
     const response = await axios.post(`${API_BASE_URL}/monitoring/check`, {}, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       }
     });

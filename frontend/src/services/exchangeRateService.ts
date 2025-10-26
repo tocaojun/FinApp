@@ -211,7 +211,7 @@ export class ExchangeRateService {
 
     const response = await fetch(`/api/exchange-rates/export?${queryParams}`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
       },
     });
 

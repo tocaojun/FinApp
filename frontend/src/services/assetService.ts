@@ -266,7 +266,7 @@ export class AssetService {
 
     const response = await fetch(`/api/assets/export?${queryParams}`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
       },
     });
 
@@ -295,7 +295,7 @@ export class AssetService {
 
     const response = await fetch(`/api/assets/${assetId}/prices/export?${queryParams}`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
       },
     });
 

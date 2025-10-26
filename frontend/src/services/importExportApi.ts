@@ -59,7 +59,7 @@ export const parseImportFile = async (file: File): Promise<ImportRecord[]> => {
 
     const response = await axios.post(`${API_BASE_URL}/transactions/import/parse`, formData, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'multipart/form-data'
       }
     });
@@ -79,7 +79,7 @@ export const importTransactions = async (records: Partial<Transaction>[]): Promi
       transactions: records
     }, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       }
     });
@@ -96,7 +96,7 @@ export const exportTransactions = async (options: ExportOptions): Promise<void> 
   try {
     const response = await axios.post(`${API_BASE_URL}/transactions/export`, options, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       },
       responseType: 'blob'
@@ -129,7 +129,7 @@ export const getImportTemplate = async (format: 'csv' | 'excel'): Promise<void> 
     const response = await axios.get(`${API_BASE_URL}/transactions/import/template`, {
       params: { format },
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
       },
       responseType: 'blob'
     });
@@ -160,7 +160,7 @@ export const validateImportData = async (records: Partial<Transaction>[]): Promi
       transactions: records
     }, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       }
     });

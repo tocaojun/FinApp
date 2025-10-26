@@ -58,39 +58,8 @@ export class TransactionService {
       return response.transactions || [];
     } catch (error) {
       console.error('获取最近交易记录失败:', error);
-      // 返回模拟数据作为后备
-      return [
-        {
-          id: '1',
-          assetId: 'asset1',
-          assetName: '苹果公司',
-          assetSymbol: 'AAPL',
-          type: 'BUY',
-          quantity: 100,
-          price: 150.25,
-          totalAmount: 15025,
-          fee: 5.99,
-          currency: 'USD',
-          executedAt: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: '2',
-          assetId: 'asset2',
-          assetName: '微软公司',
-          assetSymbol: 'MSFT',
-          type: 'SELL',
-          quantity: 50,
-          price: 280.50,
-          totalAmount: 14025,
-          fee: 5.99,
-          currency: 'USD',
-          executedAt: new Date(Date.now() - 86400000).toISOString(),
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-          updatedAt: new Date(Date.now() - 86400000).toISOString()
-        }
-      ];
+      // 返回空数组
+      return [];
     }
   }
 
@@ -99,14 +68,13 @@ export class TransactionService {
       return await apiGet<TransactionSummary>('/transactions/summary');
     } catch (error) {
       console.error('获取交易概览失败:', error);
-      // 返回模拟数据作为后备
-      const recentTransactions = await this.getRecentTransactions(5);
+      // 返回空数据
       return {
-        totalTransactions: 156,
-        totalBuyAmount: 500000,
-        totalSellAmount: 320000,
-        totalFees: 1250.50,
-        recentTransactions
+        totalTransactions: 0,
+        totalBuyAmount: 0,
+        totalSellAmount: 0,
+        totalFees: 0,
+        recentTransactions: []
       };
     }
   }

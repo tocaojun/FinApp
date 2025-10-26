@@ -148,11 +148,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     dispatch({ type: 'LOGIN_START' });
     
     try {
+      console.log('AuthContext: Starting login with credentials:', credentials);
       const response: LoginResponse = await AuthService.login(credentials);
+      console.log('AuthContext: Login response received:', response);
       
       // 处理后端返回的数据结构（可能包装在data中）
       const userData = (response as any).data?.user || response.user;
       const tokensData = (response as any).data?.tokens || response.tokens;
+      
+      console.log('AuthContext: Extracted user data:', userData);
+      console.log('AuthContext: Extracted tokens data:', tokensData);
       
       if (!userData || !tokensData?.accessToken) {
         throw new Error('登录响应格式错误');

@@ -37,10 +37,10 @@ export interface UserProfile {
   timezone?: string;
   language?: string;
   currencyPreference?: string;
-  isActive: boolean;
-  isVerified: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  isActive: boolean | null;
+  isVerified: boolean | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
 }
 
 export class AuthService {

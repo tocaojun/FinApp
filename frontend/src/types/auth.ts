@@ -53,11 +53,15 @@ export interface LoginRequest {
 
 // 登录响应接口
 export interface LoginResponse {
-  user: User;
-  tokens: {
-    accessToken: string;
-    refreshToken: string;
-    expiresIn: number;
+  success: boolean;
+  message: string;
+  data: {
+    user: User;
+    tokens: {
+      accessToken: string;
+      refreshToken: string;
+      expiresIn: number;
+    };
   };
 }
 

@@ -414,7 +414,7 @@ const ProductManagement: React.FC = () => {
     name: 'file',
     action: '/api/assets/import',
     headers: {
-      authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+      authorization: `Bearer ${localStorage.getItem('auth_token')}`,
     },
     onChange(info) {
       if (info.file.status === 'uploading') {
@@ -1166,7 +1166,7 @@ const ProductManagement: React.FC = () => {
                   name="file"
                   action="/api/assets/prices/import"
                   headers={{
-                    authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+                    authorization: `Bearer ${localStorage.getItem('auth_token')}`,
                   }}
                   accept=".csv,.xlsx,.xls"
                   onChange={(info) => {

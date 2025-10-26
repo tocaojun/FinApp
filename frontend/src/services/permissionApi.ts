@@ -22,7 +22,7 @@ export const getPermissionMatrix = async (): Promise<PermissionMatrixData[]> => 
   try {
     const response = await axios.get(`${API_BASE_URL}/admin/permissions/matrix`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       }
     });
@@ -41,7 +41,7 @@ export const updateRolePermissions = async (updates: RolePermissionUpdate[]): Pr
       updates
     }, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       }
     });
@@ -56,7 +56,7 @@ export const getAllRoles = async (): Promise<{ id: string; name: string; code: s
   try {
     const response = await axios.get(`${API_BASE_URL}/admin/roles`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       }
     });

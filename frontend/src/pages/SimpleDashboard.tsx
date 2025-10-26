@@ -1,8 +1,9 @@
-import React from 'react';
-import { Card, Row, Col, Statistic, Typography, Space, Button } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Card, Row, Col, Statistic, Typography, Space, Button, Spin, message } from 'antd';
 import { 
   DollarOutlined, 
   RiseOutlined, 
+  FallOutlined,
   UserOutlined, 
   SafetyCertificateOutlined,
   BarChartOutlined,
@@ -10,12 +11,92 @@ import {
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { PortfolioService } from '../services/portfolioService';
+import { TransactionService } from '../services/transactionService';
+import { HoldingService } from '../services/holdingService';
 
 const { Title, Text } = Typography;
+
+interface DashboardStats {
+  totalValue: number;
+  historicalReturn: number;
+  portfolioCount: number;
+  assetCount: number;
+}
 
 const SimpleDashboard: React.FC = () => {
   const { state } = useAuth();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalValue: 0,
+    historicalReturn: 0,
+    portfolioCount: 0,
+    assetCount: 0
+  });
+
+  useEffect(() => {
+    loadDashboardStats();
+  }, []);
+
+  const loadDashboardStats = async () => {
+    try {
+      setLoading(true);
+      
+      // 检查用户是否已登录
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setStats({
+          totalValue: 0,
+          historicalReturn: 0,
+          portfolioCount: 0,
+          assetCount: 0
+        });
+        return;
+      }
+
+      // 并行获取所有数据
+      const [portfolioSummary, portfolios, holdingAssetCount] = await Promise.all([
+        PortfolioService.getPortfolioSummary().catch(() => null),
+        PortfolioService.getPortfolios().catch(() => []),
+        HoldingService.getUserTotalHoldingAssets().catch(() => 0)
+      ]);
+
+      let totalValue = 0;
+      let historicalReturn = 0;
+
+      if (portfolioSummary) {
+        totalValue = portfolioSummary.totalValue || 0;
+        historicalReturn = portfolioSummary.totalReturn || 0;
+      } else if (portfolios.length > 0) {
+        totalValue = portfolios.reduce((sum, portfolio) => sum + (portfolio.totalValue || 0), 0);
+        const totalCost = portfolios.reduce((sum, portfolio) => sum + (portfolio.totalCost || 0), 0);
+        historicalReturn = totalValue - totalCost;
+      }
+
+      setStats({
+        totalValue,
+        historicalReturn,
+        portfolioCount: portfolios.length,
+        assetCount: holdingAssetCount
+      });
+
+    } catch (error) {
+      console.error('加载仪表板统计失败:', error);
+      message.error('加载数据失败，请稍后重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('zh-CN', {
+      style: 'currency',
+      currency: 'CNY',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  };
 
   return (
     <div style={{ padding: '24px' }}>
@@ -31,50 +112,58 @@ const SimpleDashboard: React.FC = () => {
         </Card>
 
         {/* 统计卡片 */}
-        <Row gutter={[16, 16]}>
-          <Col xs={24} sm={12} md={6}>
-            <Card>
-              <Statistic
-                title="总资产价值"
-                value={125680.50}
-                precision={2}
-                valueStyle={{ color: '#3f8600' }}
-                prefix={<DollarOutlined />}
-                suffix="¥"
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card>
-              <Statistic
-                title="今日收益"
-                value={2580.30}
-                precision={2}
-                valueStyle={{ color: '#3f8600' }}
-                prefix={<RiseOutlined />}
-                suffix="¥"
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card>
-              <Statistic
-                title="投资组合数量"
-                value={5}
-                prefix={<PieChartOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card>
-              <Statistic
-                title="持仓资产"
-                value={23}
-                prefix={<BarChartOutlined />}
-              />
-            </Card>
-          </Col>
-        </Row>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px' }}>
+            <Spin size="large" />
+          </div>
+        ) : (
+          <Row gutter={[16, 16]}>
+            <Col xs={24} sm={12} md={6}>
+              <Card>
+                <Statistic
+                  title="总资产价值"
+                  value={stats.totalValue}
+                  precision={2}
+                  valueStyle={{ color: '#3f8600' }}
+                  prefix={<DollarOutlined />}
+                  formatter={(value) => formatCurrency(Number(value))}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Card>
+                <Statistic
+                  title="历史收益"
+                  value={stats.historicalReturn}
+                  precision={2}
+                  valueStyle={{ 
+                    color: stats.historicalReturn >= 0 ? '#3f8600' : '#cf1322'
+                  }}
+                  prefix={stats.historicalReturn >= 0 ? <RiseOutlined /> : <FallOutlined />}
+                  formatter={(value) => formatCurrency(Number(value))}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Card>
+                <Statistic
+                  title="投资组合数量"
+                  value={stats.portfolioCount}
+                  prefix={<PieChartOutlined />}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Card>
+                <Statistic
+                  title="持仓资产"
+                  value={stats.assetCount}
+                  prefix={<BarChartOutlined />}
+                />
+              </Card>
+            </Col>
+          </Row>
+        )}
 
         {/* 快速操作 */}
         <Card title="快速操作" extra={<Text type="secondary">常用功能</Text>}>

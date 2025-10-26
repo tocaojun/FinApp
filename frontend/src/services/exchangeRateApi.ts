@@ -28,7 +28,7 @@ export const getExchangeRateHistory = async (params: ExchangeRateQuery): Promise
     const response = await axios.get(`${API_BASE_URL}/exchange-rates/history`, {
       params,
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       }
     });
@@ -46,7 +46,7 @@ export const getLatestExchangeRate = async (fromCurrency: string, toCurrency: st
     const response = await axios.get(`${API_BASE_URL}/exchange-rates/latest`, {
       params: { fromCurrency, toCurrency },
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       }
     });
@@ -62,7 +62,7 @@ export const getSupportedCurrencies = async (): Promise<string[]> => {
   try {
     const response = await axios.get(`${API_BASE_URL}/exchange-rates/currencies`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       }
     });

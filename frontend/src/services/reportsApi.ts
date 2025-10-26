@@ -47,7 +47,7 @@ export interface QuarterlySummary {
 // 获取季度报表列表
 export const getQuarterlyReports = async (): Promise<QuarterlyReport[]> => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     const response = await axios.get(`${API_BASE_URL}/reports/quarterly`, {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -56,40 +56,15 @@ export const getQuarterlyReports = async (): Promise<QuarterlyReport[]> => {
     return response.data;
   } catch (error) {
     console.error('获取季度报表失败:', error);
-    // 返回模拟数据作为后备
-    return [
-      {
-        id: '1',
-        quarter: 'Q3',
-        year: 2024,
-        totalAssets: 1234567.89,
-        totalReturn: 234567.89,
-        returnRate: 23.46,
-        portfolioCount: 3,
-        transactionCount: 45,
-        createdAt: '2024-09-15',
-        status: 'completed'
-      },
-      {
-        id: '2',
-        quarter: 'Q2',
-        year: 2024,
-        totalAssets: 1000000.00,
-        totalReturn: 150000.00,
-        returnRate: 17.65,
-        portfolioCount: 2,
-        transactionCount: 32,
-        createdAt: '2024-06-30',
-        status: 'completed'
-      }
-    ];
+    // 返回空数组
+    return [];
   }
 };
 
 // 获取季度概览统计
 export const getQuarterlySummary = async (quarter: string): Promise<QuarterlySummary> => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     const response = await axios.get(`${API_BASE_URL}/reports/quarterly/${quarter}/summary`, {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -98,12 +73,12 @@ export const getQuarterlySummary = async (quarter: string): Promise<QuarterlySum
     return response.data;
   } catch (error) {
     console.error('获取季度概览失败:', error);
-    // 返回模拟数据作为后备
+    // 返回空数据
     return {
-      totalAssets: 1234567.89,
-      totalReturn: 234567.89,
-      returnRate: 23.46,
-      portfolioCount: 3
+      totalAssets: 0,
+      totalReturn: 0,
+      returnRate: 0,
+      portfolioCount: 0
     };
   }
 };
@@ -111,7 +86,7 @@ export const getQuarterlySummary = async (quarter: string): Promise<QuarterlySum
 // 生成季度报表
 export const generateQuarterlyReport = async (quarter: string): Promise<{ success: boolean; reportId?: string }> => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     const response = await axios.post(`${API_BASE_URL}/reports/quarterly/generate`, 
       { quarter },
       {
@@ -131,7 +106,7 @@ export const generateQuarterlyReport = async (quarter: string): Promise<{ succes
 // 获取IRR分析数据
 export const getIRRAnalysis = async (portfolioId?: string): Promise<IRRAnalysis[]> => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     const url = portfolioId && portfolioId !== 'all' 
       ? `${API_BASE_URL}/reports/irr?portfolioId=${portfolioId}`
       : `${API_BASE_URL}/reports/irr`;
@@ -173,7 +148,7 @@ export const getIRRAnalysis = async (portfolioId?: string): Promise<IRRAnalysis[
 // 重新计算IRR
 export const recalculateIRR = async (portfolioId?: string, dateRange?: [string, string]): Promise<IRRAnalysis[]> => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     const response = await axios.post(`${API_BASE_URL}/reports/irr/recalculate`, 
       { portfolioId, dateRange },
       {
@@ -193,7 +168,7 @@ export const recalculateIRR = async (portfolioId?: string, dateRange?: [string, 
 // 获取自定义报表列表
 export const getCustomReports = async (): Promise<CustomReport[]> => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     const response = await axios.get(`${API_BASE_URL}/reports/custom`, {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -229,7 +204,7 @@ export const getCustomReports = async (): Promise<CustomReport[]> => {
 // 创建自定义报表
 export const createCustomReport = async (report: Omit<CustomReport, 'id' | 'createdAt' | 'lastRun'>): Promise<CustomReport> => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     const response = await axios.post(`${API_BASE_URL}/reports/custom`, 
       report,
       {
@@ -249,7 +224,7 @@ export const createCustomReport = async (report: Omit<CustomReport, 'id' | 'crea
 // 运行自定义报表
 export const runCustomReport = async (reportId: string): Promise<{ success: boolean; data?: any }> => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     const response = await axios.post(`${API_BASE_URL}/reports/custom/${reportId}/run`, 
       {},
       {
@@ -268,7 +243,7 @@ export const runCustomReport = async (reportId: string): Promise<{ success: bool
 // 更新自定义报表
 export const updateCustomReport = async (reportId: string, report: Partial<CustomReport>): Promise<CustomReport> => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     const response = await axios.put(`${API_BASE_URL}/reports/custom/${reportId}`, 
       report,
       {
@@ -288,7 +263,7 @@ export const updateCustomReport = async (reportId: string, report: Partial<Custo
 // 删除自定义报表
 export const deleteCustomReport = async (reportId: string): Promise<{ success: boolean }> => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     await axios.delete(`${API_BASE_URL}/reports/custom/${reportId}`, {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -304,7 +279,7 @@ export const deleteCustomReport = async (reportId: string): Promise<{ success: b
 // 下载报表
 export const downloadReport = async (reportId: string, type: 'quarterly' | 'custom'): Promise<Blob> => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     const response = await axios.get(`${API_BASE_URL}/reports/${type}/${reportId}/download`, {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -321,7 +296,7 @@ export const downloadReport = async (reportId: string, type: 'quarterly' | 'cust
 // 获取报表详情
 export const getReportDetails = async (reportId: string, type: 'quarterly' | 'custom'): Promise<any> => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     const response = await axios.get(`${API_BASE_URL}/reports/${type}/${reportId}`, {
       headers: {
         'Authorization': `Bearer ${token}`

@@ -360,28 +360,12 @@ const TransactionManagement: React.FC = () => {
       key: 'amount',
       width: 120,
       align: 'right',
-      render: (amount, record) => {
-        // 修正资金流向逻辑：
-        // 资金流入（绿色+）：卖出、取出、分红、利息
-        // 资金流出（红色-）：买入、存入
-        const isInflow = ['SELL', 'WITHDRAWAL', 'DIVIDEND', 'INTEREST'].includes(record.transactionType);
-        const color = isInflow ? '#52c41a' : '#f5222d'; // 流入绿色，流出红色
-        const sign = isInflow ? '+' : '-';
-        
-        // 确保金额始终显示为正数
+      render: (amount) => {
+        // 只显示金额绝对值，不体现资金流向
         const displayAmount = Math.abs(amount);
-        
-        return (
-          <Tooltip 
-            title={`${isInflow ? '资金流入' : '资金流出'} (${record.transactionType})`}
-          >
-            <Text style={{ color }}>
-              {sign}¥{displayAmount.toFixed(2)}
-            </Text>
-          </Tooltip>
-        );
+        return `¥${displayAmount.toFixed(2)}`;
       },
-      sorter: (a, b) => a.amount - b.amount,
+      sorter: (a, b) => Math.abs(a.amount) - Math.abs(b.amount),
     },
     {
       title: '手续费',
@@ -389,11 +373,7 @@ const TransactionManagement: React.FC = () => {
       key: 'fee',
       width: 80,
       align: 'right',
-      render: (value) => (
-        <Text style={{ color: '#f5222d' }}>
-          -¥{Math.abs(value).toFixed(2)}
-        </Text>
-      ),
+      render: (value) => `¥${Math.abs(value).toFixed(2)}`,
     },
     {
       title: '状态',

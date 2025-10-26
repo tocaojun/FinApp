@@ -15,7 +15,7 @@ import RecentTransactions from '../components/dashboard/RecentTransactions';
 import QuickActions from '../components/dashboard/QuickActions';
 import { PortfolioService } from '../services/portfolioService';
 import { TransactionService } from '../services/transactionService';
-import { AssetService } from '../services/assetService';
+import { HoldingService } from '../services/holdingService';
 
 const { Title } = Typography;
 
@@ -24,6 +24,8 @@ interface DashboardData {
   totalCost: number;
   totalGainLoss: number;
   gainLossPercentage: number;
+  historicalReturn: number;
+  historicalReturnPercent: number;
   portfolioCount: number;
   assetCount: number;
   transactionCount: number;
@@ -41,6 +43,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     totalCost: 0,
     totalGainLoss: 0,
     gainLossPercentage: 0,
+    historicalReturn: 0,
+    historicalReturnPercent: 0,
     portfolioCount: 0,
     assetCount: 0,
     transactionCount: 0
@@ -63,45 +67,103 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     try {
       setLoading(true);
       
+      // 检查用户是否已登录
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        // 未登录时显示空数据
+        setDashboardData({
+          totalValue: 0,
+          totalCost: 0,
+          totalGainLoss: 0,
+          gainLossPercentage: 0,
+          historicalReturn: 0,
+          historicalReturnPercent: 0,
+          portfolioCount: 0,
+          assetCount: 0,
+          transactionCount: 0
+        });
+        return;
+      }
+
       // 并行获取所有数据
-      const [portfolios, assets, transactions] = await Promise.all([
-        PortfolioService.getPortfolios().catch(() => []),
-        AssetService.searchAssets().then(result => result.assets).catch(() => []),
-        TransactionService.getTransactions({ limit: 1 }).catch(() => ({ transactions: [], total: 0 }))
+      const [portfolioSummary, portfolios, holdingAssetCount, transactionSummary] = await Promise.all([
+        PortfolioService.getPortfolioSummary().catch((error) => {
+          console.warn('获取投资组合汇总失败:', error);
+          return null;
+        }),
+        PortfolioService.getPortfolios().catch((error) => {
+          console.warn('获取投资组合列表失败:', error);
+          return [];
+        }),
+        HoldingService.getUserTotalHoldingAssets().catch((error) => {
+          console.warn('获取持仓资产数量失败:', error);
+          return 0;
+        }),
+        TransactionService.getTransactionSummary().catch((error) => {
+          console.warn('获取交易统计失败:', error);
+          return null;
+        })
       ]);
 
       // 计算汇总数据
       let totalValue = 0;
       let totalCost = 0;
+      let totalGainLoss = 0;
+      let gainLossPercentage = 0;
+      let historicalReturn = 0;
+      let historicalReturnPercent = 0;
+      let transactionCount = 0;
 
-      // 获取投资组合概览数据
-      try {
-        const summary = await PortfolioService.getPortfolioSummary();
-        totalValue = summary.totalValue || 1234567.89;
-        totalCost = 1000000; // 使用模拟成本数据
-      } catch (error) {
-        console.error('获取投资组合概览失败:', error);
-        // 使用模拟数据
-        totalValue = 1234567.89;
-        totalCost = 1000000;
+      if (portfolioSummary) {
+        totalValue = portfolioSummary.totalValue || 0;
+        totalGainLoss = portfolioSummary.totalReturn || 0;
+        gainLossPercentage = portfolioSummary.totalReturnPercent || 0;
+        historicalReturn = totalGainLoss; // 历史收益就是总盈亏
+        historicalReturnPercent = gainLossPercentage; // 历史收益率就是总收益率
+        totalCost = totalValue - totalGainLoss;
+      } else if (portfolios.length > 0) {
+        // 如果没有汇总数据，从投资组合列表计算
+        totalValue = portfolios.reduce((sum, portfolio) => sum + (portfolio.totalValue || 0), 0);
+        totalCost = portfolios.reduce((sum, portfolio) => sum + (portfolio.totalCost || 0), 0);
+        totalGainLoss = totalValue - totalCost;
+        gainLossPercentage = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
+        historicalReturn = totalGainLoss; // 历史收益就是总盈亏
+        historicalReturnPercent = gainLossPercentage; // 历史收益率就是总收益率
       }
 
-      const totalGainLoss = totalValue - totalCost;
-      const gainLossPercentage = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
+      if (transactionSummary) {
+        transactionCount = transactionSummary.totalTransactions || 0;
+      }
 
+      // 使用真实数据，即使为0也显示真实值
       setDashboardData({
         totalValue,
         totalCost,
         totalGainLoss,
         gainLossPercentage,
+        historicalReturn,
+        historicalReturnPercent,
         portfolioCount: portfolios.length,
-        assetCount: assets.length,
-        transactionCount: transactions.total
+        assetCount: holdingAssetCount,
+        transactionCount
       });
 
     } catch (error) {
       console.error('加载仪表板数据失败:', error);
       message.error('加载数据失败，请稍后重试');
+      
+      // 出错时显示空数据
+      setDashboardData({
+        totalValue: 0,
+        totalCost: 0,
+        totalGainLoss: 0,
+        gainLossPercentage: 0,
+        historicalReturn: 0,
+        historicalReturnPercent: 0,
+        portfolioCount: 0,
+        assetCount: 0,
+        transactionCount: 0
+      });
     } finally {
       setLoading(false);
     }
@@ -163,12 +225,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           bodyStyle={{ padding: isMobile ? '16px 12px' : '24px' }}
         >
           <Statistic
-            title="总盈亏"
-            value={dashboardData.totalGainLoss}
+            title="历史收益"
+            value={dashboardData.historicalReturn}
             precision={2}
-            prefix={dashboardData.totalGainLoss >= 0 ? <RiseOutlined /> : <FallOutlined />}
+            prefix={dashboardData.historicalReturn >= 0 ? <RiseOutlined /> : <FallOutlined />}
             valueStyle={{ 
-              color: dashboardData.totalGainLoss >= 0 ? '#3f8600' : '#cf1322',
+              color: dashboardData.historicalReturn >= 0 ? '#3f8600' : '#cf1322',
               fontSize: isMobile ? '20px' : '24px'
             }}
             formatter={(value) => formatCurrency(Number(value))}
@@ -189,6 +251,23 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               color: dashboardData.gainLossPercentage >= 0 ? '#3f8600' : '#cf1322',
               fontSize: isMobile ? '20px' : '24px'
             }}
+          />
+        </Card>
+        
+        <Card 
+          size={isMobile ? 'small' : 'default'}
+          bodyStyle={{ padding: isMobile ? '16px 12px' : '24px' }}
+        >
+          <Statistic
+            title="总盈亏"
+            value={dashboardData.totalGainLoss}
+            precision={2}
+            prefix={dashboardData.totalGainLoss >= 0 ? <RiseOutlined /> : <FallOutlined />}
+            valueStyle={{ 
+              color: dashboardData.totalGainLoss >= 0 ? '#3f8600' : '#cf1322',
+              fontSize: isMobile ? '20px' : '24px'
+            }}
+            formatter={(value) => formatCurrency(Number(value))}
           />
         </Card>
         

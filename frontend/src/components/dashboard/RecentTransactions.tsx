@@ -43,7 +43,7 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({ onNavigate }) =
       const response = await TransactionService.getTransactions();
       
       // 转换数据格式以匹配组件需要的类型，只取前5条
-      const recentTransactions: Transaction[] = (response.data || [])
+      const recentTransactions: Transaction[] = (response.transactions || [])
         .slice(0, 5)
         .map(transaction => ({
           id: transaction.id,

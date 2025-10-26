@@ -59,7 +59,7 @@ const TagDisplay: React.FC<TagDisplayProps> = ({
       setLoading(true);
       const response = await fetch(`/api/tags/${entityType}/${entityId}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
       });
 
@@ -87,7 +87,7 @@ const TagDisplay: React.FC<TagDisplayProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({
           tagId,
@@ -114,7 +114,7 @@ const TagDisplay: React.FC<TagDisplayProps> = ({
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({
           tagId,

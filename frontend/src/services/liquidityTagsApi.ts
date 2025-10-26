@@ -16,7 +16,7 @@ export interface LiquidityTag {
 // 获取所有流动性标签
 export const getLiquidityTags = async (): Promise<LiquidityTag[]> => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     const response = await axios.get(`${API_BASE_URL}/liquidity-tags`, {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -72,7 +72,7 @@ export const getActiveLiquidityTags = async (): Promise<LiquidityTag[]> => {
 // 创建流动性标签
 export const createLiquidityTag = async (tag: Omit<LiquidityTag, 'id' | 'createdAt'>): Promise<LiquidityTag> => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     const response = await axios.post(`${API_BASE_URL}/liquidity-tags`, 
       tag,
       {
@@ -92,7 +92,7 @@ export const createLiquidityTag = async (tag: Omit<LiquidityTag, 'id' | 'created
 // 更新流动性标签
 export const updateLiquidityTag = async (id: string, tag: Partial<LiquidityTag>): Promise<LiquidityTag> => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     const response = await axios.put(`${API_BASE_URL}/liquidity-tags/${id}`, 
       tag,
       {
@@ -112,7 +112,7 @@ export const updateLiquidityTag = async (id: string, tag: Partial<LiquidityTag>)
 // 删除流动性标签
 export const deleteLiquidityTag = async (id: string): Promise<{ success: boolean }> => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     await axios.delete(`${API_BASE_URL}/liquidity-tags/${id}`, {
       headers: {
         'Authorization': `Bearer ${token}`
