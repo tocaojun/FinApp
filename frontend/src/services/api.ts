@@ -44,6 +44,16 @@ export const apiRequest = async <T = any>(
     }
     
     if (!response.ok) {
+      // 尝试获取错误详情
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        console.error('API 错误响应:', errorData);
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch (e) {
+        // 无法解析错误响应
+      }
+      
       if (response.status === 401) {
         // 认证失败，清除本地令牌并跳转到登录页
         localStorage.removeItem('auth_token');
@@ -51,7 +61,8 @@ export const apiRequest = async <T = any>(
         window.location.href = '/login';
         throw new Error('Authentication failed');
       }
-      throw new Error(`HTTP error! status: ${response.status}`);
+      
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();

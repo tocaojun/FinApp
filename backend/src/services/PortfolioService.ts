@@ -29,12 +29,19 @@ export class PortfolioService {
   };
 
   async createPortfolio(userId: string, data: CreatePortfolioRequest): Promise<Portfolio> {
+    // 获取用户当前投资组合数量，用于设置排序顺序
+    const countQuery = `SELECT COUNT(*) as count FROM finapp.portfolios WHERE user_id = $1::uuid`;
+    const countResult = await databaseService.executeRawQuery(countQuery, [userId]);
+    const nextSortOrder = data.sortOrder !== undefined ? data.sortOrder : (parseInt(countResult[0]?.count) || 0);
+
     const portfolio: Portfolio = {
       id: uuidv4(),
       userId,
       name: data.name,
       description: data.description,
       baseCurrency: data.baseCurrency || 'USD',
+      sortOrder: nextSortOrder,
+      isDefault: data.isDefault || false,
       totalValue: 0,
       totalCost: 0,
       totalGainLoss: 0,
@@ -48,16 +55,26 @@ export class PortfolioService {
       throw new Error(`Unsupported base currency: ${portfolio.baseCurrency}`);
     }
 
+    // 如果设置为默认投资组合，先取消其他默认设置
+    if (portfolio.isDefault) {
+      const updateDefaultQuery = `
+        UPDATE finapp.portfolios 
+        SET is_default = false 
+        WHERE user_id = $1::uuid AND is_default = true
+      `;
+      await databaseService.executeRawCommand(updateDefaultQuery, [userId]);
+    }
+
     const query = `
       INSERT INTO finapp.portfolios (
-        id, user_id, name, description, base_currency
-      ) VALUES ($1::uuid, $2::uuid, $3, $4, $5)
+        id, user_id, name, description, base_currency, sort_order, is_default
+      ) VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7)
       RETURNING *
     `;
     
     await databaseService.executeRawCommand(query, [
       portfolio.id, portfolio.userId, portfolio.name, portfolio.description,
-      portfolio.baseCurrency
+      portfolio.baseCurrency, portfolio.sortOrder, portfolio.isDefault
     ]);
 
     return portfolio;
@@ -81,8 +98,8 @@ export class PortfolioService {
           WHERE ap2.asset_id = a.id
         )
       WHERE p.user_id = $1::uuid 
-      GROUP BY p.id, p.user_id, p.name, p.description, p.base_currency, p.created_at, p.updated_at
-      ORDER BY p.created_at DESC
+      GROUP BY p.id, p.user_id, p.name, p.description, p.base_currency, p.sort_order, p.is_default, p.created_at, p.updated_at
+      ORDER BY p.sort_order ASC, p.created_at ASC
     `;
     
     const result = await databaseService.executeRawQuery(query, [userId]);
@@ -126,24 +143,36 @@ export class PortfolioService {
       throw new Error(`Unsupported base currency: ${data.baseCurrency}`);
     }
 
+    // 如果设置为默认投资组合，先取消其他默认设置
+    if (data.isDefault === true) {
+      const updateDefaultQuery = `
+        UPDATE finapp.portfolios 
+        SET is_default = false 
+        WHERE user_id = $1::uuid AND is_default = true AND id != $2::uuid
+      `;
+      await databaseService.executeRawCommand(updateDefaultQuery, [userId, portfolioId]);
+    }
+
     const updatedPortfolio: Portfolio = {
       ...existingPortfolio,
       name: data.name ?? existingPortfolio.name,
       description: data.description ?? existingPortfolio.description,
       baseCurrency: data.baseCurrency ?? existingPortfolio.baseCurrency,
+      sortOrder: data.sortOrder ?? existingPortfolio.sortOrder,
+      isDefault: data.isDefault ?? existingPortfolio.isDefault,
       updatedAt: new Date()
     };
 
     const query = `
       UPDATE portfolios 
-      SET name = $3, description = $4, base_currency = $5, updated_at = $6
+      SET name = $3, description = $4, base_currency = $5, sort_order = $6, is_default = $7, updated_at = $8
       WHERE id = $1::uuid AND user_id = $2::uuid
       RETURNING *
     `;
     
     const values = [
       portfolioId, userId, updatedPortfolio.name, updatedPortfolio.description,
-      updatedPortfolio.baseCurrency, updatedPortfolio.updatedAt
+      updatedPortfolio.baseCurrency, updatedPortfolio.sortOrder, updatedPortfolio.isDefault, updatedPortfolio.updatedAt
     ];
     
     const result = await databaseService.executeRawQuery(query, values);
@@ -158,6 +187,24 @@ export class PortfolioService {
     await databaseService.executeRawCommand('DELETE FROM portfolios WHERE id = $1::uuid AND user_id = $2::uuid', [portfolioId, userId]);
     
     return true;
+  }
+
+  async updatePortfolioSortOrder(userId: string, portfolioOrders: { id: string; sortOrder: number }[]): Promise<boolean> {
+    try {
+      // 使用事务批量更新排序
+      for (const { id, sortOrder } of portfolioOrders) {
+        const query = `
+          UPDATE finapp.portfolios 
+          SET sort_order = $1, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2::uuid AND user_id = $3::uuid
+        `;
+        await databaseService.executeRawCommand(query, [sortOrder, id, userId]);
+      }
+      return true;
+    } catch (error) {
+      console.error('Failed to update portfolio sort order:', error);
+      return false;
+    }
   }
 
   async getPortfolioSummary(userId: string, portfolioId: string): Promise<PortfolioSummary | null> {
@@ -206,41 +253,104 @@ export class PortfolioService {
 
   // 交易账户管理
   async createTradingAccount(userId: string, portfolioId: string, data: CreateTradingAccountRequest): Promise<TradingAccount> {
+    console.log('=== 创建交易账户开始 ===');
+    console.log('userId:', userId, 'type:', typeof userId);
+    console.log('portfolioId:', portfolioId, 'type:', typeof portfolioId);
+    console.log('data:', JSON.stringify(data, null, 2));
+    
+    // 验证必填字段
+    if (!data.name || !data.accountType) {
+      const error = new Error('账户名称和账户类型为必填项');
+      console.error('验证失败:', error.message);
+      throw error;
+    }
+    
     // 验证投资组合所有权
+    console.log('开始验证投资组合所有权...');
     const portfolio = await this.getPortfolioById(userId, portfolioId);
     if (!portfolio) {
-      throw new Error('Portfolio not found');
+      const error = new Error('投资组合未找到或无权访问');
+      console.error('验证失败:', error.message);
+      throw error;
     }
+    console.log('投资组合验证成功:', portfolio.name);
+
+    // 确保数值类型正确
+    const balance = typeof data.balance === 'string' ? parseFloat(data.balance) : (data.balance || 0);
+    const availableBalance = typeof data.availableBalance === 'string' 
+      ? parseFloat(data.availableBalance) 
+      : (data.availableBalance || balance);
+
+    console.log('处理后的余额 - balance:', balance, 'type:', typeof balance);
+    console.log('处理后的可用余额 - availableBalance:', availableBalance, 'type:', typeof availableBalance);
 
     const account: TradingAccount = {
       id: uuidv4(),
       portfolioId,
-      name: data.name,
-      broker: data.broker,
-      accountNumber: data.accountNumber,
+      name: data.name.trim(),
+      broker: data.broker?.trim() || '',
+      accountNumber: data.accountNumber?.trim() || '',
       accountType: data.accountType,
       currency: data.currency || portfolio.baseCurrency,
-      balance: data.balance || 0,
-      availableBalance: data.availableBalance || data.balance || 0,
+      balance: balance,
+      availableBalance: availableBalance,
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
+    console.log('准备插入的账户对象:', JSON.stringify(account, null, 2));
+
     const query = `
-      INSERT INTO trading_accounts (
-        id, portfolio_id, name, broker, account_number, account_type,
-        currency, balance, available_balance, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      INSERT INTO finapp.trading_accounts (
+        id, portfolio_id, name, broker_name, account_number, account_type,
+        currency, initial_balance, current_balance, is_active, created_at, updated_at
+      ) VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8::numeric, $9::numeric, $10, $11, $12)
       RETURNING *
     `;
     
-    await databaseService.executeRawCommand(query, [
-      account.id, account.portfolioId, account.name, account.broker,
-      account.accountNumber, account.accountType, account.currency,
-      account.balance, account.availableBalance, account.createdAt, account.updatedAt
-    ]);
+    const params = [
+      account.id, 
+      account.portfolioId, 
+      account.name, 
+      account.broker,
+      account.accountNumber, 
+      account.accountType, 
+      account.currency,
+      account.balance, 
+      account.availableBalance, 
+      true, 
+      account.createdAt, 
+      account.updatedAt
+    ];
+    
+    console.log('SQL 参数:', params.map((p, i) => `$${i+1}: ${p} (${typeof p})`).join('\n'));
+    
+    try {
+      console.log('开始执行 SQL...');
+      const result = await databaseService.executeRawQuery(query, params);
+      
+      console.log('SQL 执行成功，返回结果:', result);
+      console.log('=== 创建交易账户成功 ===');
 
-    return account;
+      return account;
+    } catch (error: any) {
+      console.error('=== SQL 执行失败 ===');
+      console.error('错误类型:', error.constructor.name);
+      console.error('错误消息:', error.message);
+      console.error('错误堆栈:', error.stack);
+      console.error('错误详情:', JSON.stringify(error, null, 2));
+      
+      // 提供更友好的错误消息
+      if (error.message?.includes('invalid input syntax for type uuid')) {
+        throw new Error('投资组合ID格式无效');
+      } else if (error.message?.includes('violates foreign key constraint')) {
+        throw new Error('投资组合不存在');
+      } else if (error.message?.includes('duplicate key')) {
+        throw new Error('账户已存在');
+      } else {
+        throw new Error(`创建账户失败: ${error.message}`);
+      }
+    }
   }
 
   async getTradingAccounts(userId: string, portfolioId: string): Promise<TradingAccount[]> {
@@ -300,6 +410,69 @@ export class PortfolioService {
     const result = await databaseService.executeRawQuery(query, params);
     const rows = Array.isArray(result) ? result : [];
     return rows.length > 0 ? this.mapRowToTradingAccount(rows[0]) : null;
+  }
+
+  async deleteTradingAccount(userId: string, portfolioId: string, accountId: string): Promise<boolean> {
+    console.log('=== 删除交易账户开始 ===');
+    console.log('userId:', userId);
+    console.log('portfolioId:', portfolioId);
+    console.log('accountId:', accountId);
+    
+    try {
+      // 验证投资组合所有权
+      console.log('验证投资组合所有权...');
+      const portfolio = await this.getPortfolioById(userId, portfolioId);
+      if (!portfolio) {
+        console.log('投资组合未找到或无权访问');
+        return false;
+      }
+      console.log('投资组合验证成功:', portfolio.name);
+
+      // 检查账户是否存在
+      console.log('检查账户是否存在...');
+      const checkQuery = `
+        SELECT id FROM finapp.trading_accounts 
+        WHERE id = $1::uuid AND portfolio_id = $2::uuid
+      `;
+      const checkResult = await databaseService.executeRawQuery(checkQuery, [accountId, portfolioId]);
+      
+      if (!Array.isArray(checkResult) || checkResult.length === 0) {
+        console.log('交易账户未找到');
+        return false;
+      }
+      console.log('账户存在，准备删除');
+
+      // 检查是否有关联的持仓
+      console.log('检查关联的持仓...');
+      const positionsQuery = `
+        SELECT COUNT(*) as count FROM finapp.positions 
+        WHERE trading_account_id = $1::uuid AND is_active = true
+      `;
+      const positionsResult = await databaseService.executeRawQuery(positionsQuery, [accountId]);
+      const positionCount = parseInt(positionsResult[0]?.count) || 0;
+      
+      if (positionCount > 0) {
+        console.log(`账户有 ${positionCount} 个活跃持仓，无法删除`);
+        throw new Error(`无法删除账户：该账户有 ${positionCount} 个活跃持仓`);
+      }
+      console.log('无活跃持仓，可以删除');
+
+      // 删除账户
+      console.log('执行删除操作...');
+      const deleteQuery = `
+        DELETE FROM finapp.trading_accounts 
+        WHERE id = $1::uuid AND portfolio_id = $2::uuid
+      `;
+      await databaseService.executeRawCommand(deleteQuery, [accountId, portfolioId]);
+      
+      console.log('=== 删除交易账户成功 ===');
+      return true;
+    } catch (error: any) {
+      console.error('=== 删除交易账户失败 ===');
+      console.error('错误:', error.message);
+      console.error('错误堆栈:', error.stack);
+      throw error;
+    }
   }
 
   async getAllTradingAccounts(userId: string): Promise<TradingAccount[]> {
@@ -363,6 +536,8 @@ export class PortfolioService {
       name: row.name || '',
       description: row.description || '',
       baseCurrency: row.base_currency || 'CNY',
+      sortOrder: parseInt(row.sort_order) || 0,
+      isDefault: Boolean(row.is_default),
       totalValue: 0, // 这些字段需要通过计算得出
       totalCost: 0,
       totalGainLoss: 0,
@@ -384,6 +559,8 @@ export class PortfolioService {
       name: row.name || '',
       description: row.description || '',
       baseCurrency: row.base_currency || 'CNY',
+      sortOrder: parseInt(row.sort_order) || 0,
+      isDefault: Boolean(row.is_default),
       totalValue: totalValue,
       totalCost: totalCost,
       totalGainLoss: totalGainLoss,

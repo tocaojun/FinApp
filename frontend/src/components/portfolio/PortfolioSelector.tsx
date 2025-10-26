@@ -43,9 +43,10 @@ const PortfolioSelector: React.FC<PortfolioSelectorProps> = ({
       const data = await PortfolioService.getPortfolios();
       setPortfolios(data);
       
-      // 如果没有选中的投资组合且有数据，默认选择第一个
+      // 如果没有选中的投资组合且有数据，优先选择默认投资组合，否则选择排序第一个
       if (!selectedPortfolioId && data.length > 0) {
-        const firstPortfolio = data[0];
+        const defaultPortfolio = data.find(p => p.isDefault);
+        const firstPortfolio = defaultPortfolio || data[0];
         setSelectedPortfolio(firstPortfolio);
         onPortfolioChange(firstPortfolio.id, firstPortfolio);
       }
@@ -95,6 +96,7 @@ const PortfolioSelector: React.FC<PortfolioSelectorProps> = ({
               {portfolios.map(portfolio => (
                 <Option key={portfolio.id} value={portfolio.id}>
                   {portfolio.name}
+                  {portfolio.isDefault && <span style={{ color: '#1890ff', marginLeft: '4px' }}>★</span>}
                 </Option>
               ))}
             </Select>

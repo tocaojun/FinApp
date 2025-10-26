@@ -6,6 +6,8 @@ export interface Portfolio {
   name: string;
   description?: string;
   baseCurrency: string;
+  sortOrder: number;
+  isDefault: boolean;
   totalValue: number;
   totalCost: number;
   totalGainLoss: number;

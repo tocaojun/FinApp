@@ -15,14 +15,21 @@ import {
   Statistic,
   Typography,
   Empty,
-  Spin
+  Spin,
+  Checkbox,
+  Tooltip
 } from 'antd';
 import { 
   PlusOutlined, 
   FolderOutlined,
   RiseOutlined,
   FallOutlined,
-  DollarOutlined
+  DollarOutlined,
+  ArrowUpOutlined,
+  ArrowDownOutlined,
+  StarOutlined,
+  StarFilled,
+  MenuOutlined
 } from '@ant-design/icons';
 import { Portfolio } from '../../types/portfolio';
 import { PortfolioService } from '../../services/portfolioService';
@@ -36,6 +43,7 @@ const PortfolioList: React.FC = () => {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [loading, setLoading] = useState(true);
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [sortMode, setSortMode] = useState(false);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -68,6 +76,53 @@ const PortfolioList: React.FC = () => {
     }
   };
 
+  const handleSetDefault = async (portfolioId: string) => {
+    try {
+      await PortfolioService.updatePortfolio(portfolioId, { isDefault: true });
+      message.success('默认投资组合设置成功');
+      loadPortfolios();
+    } catch (error) {
+      console.error('Failed to set default portfolio:', error);
+      message.error('设置默认投资组合失败');
+    }
+  };
+
+  const movePortfolio = (fromIndex: number, toIndex: number) => {
+    const newPortfolios = [...portfolios];
+    const [movedItem] = newPortfolios.splice(fromIndex, 1);
+    newPortfolios.splice(toIndex, 0, movedItem);
+    
+    // 更新排序顺序
+    const updatedPortfolios = newPortfolios.map((portfolio, index) => ({
+      ...portfolio,
+      sortOrder: index
+    }));
+    
+    setPortfolios(updatedPortfolios);
+  };
+
+  const saveSortOrder = async () => {
+    try {
+      const portfolioOrders = portfolios.map((portfolio, index) => ({
+        id: portfolio.id,
+        sortOrder: index
+      }));
+      
+      await PortfolioService.updatePortfolioSortOrder(portfolioOrders);
+      message.success('投资组合排序已保存');
+      setSortMode(false);
+      loadPortfolios();
+    } catch (error) {
+      console.error('Failed to save sort order:', error);
+      message.error('保存排序失败');
+    }
+  };
+
+  const cancelSort = () => {
+    setSortMode(false);
+    loadPortfolios(); // 重新加载原始顺序
+  };
+
   const formatCurrency = (amount: number, currency: string = 'CNY') => {
     return new Intl.NumberFormat('zh-CN', {
       style: 'currency',
@@ -97,13 +152,35 @@ const PortfolioList: React.FC = () => {
           <FolderOutlined style={{ marginRight: '8px' }} />
           我的投资组合
         </Title>
-        <Button 
-          type="primary" 
-          icon={<PlusOutlined />}
-          onClick={() => setCreateModalVisible(true)}
-        >
-          创建投资组合
-        </Button>
+        <Space>
+          {sortMode ? (
+            <>
+              <Button onClick={cancelSort}>
+                取消
+              </Button>
+              <Button type="primary" onClick={saveSortOrder}>
+                保存排序
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button 
+                icon={<MenuOutlined />}
+                onClick={() => setSortMode(true)}
+                disabled={portfolios.length <= 1}
+              >
+                排序
+              </Button>
+              <Button 
+                type="primary" 
+                icon={<PlusOutlined />}
+                onClick={() => setCreateModalVisible(true)}
+              >
+                创建投资组合
+              </Button>
+            </>
+          )}
+        </Space>
       </div>
 
       {portfolios.length === 0 ? (
@@ -123,18 +200,65 @@ const PortfolioList: React.FC = () => {
         </Card>
       ) : (
         <Row gutter={[16, 16]}>
-          {portfolios.map((portfolio) => (
+          {portfolios.map((portfolio, index) => (
             <Col xs={24} sm={12} lg={8} key={portfolio.id}>
               <Card
-                hoverable
-                onClick={() => navigate(`/portfolio/${portfolio.id}`)}
-                style={{ height: '100%' }}
+                hoverable={!sortMode}
+                onClick={sortMode ? undefined : () => navigate(`/portfolio/${portfolio.id}`)}
+                style={{ 
+                  height: '100%',
+                  cursor: sortMode ? 'move' : 'pointer',
+                  border: portfolio.isDefault ? '2px solid #1890ff' : undefined
+                }}
                 bodyStyle={{ padding: '20px' }}
+                extra={
+                  sortMode ? (
+                    <Space>
+                      <Button 
+                        size="small" 
+                        icon={<ArrowUpOutlined />}
+                        disabled={index === 0}
+                        onClick={() => movePortfolio(index, index - 1)}
+                      />
+                      <Button 
+                        size="small" 
+                        icon={<ArrowDownOutlined />}
+                        disabled={index === portfolios.length - 1}
+                        onClick={() => movePortfolio(index, index + 1)}
+                      />
+                    </Space>
+                  ) : (
+                    portfolio.isDefault ? (
+                      <Tooltip title="默认投资组合">
+                        <StarFilled style={{ color: '#1890ff' }} />
+                      </Tooltip>
+                    ) : (
+                      <Tooltip title="设为默认">
+                        <Button 
+                          type="text" 
+                          size="small"
+                          icon={<StarOutlined />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSetDefault(portfolio.id);
+                          }}
+                        />
+                      </Tooltip>
+                    )
+                  )
+                }
               >
                 <div style={{ marginBottom: '16px' }}>
-                  <Title level={4} style={{ margin: 0, marginBottom: '8px' }}>
-                    {portfolio.name || '未命名投资组合'}
-                  </Title>
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                    <Title level={4} style={{ margin: 0, flex: 1 }}>
+                      {portfolio.name || '未命名投资组合'}
+                    </Title>
+                    {sortMode && (
+                      <Typography.Text type="secondary" style={{ fontSize: '12px' }}>
+                        #{index + 1}
+                      </Typography.Text>
+                    )}
+                  </div>
                   <Typography.Text type="secondary">
                     {portfolio.description || '暂无描述'}
                   </Typography.Text>

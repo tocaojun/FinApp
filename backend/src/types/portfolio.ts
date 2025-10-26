@@ -4,6 +4,8 @@ export interface Portfolio {
   name: string;
   description?: string;
   baseCurrency: string;
+  sortOrder: number;
+  isDefault: boolean;
   totalValue: number;
   totalCost: number;
   totalGainLoss: number;
@@ -113,15 +115,20 @@ export interface CreatePortfolioRequest {
   name: string;
   description?: string;
   baseCurrency: string;
+  sortOrder?: number;
+  isDefault?: boolean;
 }
 
 export interface UpdatePortfolioRequest {
   name?: string;
   description?: string;
   baseCurrency?: string;
+  sortOrder?: number;
+  isDefault?: boolean;
 }
 
 export interface CreateTradingAccountRequest {
+  portfolioId: string;
   name: string;
   broker: string;
   accountNumber: string;

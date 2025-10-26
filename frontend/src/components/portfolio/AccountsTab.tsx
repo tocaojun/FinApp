@@ -51,11 +51,13 @@ const AccountsTab: React.FC<AccountsTabProps> = ({ portfolioId }) => {
   }, [portfolioId]);
 
   const loadAccounts = async () => {
+    console.log('开始加载交易账户, portfolioId:', portfolioId); // 调试日志
     setLoading(true);
     try {
       // 导入PortfolioService
       const { PortfolioService } = await import('../../services/portfolioService');
       const data = await PortfolioService.getTradingAccounts(portfolioId);
+      console.log('从后端获取的账户数据:', data); // 调试日志
       
       // 转换数据格式以匹配组件需要的类型
       const convertedAccounts: Account[] = data.map(account => ({
@@ -72,6 +74,7 @@ const AccountsTab: React.FC<AccountsTabProps> = ({ portfolioId }) => {
         updatedAt: account.updatedAt
       }));
       
+      console.log('转换后的账户数据:', convertedAccounts); // 调试日志
       setAccounts(convertedAccounts);
     } catch (error) {
       console.error('加载账户数据失败:', error);
@@ -124,17 +127,31 @@ const AccountsTab: React.FC<AccountsTabProps> = ({ portfolioId }) => {
   const handleDeleteAccount = (account: Account) => {
     Modal.confirm({
       title: '确认删除',
-      content: `确定要删除账户 "${account.name}" 吗？`,
+      content: `确定要删除账户 "${account.name}" 吗？此操作不可恢复。`,
+      okText: '确认删除',
+      okType: 'danger',
+      cancelText: '取消',
       onOk: async () => {
         try {
-          // 这里应该调用实际的API
-          // await AccountService.deleteAccount(account.id);
+          console.log('=== 前端：开始删除账户 ===');
+          console.log('portfolioId:', portfolioId);
+          console.log('accountId:', account.id);
+          console.log('accountName:', account.name);
           
-          setAccounts(prev => prev.filter(a => a.id !== account.id));
+          await PortfolioService.deleteTradingAccount(portfolioId, account.id);
+          
+          console.log('删除成功，重新加载账户列表...');
+          await loadAccounts();
+          
+          console.log('=== 前端：删除账户完成 ===');
           message.success('账户删除成功');
-        } catch (error) {
-          console.error('删除账户失败:', error);
-          message.error('删除账户失败');
+        } catch (error: any) {
+          console.error('=== 前端：删除账户失败 ===');
+          console.error('错误对象:', error);
+          console.error('错误消息:', error.message);
+          
+          const errorMsg = error.message || '删除账户失败，请重试';
+          message.error(errorMsg);
         }
       }
     });
@@ -160,16 +177,50 @@ const AccountsTab: React.FC<AccountsTabProps> = ({ portfolioId }) => {
           return;
         }
       } else {
-        // 创建新账户 - 这里需要实现创建API
-        const newAccount: Account = {
-          id: Date.now().toString(),
-          portfolioId,
-          ...values,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        setAccounts(prev => [...prev, newAccount]);
-        message.success('账户创建成功');
+        // 创建新账户
+        try {
+          console.log('=== 前端：开始创建账户 ===');
+          console.log('表单原始值:', values);
+          console.log('portfolioId:', portfolioId);
+          
+          // 确保数据类型正确
+          const accountData = {
+            portfolioId: portfolioId,
+            name: String(values.name).trim(),
+            accountType: values.type,
+            broker: values.broker ? String(values.broker).trim() : '',
+            accountNumber: values.accountNumber ? String(values.accountNumber).trim() : '',
+            currency: values.currency || 'CNY',
+            balance: parseFloat(values.balance) || 0,
+            availableBalance: parseFloat(values.balance) || 0
+          };
+          
+          console.log('发送到后端的数据:', JSON.stringify(accountData, null, 2));
+          console.log('数据类型检查:');
+          console.log('- portfolioId:', typeof accountData.portfolioId, accountData.portfolioId);
+          console.log('- name:', typeof accountData.name, accountData.name);
+          console.log('- accountType:', typeof accountData.accountType, accountData.accountType);
+          console.log('- balance:', typeof accountData.balance, accountData.balance);
+          
+          const createdAccount = await PortfolioService.createTradingAccount(accountData);
+          console.log('后端返回:', createdAccount);
+          console.log('账户创建成功，准备重新加载列表...');
+          
+          // 重新加载账户列表以获取最新数据
+          await loadAccounts();
+          console.log('列表重新加载完成');
+          console.log('=== 前端：创建账户完成 ===');
+          message.success('账户创建成功');
+        } catch (error: any) {
+          console.error('=== 前端：创建账户失败 ===');
+          console.error('错误对象:', error);
+          console.error('错误消息:', error.message);
+          console.error('错误响应:', error.response?.data);
+          
+          const errorMsg = error.message || '创建账户失败，请重试';
+          message.error(errorMsg);
+          return;
+        }
       }
       
       setModalVisible(false);

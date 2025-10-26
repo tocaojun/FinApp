@@ -219,6 +219,62 @@ export class PortfolioController {
     }
   }
 
+  // 更新投资组合排序
+  async updatePortfolioSortOrder(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          message: 'User not authenticated'
+        });
+        return;
+      }
+
+      const { portfolioOrders } = req.body;
+      if (!Array.isArray(portfolioOrders)) {
+        res.status(400).json({
+          success: false,
+          message: 'Portfolio orders must be an array'
+        });
+        return;
+      }
+
+      // 验证数据格式
+      for (const order of portfolioOrders) {
+        if (!order.id || typeof order.sortOrder !== 'number') {
+          res.status(400).json({
+            success: false,
+            message: 'Each portfolio order must have id and sortOrder'
+          });
+          return;
+        }
+      }
+
+      const success = await portfolioService.updatePortfolioSortOrder(userId, portfolioOrders);
+      
+      if (!success) {
+        res.status(500).json({
+          success: false,
+          message: 'Failed to update portfolio sort order'
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        message: 'Portfolio sort order updated successfully'
+      });
+    } catch (error) {
+      console.error('Update portfolio sort order error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update portfolio sort order',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
   // 获取所有投资组合的汇总统计
   async getAllPortfoliosSummary(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
@@ -330,17 +386,20 @@ export class PortfolioController {
         return;
       }
 
-      const { portfolioId } = req.params;
+      console.log('收到创建交易账户请求:', req.body); // 调试日志
+      const data: CreateTradingAccountRequest = req.body;
+      const { portfolioId } = data;
+      
       if (!portfolioId) {
+        console.log('portfolioId 缺失'); // 调试日志
         res.status(400).json({
           success: false,
           message: 'Portfolio ID is required'
         });
         return;
       }
-
-      const data: CreateTradingAccountRequest = req.body;
       
+      console.log('调用 portfolioService.createTradingAccount, userId:', userId, 'portfolioId:', portfolioId); // 调试日志
       const account = await portfolioService.createTradingAccount(userId, portfolioId, data);
       
       res.status(201).json({
@@ -445,6 +504,53 @@ export class PortfolioController {
       res.status(500).json({
         success: false,
         message: 'Failed to update trading account',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  // 删除交易账户
+  async deleteTradingAccount(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          message: 'User not authenticated'
+        });
+        return;
+      }
+
+      const { portfolioId, accountId } = req.params;
+      if (!portfolioId || !accountId) {
+        res.status(400).json({
+          success: false,
+          message: 'Portfolio ID and Account ID are required'
+        });
+        return;
+      }
+
+      console.log('删除交易账户请求 - userId:', userId, 'portfolioId:', portfolioId, 'accountId:', accountId);
+      
+      const deleted = await portfolioService.deleteTradingAccount(userId, portfolioId, accountId);
+      
+      if (!deleted) {
+        res.status(404).json({
+          success: false,
+          message: 'Trading account not found'
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        message: 'Trading account deleted successfully'
+      });
+    } catch (error) {
+      console.error('Delete trading account error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete trading account',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }

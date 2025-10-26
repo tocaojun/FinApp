@@ -134,7 +134,56 @@ router.post('/',
   portfolioController.createPortfolio.bind(portfolioController)
 );
 
-
+/**
+ * @swagger
+ * /api/portfolios/sort-order:
+ *   put:
+ *     summary: 更新投资组合排序
+ *     tags: [Portfolios]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - portfolioOrders
+ *             properties:
+ *               portfolioOrders:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     sortOrder:
+ *                       type: number
+ *     responses:
+ *       200:
+ *         description: 投资组合排序更新成功
+ *       400:
+ *         description: 请求参数错误
+ *       401:
+ *         description: 未授权
+ */
+router.put('/sort-order',
+  [
+    body('portfolioOrders')
+      .isArray()
+      .withMessage('Portfolio orders must be an array'),
+    body('portfolioOrders.*.id')
+      .notEmpty()
+      .withMessage('Portfolio ID is required'),
+    body('portfolioOrders.*.sortOrder')
+      .isInt({ min: 0 })
+      .withMessage('Sort order must be a non-negative integer')
+  ],
+  validateRequest,
+  requirePermission('portfolios', 'update'),
+  portfolioController.updatePortfolioSortOrder.bind(portfolioController)
+);
 
 /**
  * @swagger
@@ -255,6 +304,8 @@ router.delete('/:id',
   requirePermission('portfolios', 'delete'),
   portfolioController.deletePortfolio.bind(portfolioController)
 );
+
+
 
 /**
  * @swagger
@@ -473,6 +524,45 @@ router.put('/:portfolioId/accounts/:accountId',
   validateRequest,
   requirePermission('accounts', 'update'),
   portfolioController.updateTradingAccount.bind(portfolioController)
+);
+
+/**
+ * @swagger
+ * /api/portfolios/{portfolioId}/accounts/{accountId}:
+ *   delete:
+ *     summary: 删除交易账户
+ *     tags: [Trading Accounts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: portfolioId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: accountId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: 交易账户删除成功
+ *       404:
+ *         description: 交易账户不存在
+ */
+router.delete('/:portfolioId/accounts/:accountId',
+  [
+    param('portfolioId')
+      .notEmpty()
+      .withMessage('Portfolio ID is required'),
+    param('accountId')
+      .notEmpty()
+      .withMessage('Account ID is required')
+  ],
+  validateRequest,
+  requirePermission('accounts', 'delete'),
+  portfolioController.deleteTradingAccount.bind(portfolioController)
 );
 
 // 资产管理路由
