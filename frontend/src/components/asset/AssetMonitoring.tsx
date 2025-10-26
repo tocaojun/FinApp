@@ -58,6 +58,10 @@ import {
   Alert as MonitoringAlert,
   MonitoringStats
 } from '../../services/assetMonitoringApi';
+import {
+  getActiveLiquidityTags,
+  type LiquidityTag
+} from '../../services/liquidityTagsApi';
 
 const { Option } = Select;
 const { Title, Text } = Typography;
@@ -129,6 +133,7 @@ const AssetMonitoring: React.FC<AssetMonitoringProps> = ({
   const [alertsVisible, setAlertsVisible] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<string>('');
   const [monitoringEnabled, setMonitoringEnabled] = useState(true);
+  const [liquidityTags, setLiquidityTags] = useState<LiquidityTag[]>([]);
   const [form] = Form.useForm();
 
   // 监控统计
@@ -142,6 +147,7 @@ const AssetMonitoring: React.FC<AssetMonitoringProps> = ({
   // 初始化数据
   useEffect(() => {
     loadMonitoringData();
+    loadLiquidityTags();
     // 实时监控
     const interval = setInterval(() => {
       if (monitoringEnabled) {
@@ -151,6 +157,16 @@ const AssetMonitoring: React.FC<AssetMonitoringProps> = ({
 
     return () => clearInterval(interval);
   }, [monitoringEnabled, assets]);
+
+  // 加载流动性标签
+  const loadLiquidityTags = async () => {
+    try {
+      const tags = await getActiveLiquidityTags();
+      setLiquidityTags(tags);
+    } catch (error) {
+      console.error('加载流动性标签失败:', error);
+    }
+  };
 
   // 加载监控数据
   const loadMonitoringData = async () => {
@@ -446,9 +462,13 @@ const AssetMonitoring: React.FC<AssetMonitoringProps> = ({
     if (asset.priceChange1D && Math.abs(asset.priceChange1D) > 10) score += 20;
     else if (asset.priceChange1D && Math.abs(asset.priceChange1D) > 5) score += 10;
     
-    // 流动性风险
-    if (asset.liquidityTag === 'LOW') score += 15;
-    else if (asset.liquidityTag === 'MEDIUM') score += 5;
+    // 流动性风险 - 基于标签名称判断
+    const liquidityTag = liquidityTags.find(t => t.id === asset.liquidityTag);
+    if (liquidityTag) {
+      const tagName = liquidityTag.name.toLowerCase();
+      if (tagName.includes('低') || tagName.includes('low')) score += 15;
+      else if (tagName.includes('中') || tagName.includes('medium')) score += 5;
+    }
     
     return Math.min(score, 100);
   };

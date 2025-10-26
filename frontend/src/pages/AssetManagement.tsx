@@ -344,10 +344,10 @@ const AssetManagement: React.FC = () => {
       dataIndex: 'liquidityTag',
       key: 'liquidityTag',
       width: 100,
-      render: (tag: string) => {
-        const colors = { HIGH: 'green', MEDIUM: 'orange', LOW: 'red' };
-        const labels = { HIGH: '高流动性', MEDIUM: '中流动性', LOW: '低流动性' };
-        return <Tag color={colors[tag as keyof typeof colors]}>{labels[tag as keyof typeof labels]}</Tag>;
+      render: (tagId: string) => {
+        const tag = liquidityTags.find(t => t.id === tagId);
+        if (!tag) return '-';
+        return <Tag color={tag.color}>{tag.name}</Tag>;
       },
     },
     {
@@ -562,9 +562,11 @@ const AssetManagement: React.FC = () => {
               onChange={setSelectedLiquidityTag}
               style={{ width: '100%' }}
             >
-              <Option value="HIGH">高流动性</Option>
-              <Option value="MEDIUM">中流动性</Option>
-              <Option value="LOW">低流动性</Option>
+              {liquidityTags.map(tag => (
+                <Option key={tag.id} value={tag.id}>
+                  <span style={{ color: tag.color }}>{tag.name}</span>
+                </Option>
+              ))}
             </Select>
           </Col>
           <Col span={3}>
@@ -801,7 +803,7 @@ const AssetManagement: React.FC = () => {
                   <Col span={12}>
                     <p><strong>货币:</strong> {selectedAsset.currency}</p>
                     <p><strong>风险等级:</strong> {selectedAsset.riskLevel}</p>
-                    <p><strong>流动性:</strong> {selectedAsset.liquidityTag}</p>
+                    <p><strong>流动性:</strong> {liquidityTags.find(t => t.id === selectedAsset.liquidityTag)?.name || selectedAsset.liquidityTag}</p>
                     <p><strong>状态:</strong> {selectedAsset.isActive ? '活跃' : '停用'}</p>
                   </Col>
                 </Row>

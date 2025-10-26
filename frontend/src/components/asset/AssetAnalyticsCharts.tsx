@@ -51,6 +51,10 @@ import {
   Radar
 } from 'recharts';
 import dayjs from 'dayjs';
+import {
+  getActiveLiquidityTags,
+  type LiquidityTag
+} from '../../services/liquidityTagsApi';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -108,6 +112,20 @@ const AssetAnalyticsCharts: React.FC<AssetAnalyticsChartsProps> = ({
   ]);
   const [chartType, setChartType] = useState<'line' | 'area' | 'candlestick'>('line');
   const [compareMode, setCompareMode] = useState(false);
+  const [liquidityTags, setLiquidityTags] = useState<LiquidityTag[]>([]);
+
+  // 加载流动性标签
+  useEffect(() => {
+    const loadLiquidityTags = async () => {
+      try {
+        const tags = await getActiveLiquidityTags();
+        setLiquidityTags(tags);
+      } catch (error) {
+        console.error('加载流动性标签失败:', error);
+      }
+    };
+    loadLiquidityTags();
+  }, []);
   const [selectedMetric, setSelectedMetric] = useState<string>('price');
   const [priceData, setPriceData] = useState<Record<string, PriceData[]>>({});
   const [correlationData, setCorrelationData] = useState<any[]>([]);
@@ -278,15 +296,26 @@ const AssetAnalyticsCharts: React.FC<AssetAnalyticsChartsProps> = ({
   const generateRadarData = () => {
     const selectedAssetData = assets.filter(a => selectedAssets.includes(a.id));
     
-    return selectedAssetData.map(asset => ({
-      asset: asset.symbol,
-      流动性: asset.liquidityTag === 'HIGH' ? 5 : asset.liquidityTag === 'MEDIUM' ? 3 : 1,
-      收益性: asset.rating || Math.floor(Math.random() * 5) + 1,
-      稳定性: asset.riskLevel === 'LOW' ? 5 : asset.riskLevel === 'MEDIUM' ? 3 : 1,
-      成长性: Math.floor(Math.random() * 5) + 1,
-      估值: Math.floor(Math.random() * 5) + 1,
-      质量: Math.floor(Math.random() * 5) + 1
-    }));
+    return selectedAssetData.map(asset => {
+      // 根据流动性标签名称计算分数
+      const liquidityTag = liquidityTags.find(t => t.id === asset.liquidityTag);
+      let liquidityScore = 3; // 默认中等
+      if (liquidityTag) {
+        const tagName = liquidityTag.name.toLowerCase();
+        if (tagName.includes('高') || tagName.includes('high')) liquidityScore = 5;
+        else if (tagName.includes('低') || tagName.includes('low')) liquidityScore = 1;
+      }
+      
+      return {
+        asset: asset.symbol,
+        流动性: liquidityScore,
+        收益性: asset.rating || Math.floor(Math.random() * 5) + 1,
+        稳定性: asset.riskLevel === 'LOW' ? 5 : asset.riskLevel === 'MEDIUM' ? 3 : 1,
+        成长性: Math.floor(Math.random() * 5) + 1,
+        估值: Math.floor(Math.random() * 5) + 1,
+        质量: Math.floor(Math.random() * 5) + 1
+      };
+    });
   };
 
   const statistics = getStatistics();

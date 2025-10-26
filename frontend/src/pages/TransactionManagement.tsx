@@ -507,8 +507,7 @@ const TransactionManagement: React.FC = () => {
         executedAt: values.executedAt.toISOString(), // 使用ISO格式
         settledAt: values.executedAt.toISOString(), // 使用相同的时间
         notes: values.notes || '',
-        tags: values.tags || [],
-        liquidityTag: 'MEDIUM' // 默认流动性标签
+        tags: values.tags || []
       } as any; // 临时使用 any 类型避免类型错误
 
       if (editingTransaction) {

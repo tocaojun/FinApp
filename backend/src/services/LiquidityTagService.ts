@@ -48,8 +48,8 @@ export class LiquidityTagService {
       ORDER BY sort_order ASC, name ASC
     `;
     
-    const result = await this.db.executeRawQuery(query);
-    return result.rows;
+    const result = await this.db.executeRawQuery<LiquidityTag[]>(query);
+    return result;
   }
 
   // 获取活跃的流动性标签
@@ -68,8 +68,8 @@ export class LiquidityTagService {
       ORDER BY sort_order ASC, name ASC
     `;
     
-    const result = await this.db.executeRawQuery(query);
-    return result.rows;
+    const result = await this.db.executeRawQuery<LiquidityTag[]>(query);
+    return result;
   }
 
   // 根据ID获取流动性标签
@@ -87,8 +87,8 @@ export class LiquidityTagService {
       WHERE id = $1
     `;
     
-    const result = await this.db.executeRawQuery(query, [id]);
-    return result.rows[0] || null;
+    const result = await this.db.executeRawQuery<LiquidityTag[]>(query, [id]);
+    return result[0] || null;
   }
 
   // 创建流动性标签
@@ -119,8 +119,11 @@ export class LiquidityTagService {
       data.isActive !== undefined ? data.isActive : true
     ];
     
-    const result = await this.db.executeRawQuery(query, values);
-    return result.rows[0];
+    const result = await this.db.executeRawQuery<LiquidityTag[]>(query, values);
+    if (!result[0]) {
+      throw new Error('Failed to create liquidity tag');
+    }
+    return result[0];
   }
 
   // 更新流动性标签
@@ -170,8 +173,8 @@ export class LiquidityTagService {
         created_at as "createdAt"
     `;
     
-    const result = await this.db.executeRawQuery(query, values);
-    return result.rows[0] || null;
+    const result = await this.db.executeRawQuery<LiquidityTag[]>(query, values);
+    return result[0] || null;
   }
 
   // 删除流动性标签
@@ -181,20 +184,20 @@ export class LiquidityTagService {
       WHERE id = $1
     `;
     
-    const result = await this.db.executeRawQuery(query, [id]);
-    return result.rowCount > 0;
+    await this.db.executeRawQuery(query, [id]);
+    return true;
   }
 
   // 检查是否有关联的交易记录
   async checkReferences(id: string): Promise<boolean> {
     const query = `
       SELECT COUNT(*) as count
-      FROM finapp.transactions
-      WHERE liquidity_tag_id = $1
+      FROM finapp.assets
+      WHERE liquidity_tag = $1::uuid
     `;
     
-    const result = await this.db.executeRawQuery(query, [id]);
-    return parseInt(result.rows[0].count) > 0;
+    const result = await this.db.executeRawQuery<Array<{ count: string }>>(query, [id]);
+    return parseInt(result[0]?.count || '0') > 0;
   }
 
   // 根据名称获取流动性标签
@@ -212,7 +215,7 @@ export class LiquidityTagService {
       WHERE name = $1
     `;
     
-    const result = await this.db.executeRawQuery(query, [name]);
-    return result.rows[0] || null;
+    const result = await this.db.executeRawQuery<LiquidityTag[]>(query, [name]);
+    return result[0] || null;
   }
 }

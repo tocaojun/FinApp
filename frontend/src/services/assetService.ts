@@ -13,7 +13,7 @@ export interface Asset {
   sector?: string;
   industry?: string;
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
-  liquidityTag: 'HIGH' | 'MEDIUM' | 'LOW';
+  liquidityTag: string; // UUID of liquidity tag
   isActive: boolean;
   listingDate?: string;
   delistingDate?: string;
@@ -83,7 +83,7 @@ export interface AssetCreateRequest {
   sector?: string;
   industry?: string;
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
-  liquidityTag: 'HIGH' | 'MEDIUM' | 'LOW';
+  liquidityTag: string; // UUID of liquidity tag
   isActive?: boolean;
   listingDate?: string;
   delistingDate?: string;

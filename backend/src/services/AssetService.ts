@@ -320,7 +320,7 @@ export class AssetService {
       }
 
       if (criteria.liquidityTag) {
-        whereConditions.push(`a.liquidity_tag = '${criteria.liquidityTag}'`);
+        whereConditions.push(`a.liquidity_tag = '${criteria.liquidityTag}'::uuid`);
       }
 
       if (typeof criteria.isActive === 'boolean') {
@@ -390,7 +390,7 @@ export class AssetService {
           ${data.symbol.toUpperCase()}, ${data.name}, ${data.assetTypeId}::uuid, 
           ${data.marketId || null}::uuid, ${data.currency}, ${data.sector || null},
           ${data.industry || null}, ${data.riskLevel || null}, 
-          ${data.liquidityTag || null}, ${data.description || null}
+          ${data.liquidityTag || null}::uuid, ${data.description || null}
         )
         RETURNING *
       ` as any[];
@@ -442,7 +442,7 @@ export class AssetService {
           sector = COALESCE(${data.sector}, sector),
           industry = COALESCE(${data.industry}, industry),
           risk_level = COALESCE(${data.riskLevel}, risk_level),
-          liquidity_tag = COALESCE(${data.liquidityTag}, liquidity_tag),
+          liquidity_tag = COALESCE(${data.liquidityTag}::uuid, liquidity_tag),
           is_active = COALESCE(${data.isActive}, is_active),
           description = COALESCE(${data.description}, description)
         WHERE id = ${id}::uuid

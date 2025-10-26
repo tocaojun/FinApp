@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>流动性标签测试工具 v2</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #1890ff;
+        }
+        .test-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        button {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        button:hover {
+            background: #40a9ff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(24, 144, 255, 0.4);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        button.secondary {
+            background: #52c41a;
+        }
+        button.secondary:hover {
+            background: #73d13d;
+        }
+        button.danger {
+            background: #ff4d4f;
+        }
+        button.danger:hover {
+            background: #ff7875;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e8e8e8;
+            min-height: 50px;
+        }
+        .success {
+            color: #52c41a;
+            font-weight: 600;
+        }
+        .error {
+            color: #ff4d4f;
+            font-weight: 600;
+        }
+        .info {
+            color: #1890ff;
+            font-weight: 600;
+        }
+        .tag {
+            display: inline-block;
+            padding: 6px 14px;
+            margin: 6px;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.6;
+            border: 1px solid #e8e8e8;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        .status-badge.online {
+            background: #f6ffed;
+            color: #52c41a;
+            border: 1px solid #b7eb8f;
+        }
+        .status-badge.offline {
+            background: #fff1f0;
+            color: #ff4d4f;
+            border: 1px solid #ffccc7;
+        }
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #1890ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e8e8e8;
+            text-align: center;
+        }
+        .stat-card .number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #1890ff;
+            margin-bottom: 5px;
+        }
+        .stat-card .label {
+            color: #666;
+            font-size: 14px;
+        }
+        .version-badge {
+            background: #52c41a;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 流动性标签测试工具 <span class="version-badge">v2.0</span></h1>
+            <p>FinApp 前端调试助手 - 已修复登录判断逻辑</p>
+        </div>
+
+        <div class="content">
+            <!-- 服务状态 -->
+            <div class="test-section">
+                <h3>📡 服务状态检查</h3>
+                <div class="button-group">
+                    <button onclick="checkServices()">检查所有服务</button>
+                </div>
+                <div id="serviceStatus" class="result"></div>
+            </div>
+
+            <!-- 登录测试 -->
+            <div class="test-section">
+                <h3>🔐 登录测试</h3>
+                <div class="button-group">
+                    <button onclick="testLogin()">测试登录</button>
+                    <button class="secondary" onclick="checkToken()">检查Token</button>
+                </div>
+                <div id="loginResult" class="result"></div>
+            </div>
+
+            <!-- 流动性标签测试 -->
+            <div class="test-section">
+                <h3>🏷️ 流动性标签测试</h3>
+                <div class="button-group">
+                    <button onclick="testGetTags()">获取所有标签</button>
+                    <button onclick="testGetActiveTags()">获取活跃标签</button>
+                    <button class="secondary" onclick="showTagsVisual()">可视化显示</button>
+                </div>
+                <div id="tagsResult" class="result"></div>
+                <div id="tagsDisplay"></div>
+            </div>
+
+            <!-- 统计信息 -->
+            <div class="test-section">
+                <h3>📊 统计信息</h3>
+                <div id="statsDisplay" class="stats"></div>
+            </div>
+
+            <!-- 调试工具 -->
+            <div class="test-section">
+                <h3>🛠️ 调试工具</h3>
+                <div class="button-group">
+                    <button onclick="viewLocalStorage()">查看LocalStorage</button>
+                    <button class="danger" onclick="clearAll()">清除所有数据</button>
+                    <button onclick="copyLogs()">复制日志</button>
+                </div>
+                <div id="debugInfo" class="result"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 使用相对路径，通过Vite代理访问API
+        const API_BASE_URL = '/api';
+        let authToken = '';
+        let allLogs = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            allLogs.push(logEntry);
+            console.log(logEntry);
+        }
+
+        // 检查服务状态
+        async function checkServices() {
+            const resultDiv = document.getElementById('serviceStatus');
+            resultDiv.innerHTML = '<div class="loading"></div> 正在检查服务状态...';
+            
+            try {
+                // 尝试多个健康检查端点
+                let healthData = null;
+                let endpoint = '';
+                
+                // 尝试 /api/health
+                try {
+                    const response1 = await fetch('/api/health');
+                    if (response1.ok) {
+                        healthData = await response1.json();
+                        endpoint = '/api/health';
+                    }
+                } catch (e) {
+                    console.log('尝试 /api/health 失败:', e);
+                }
+                
+                // 如果失败，尝试直接访问后端
+                if (!healthData) {
+                    const response2 = await fetch('http://localhost:8000/health');
+                    healthData = await response2.json();
+                    endpoint = 'http://localhost:8000/health';
+                }
+                
+                resultDiv.innerHTML = `
+                    <div class="success">✅ 后端服务正常运行</div>
+                    <div style="margin-top: 10px;">
+                        <strong>状态:</strong> ${healthData.status}
+                        <span class="status-badge online">在线</span>
+                    </div>
+                    <div><strong>端点:</strong> ${endpoint}</div>
+                    <div><strong>运行时间:</strong> ${healthData.uptime?.toFixed(2)}秒</div>
+                    <div><strong>环境:</strong> ${healthData.environment}</div>
+                    <div><strong>版本:</strong> ${healthData.version}</div>
+                    <div><strong>数据库:</strong> ${healthData.services?.database?.status || '未知'}</div>
+                `;
+                log('服务检查成功，使用端点: ' + endpoint, 'success');
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">❌ 后端服务连接失败</div>
+                    <div style="margin-top: 10px;">
+                        <span class="status-badge offline">离线</span>
+                    </div>
+                    <div style="margin-top: 10px; color: #666;">
+                        错误: ${error.message}
+                    </div>
+                    <div style="margin-top: 10px; font-size: 12px; color: #999;">
+                        提示: 请确保后端服务运行在 http://localhost:8000
+                    </div>
+                `;
+                log('服务检查失败: ' + error.message, 'error');
+            }
+        }
+
+        // 测试登录
+        async function testLogin() {
+            const resultDiv = document.getElementById('loginResult');
+            resultDiv.innerHTML = '<div class="loading"></div> 正在登录...';
+            log('开始登录测试');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'testapi@finapp.com',
+                        password: 'testapi123'
+                    })
+                });
+
+                const data = await response.json();
+                log('登录响应: ' + JSON.stringify(data));
+                
+                // 修复后的判断逻辑
+                if (data.success && data.data && data.data.tokens && data.data.tokens.accessToken) {
+                    authToken = data.data.tokens.accessToken;
+                    localStorage.setItem('auth_token', authToken);
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ 登录成功！</div>
+                        <div style="margin-top: 10px;">
+                            <strong>用户:</strong> ${data.data.user.email}<br>
+                            <strong>用户名:</strong> ${data.data.user.username}<br>
+                            <strong>姓名:</strong> ${data.data.user.firstName} ${data.data.user.lastName}<br>
+                            <strong>Token:</strong> ${authToken.substring(0, 50)}...<br>
+                            <strong>过期时间:</strong> ${data.data.tokens.expiresIn}秒 (${(data.data.tokens.expiresIn / 3600).toFixed(1)}小时)<br>
+                            <strong>状态:</strong> ✅ 已保存到 localStorage
+                        </div>
+                    `;
+                    log('登录成功，Token已保存', 'success');
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ 登录失败</div>
+                        <div style="margin-top: 10px;">
+                            <strong>原因:</strong> 响应数据结构不正确
+                        </div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    log('登录失败: ' + JSON.stringify(data), 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">❌ 请求失败: ${error.message}</div>
+                `;
+                log('登录请求失败: ' + error.message, 'error');
+            }
+        }
+
+        // 检查Token
+        function checkToken() {
+            const resultDiv = document.getElementById('loginResult');
+            const token = localStorage.getItem('auth_token');
+            
+            if (token) {
+                resultDiv.innerHTML = `
+                    <div class="info">ℹ️ Token已存在</div>
+                    <div style="margin-top: 10px;">
+                        <strong>Token:</strong> ${token.substring(0, 50)}...<br>
+                        <strong>长度:</strong> ${token.length} 字符
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="error">❌ 未找到Token，请先登录</div>
+                `;
+            }
+        }
+
+        // 获取所有标签
+        async function testGetTags() {
+            const resultDiv = document.getElementById('tagsResult');
+            resultDiv.innerHTML = '<div class="loading"></div> 正在获取标签...';
+            log('开始获取流动性标签');
+            
+            const token = authToken || localStorage.getItem('auth_token');
+            if (!token) {
+                resultDiv.innerHTML = '<div class="error">❌ 请先登录</div>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/liquidity-tags`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const tags = await response.json();
+                log('API返回数据: ' + JSON.stringify(tags));
+                
+                if (Array.isArray(tags)) {
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ 成功获取 ${tags.length} 个流动性标签</div>
+                        <pre>${JSON.stringify(tags, null, 2)}</pre>
+                    `;
+                    log(`成功获取 ${tags.length} 个标签`, 'success');
+                    updateStats(tags);
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ 返回数据格式错误</div>
+                        <pre>${JSON.stringify(tags, null, 2)}</pre>
+                    `;
+                    log('数据格式错误', 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">❌ 请求失败: ${error.message}</div>
+                `;
+                log('获取标签失败: ' + error.message, 'error');
+            }
+        }
+
+        // 获取活跃标签
+        async function testGetActiveTags() {
+            const resultDiv = document.getElementById('tagsResult');
+            resultDiv.innerHTML = '<div class="loading"></div> 正在获取活跃标签...';
+            
+            const token = authToken || localStorage.getItem('auth_token');
+            if (!token) {
+                resultDiv.innerHTML = '<div class="error">❌ 请先登录</div>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/liquidity-tags`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const allTags = await response.json();
+                const activeTags = allTags.filter(tag => tag.isActive);
+                
+                resultDiv.innerHTML = `
+                    <div class="success">✅ 成功获取活跃标签</div>
+                    <div style="margin-top: 10px;">
+                        <strong>总标签数:</strong> ${allTags.length}<br>
+                        <strong>活跃标签数:</strong> ${activeTags.length}
+                    </div>
+                    <pre>${JSON.stringify(activeTags, null, 2)}</pre>
+                `;
+                updateStats(activeTags);
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">❌ 请求失败: ${error.message}</div>
+                `;
+            }
+        }
+
+        // 可视化显示标签
+        async function showTagsVisual() {
+            const displayDiv = document.getElementById('tagsDisplay');
+            const token = authToken || localStorage.getItem('auth_token');
+            
+            if (!token) {
+                displayDiv.innerHTML = '<div class="error">❌ 请先登录</div>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/liquidity-tags`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const tags = await response.json();
+                
+                displayDiv.innerHTML = '<h4 style="margin: 20px 0 10px 0;">标签可视化：</h4>';
+                tags.forEach((tag, index) => {
+                    displayDiv.innerHTML += `
+                        <span class="tag" style="background-color: ${tag.color}">
+                            ${index + 1}. ${tag.name}
+                            ${tag.description ? `- ${tag.description}` : ''}
+                        </span>
+                    `;
+                });
+            } catch (error) {
+                displayDiv.innerHTML = `<div class="error">❌ 显示失败: ${error.message}</div>`;
+            }
+        }
+
+        // 更新统计信息
+        function updateStats(tags) {
+            const statsDiv = document.getElementById('statsDisplay');
+            const activeCount = tags.filter(t => t.isActive).length;
+            
+            statsDiv.innerHTML = `
+                <div class="stat-card">
+                    <div class="number">${tags.length}</div>
+                    <div class="label">总标签数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">${activeCount}</div>
+                    <div class="label">活跃标签</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">${tags.length - activeCount}</div>
+                    <div class="label">停用标签</div>
+                </div>
+            `;
+        }
+
+        // 查看LocalStorage
+        function viewLocalStorage() {
+            const debugDiv = document.getElementById('debugInfo');
+            const token = localStorage.getItem('auth_token');
+            const allKeys = Object.keys(localStorage);
+            
+            debugDiv.innerHTML = `
+                <h4>LocalStorage 内容：</h4>
+                <div style="margin-top: 10px;">
+                    <strong>auth_token:</strong> ${token ? token.substring(0, 50) + '...' : '未设置'}<br>
+                    <strong>所有键:</strong> ${allKeys.length > 0 ? allKeys.join(', ') : '无'}<br>
+                    <strong>总大小:</strong> ${JSON.stringify(localStorage).length} 字节
+                </div>
+            `;
+        }
+
+        // 清除所有数据
+        function clearAll() {
+            if (confirm('确定要清除所有数据吗？')) {
+                localStorage.clear();
+                authToken = '';
+                allLogs = [];
+                document.getElementById('debugInfo').innerHTML = '<div class="success">✅ 所有数据已清除</div>';
+                log('清除所有数据', 'info');
+            }
+        }
+
+        // 复制日志
+        function copyLogs() {
+            const logsText = allLogs.join('\n');
+            navigator.clipboard.writeText(logsText).then(() => {
+                document.getElementById('debugInfo').innerHTML = '<div class="success">✅ 日志已复制到剪贴板</div>';
+            });
+        }
+
+        // 页面加载时自动检查
+        window.onload = function() {
+            log('测试工具 v2.0 已加载 - 已修复登录判断逻辑');
+            checkServices();
+            viewLocalStorage();
+        };
+    </script>
+</body>
+</html>

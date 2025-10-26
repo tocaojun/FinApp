@@ -12,6 +12,8 @@ export class LiquidityTagController {
   async getAllTags(req: Request, res: Response): Promise<void> {
     try {
       const tags = await this.liquidityTagService.getAllTags();
+      console.log('获取到的流动性标签数量:', tags.length);
+      console.log('流动性标签数据:', JSON.stringify(tags, null, 2));
       res.json(tags);
     } catch (error) {
       console.error('获取流动性标签失败:', error);

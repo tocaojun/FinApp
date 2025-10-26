@@ -485,10 +485,10 @@ const ProductManagement: React.FC = () => {
       dataIndex: 'liquidityTag',
       key: 'liquidityTag',
       width: 100,
-      render: (tag: string) => {
-        const colors = { HIGH: 'green', MEDIUM: 'orange', LOW: 'red' };
-        const labels = { HIGH: '高', MEDIUM: '中', LOW: '低' };
-        return <Tag color={colors[tag as keyof typeof colors]}>{labels[tag as keyof typeof labels]}</Tag>;
+      render: (tagId: string) => {
+        const tag = liquidityTags.find(t => t.id === tagId);
+        if (!tag) return '-';
+        return <Tag color={tag.color}>{tag.name}</Tag>;
       },
     },
     {
@@ -597,10 +597,19 @@ const ProductManagement: React.FC = () => {
   // 加载流动性标签
   const fetchLiquidityTags = async () => {
     try {
+      console.log('🔍 开始加载流动性标签...');
       const tags = await getActiveLiquidityTags();
+      console.log('✅ 成功获取流动性标签:', tags);
+      console.log('📊 标签数量:', tags.length);
+      console.log('📋 标签详情:', JSON.stringify(tags, null, 2));
       setLiquidityTags(tags);
+      console.log('✅ 已更新状态，当前liquidityTags:', tags);
     } catch (error) {
-      console.error('加载流动性标签失败:', error);
+      console.error('❌ 加载流动性标签失败:', error);
+      if (error instanceof Error) {
+        console.error('错误消息:', error.message);
+        console.error('错误堆栈:', error.stack);
+      }
       message.error('加载流动性标签失败');
     }
   };
@@ -979,7 +988,7 @@ const ProductManagement: React.FC = () => {
                   <Col span={12}>
                     <p><strong>货币:</strong> {selectedAsset.currency}</p>
                     <p><strong>风险等级:</strong> {selectedAsset.riskLevel}</p>
-                    <p><strong>流动性:</strong> {selectedAsset.liquidityTag}</p>
+                    <p><strong>流动性:</strong> {liquidityTags.find(t => t.id === selectedAsset.liquidityTag)?.name || selectedAsset.liquidityTag}</p>
                     <p><strong>状态:</strong> {selectedAsset.isActive ? '活跃' : '停用'}</p>
                   </Col>
                 </Row>
