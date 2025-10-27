@@ -70,6 +70,7 @@ import {
   FuturesDetailsFields,
   WealthProductDetailsFields,
   TreasuryDetailsFields,
+  OptionDetailsFields,
 } from '../../components/asset/details';
 
 const { Search } = Input;
@@ -956,14 +957,7 @@ const ProductManagement: React.FC = () => {
               {formAssetTypeCode === 'FUTURES' && <FuturesDetailsFields />}
               {formAssetTypeCode === 'WEALTH' && <WealthProductDetailsFields />}
               {formAssetTypeCode === 'TREASURY' && <TreasuryDetailsFields />}
-              {formAssetTypeCode === 'OPTION' && (
-                <Alert 
-                  message="期权详情" 
-                  description="期权详情字段请在期权管理模块中配置" 
-                  type="info" 
-                  showIcon 
-                />
-              )}
+              {formAssetTypeCode === 'OPTION' && <OptionDetailsFields />}
             </>
           )}
           <Row gutter={16}>

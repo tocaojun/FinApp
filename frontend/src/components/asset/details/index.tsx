@@ -4,6 +4,7 @@
 export { StockDetailsFields } from './StockDetailsFields';
 export { FundDetailsFields } from './FundDetailsFields';
 export { BondDetailsFields } from './BondDetailsFields';
+export { OptionDetailsFields } from './OptionDetailsFields';
 
 // 简化版本的其他类型组件
 import React from 'react';
