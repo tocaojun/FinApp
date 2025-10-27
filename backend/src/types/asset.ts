@@ -21,6 +21,7 @@ export interface Asset {
   lotSize?: number;
   tickSize?: number;
   metadata?: Record<string, any>;
+  details?: Record<string, any>; // 资产详情（动态字段）
   createdAt: Date;
   updatedAt: Date;
 }
@@ -105,6 +106,8 @@ export interface AssetCreateRequest {
   lotSize?: number;
   tickSize?: number;
   metadata?: Record<string, any>;
+  details?: Record<string, any>; // 资产详情（动态字段）
+  assetTypeCode?: string; // 资产类型代码（用于详情处理）
 }
 
 export interface AssetUpdateRequest extends Partial<AssetCreateRequest> {

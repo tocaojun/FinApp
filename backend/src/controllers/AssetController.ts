@@ -22,14 +22,46 @@ export class AssetController {
   createAsset = async (req: Request, res: Response): Promise<void> => {
     try {
       const assetData: AssetCreateRequest = req.body;
-      const asset = await this.assetService.createAsset(assetData);
       
-      res.status(201).json({
-        success: true,
-        data: asset,
-        message: 'Asset created successfully'
-      });
+      // 检查是否包含详情数据，如果有则使用新的createAssetWithDetails方法
+      if (assetData.details && Object.keys(assetData.details).length > 0) {
+        // 获取资产类型代码
+        const assetTypes = await this.assetService.getAssetTypes();
+        const assetType = assetTypes.find(t => t.id === assetData.assetTypeId);
+        
+        if (!assetType) {
+          res.status(400).json({
+            success: false,
+            message: 'Invalid asset type'
+          });
+          return;
+        }
+        
+        // 使用新的createAssetWithDetails方法
+        const createRequest = {
+          ...assetData,
+          assetTypeCode: assetType.code,
+        };
+        
+        const asset = await this.assetService.createAssetWithDetails(createRequest);
+        
+        res.status(201).json({
+          success: true,
+          data: asset,
+          message: 'Asset created successfully with details'
+        });
+      } else {
+        // 使用旧的createAsset方法（向后兼容）
+        const asset = await this.assetService.createAsset(assetData);
+        
+        res.status(201).json({
+          success: true,
+          data: asset,
+          message: 'Asset created successfully'
+        });
+      }
     } catch (error) {
+      console.error('Error creating asset:', error);
       res.status(400).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to create asset'
@@ -49,6 +81,31 @@ export class AssetController {
       }
       
       const updateData: AssetUpdateRequest = req.body;
+      
+      // 检查是否包含详情数据，如果有则使用新的updateAssetWithDetails方法
+      if (updateData.details && Object.keys(updateData.details).length > 0) {
+        // 获取资产类型代码
+        const assetTypes = await this.assetService.getAssetTypes();
+        const assetType = assetTypes.find(t => t.id === updateData.assetTypeId);
+        
+        if (assetType) {
+          const updateRequest = {
+            ...updateData,
+            assetTypeCode: assetType.code,
+          };
+          
+          const asset = await this.assetService.updateAssetWithDetails(id, updateRequest);
+          
+          res.json({
+            success: true,
+            data: asset,
+            message: 'Asset updated successfully with details'
+          });
+          return;
+        }
+      }
+      
+      // 使用旧的updateAsset方法（向后兼容）
       const asset = await this.assetService.updateAsset(id, updateData);
       
       res.json({
@@ -57,6 +114,7 @@ export class AssetController {
         message: 'Asset updated successfully'
       });
     } catch (error) {
+      console.error('Error updating asset:', error);
       const statusCode = error instanceof Error && error.message === 'Asset not found' ? 404 : 400;
       res.status(statusCode).json({
         success: false,
@@ -98,6 +156,41 @@ export class AssetController {
   };
 
   getAssetById = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Asset ID is required'
+        });
+        return;
+      }
+      
+      // 尝试获取完整资产信息（包含详情）
+      const assetWithDetails = await this.assetService.getAssetWithDetails(id);
+      
+      if (assetWithDetails) {
+        res.json({
+          success: true,
+          data: assetWithDetails
+        });
+        return;
+      }
+      
+      res.status(404).json({
+        success: false,
+        message: 'Asset not found'
+      });
+    } catch (error) {
+      console.error('Error fetching asset:', error);
+      res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to fetch asset'
+      });
+    }
+  };
+
+  getAssetByIdOld = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
       if (!id) {

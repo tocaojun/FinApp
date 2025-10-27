@@ -7,6 +7,7 @@ export interface Asset {
   name: string;
   assetTypeId: string;
   assetTypeName?: string;
+  assetTypeCode?: string;
   marketId: string;
   marketName?: string;
   currency: string;
@@ -23,6 +24,7 @@ export interface Asset {
   priceChangePercent?: number;
   volume?: number;
   marketCap?: number;
+  details?: Record<string, any>; // 资产详情（动态字段）
   createdAt: string;
   updatedAt: string;
 }
@@ -92,6 +94,7 @@ export interface AssetCreateRequest {
   tickSize?: number;
   minTradeAmount?: number;
   maxTradeAmount?: number;
+  details?: Record<string, any>; // 资产详情（动态字段）
 }
 
 export interface AssetUpdateRequest extends Partial<AssetCreateRequest> {}
