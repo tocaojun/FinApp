@@ -15,13 +15,14 @@ import {
   Tag,
   Popconfirm,
   DatePicker,
-
   Drawer,
   Tabs,
   InputNumber,
   Switch,
   Tooltip,
-  Badge
+  Badge,
+  Divider,
+  Alert
 } from 'antd';
 import {
   PlusOutlined,
@@ -35,8 +36,15 @@ import {
   DollarOutlined,
   TrophyOutlined,
   RiseOutlined,
-
 } from '@ant-design/icons';
+import {
+  StockDetailsFields,
+  FundDetailsFields,
+  BondDetailsFields,
+  FuturesDetailsFields,
+  WealthProductDetailsFields,
+  TreasuryDetailsFields,
+} from '../components/asset/details';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
 import { 
@@ -93,6 +101,9 @@ const AssetManagement: React.FC = () => {
     pageSize: 20,
     total: 0,
   });
+
+  // 表单中选中的资产类型（用于动态显示详情字段）
+  const [formAssetTypeCode, setFormAssetTypeCode] = useState<string>('');
 
   // 数据获取函数
   const fetchAssets = async () => {
@@ -183,11 +194,16 @@ const AssetManagement: React.FC = () => {
   const handleCreateAsset = () => {
     setEditingAsset(null);
     form.resetFields();
+    setFormAssetTypeCode('');
     setModalVisible(true);
   };
 
   const handleEditAsset = (asset: Asset) => {
     setEditingAsset(asset);
+    // 设置资产类型代码
+    const assetType = assetTypes.find(t => t.id === asset.assetTypeId);
+    setFormAssetTypeCode(assetType?.code || '');
+    
     form.setFieldsValue({
       ...asset,
       listingDate: asset.listingDate ? dayjs(asset.listingDate) : undefined,
@@ -666,7 +682,13 @@ const AssetManagement: React.FC = () => {
                 label="资产类型"
                 rules={[{ required: true, message: '请选择资产类型' }]}
               >
-                <Select placeholder="请选择资产类型">
+                <Select 
+                  placeholder="请选择资产类型"
+                  onChange={(value) => {
+                    const selectedType = assetTypes.find(t => t.id === value);
+                    setFormAssetTypeCode(selectedType?.code || '');
+                  }}
+                >
                   {assetTypes.map(type => (
                     <Option key={type.id} value={type.id}>{type.name || type.code}</Option>
                   ))}
@@ -733,18 +755,26 @@ const AssetManagement: React.FC = () => {
               </Form.Item>
             </Col>
           </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="sector" label="行业">
-                <Input placeholder="请输入行业" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="industry" label="子行业">
-                <Input placeholder="请输入子行业" />
-              </Form.Item>
-            </Col>
-          </Row>
+          {/* 类型特定的详情字段 */}
+          {formAssetTypeCode && (
+            <>
+              <Divider orientation="left">资产详情</Divider>
+              {formAssetTypeCode === 'STOCK' && <StockDetailsFields />}
+              {formAssetTypeCode === 'FUND' && <FundDetailsFields />}
+              {formAssetTypeCode === 'BOND' && <BondDetailsFields />}
+              {formAssetTypeCode === 'FUTURES' && <FuturesDetailsFields />}
+              {formAssetTypeCode === 'WEALTH' && <WealthProductDetailsFields />}
+              {formAssetTypeCode === 'TREASURY' && <TreasuryDetailsFields />}
+              {formAssetTypeCode === 'OPTION' && (
+                <Alert 
+                  message="期权详情" 
+                  description="期权详情字段请在期权管理模块中配置" 
+                  type="info" 
+                  showIcon 
+                />
+              )}
+            </>
+          )}
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="listingDate" label="上市日期">
