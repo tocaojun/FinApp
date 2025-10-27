@@ -1,12 +1,22 @@
 import { Router } from 'express';
 import { TransactionController } from '../controllers/TransactionController';
+import { transactionImportController } from '../controllers/TransactionImportController';
 import { authenticateToken } from '../middleware/authMiddleware';
 import { requirePermission } from '../middleware/permissionMiddleware';
 import { validateRequest } from '../middleware/validateRequest';
 import { body, query, param } from 'express-validator';
+import multer from 'multer';
 
 const router = Router();
 const transactionController = new TransactionController();
+
+// 配置文件上传
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB
+  }
+});
 
 // 验证规则
 const createTransactionValidation = [
@@ -138,12 +148,46 @@ router.get('/export/data',
   transactionController.exportTransactions
 );
 
-// 获取导入模板
+// ========== 新增：批量导入v2.0路由 ==========
+// 注意：更具体的路由必须放在通用路由之前，避免被提前匹配
+
+// 下载Excel模板（需要认证，但不需要特殊权限）
+router.get('/import/template/excel',
+  // authenticateToken 已在 app.ts 中全局添加
+  transactionImportController.downloadExcelTemplate
+);
+
+// 下载JSON模板（需要认证，但不需要特殊权限）
+router.get('/import/template/json',
+  // authenticateToken 已在 app.ts 中全局添加
+  transactionImportController.downloadJsonTemplate
+);
+
+// 获取导入模板（旧版本，保持向后兼容）
 router.get('/import/template', 
+  authenticateToken,
   query('format').optional().isIn(['CSV', 'JSON']).withMessage('Invalid template format'),
   validateRequest,
   transactionController.getImportTemplate
 );
+
+// 预览导入数据（不实际导入）
+router.post('/import/preview',
+  authenticateToken,
+  requirePermission('transactions', 'create'),
+  upload.single('file'),
+  transactionImportController.previewImport
+);
+
+// 批量导入交易（v2.0）
+router.post('/import/batch',
+  authenticateToken,
+  requirePermission('transactions', 'create'),
+  upload.single('file'),
+  transactionImportController.importTransactions
+);
+
+// ========== 结束：批量导入v2.0路由 ==========
 
 // 获取交易汇总统计
 router.get('/summary/stats', 

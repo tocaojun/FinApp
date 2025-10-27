@@ -41,6 +41,7 @@ import { AssetService, Asset } from '../services/assetService';
 import { TagService, Tag as TagType } from '../services/tagService';
 import { TradingAccountService, TradingAccount } from '../services/tradingAccountService';
 import CategoryTagSelector from '../components/common/CategoryTagSelector';
+import { TransactionImportModal } from '../components/transaction/TransactionImportModal';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -104,6 +105,7 @@ const TransactionManagement: React.FC = () => {
   const [tagsLoading, setTagsLoading] = useState(false);
   const [tradingAccountsLoading, setTradingAccountsLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [importModalVisible, setImportModalVisible] = useState(false);
   const [filterDrawerVisible, setFilterDrawerVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [form] = Form.useForm<TransactionFormData>();
@@ -533,11 +535,49 @@ const TransactionManagement: React.FC = () => {
   };
 
   const handleImport = () => {
-    message.info('批量导入功能开发中...');
+    setImportModalVisible(true);
   };
 
   const handleExport = () => {
     message.info('导出功能开发中...');
+  };
+
+  // 加载交易账户
+  const handleLoadAccounts = async (portfolioId: string) => {
+    try {
+      setTradingAccountsLoading(true);
+      const accounts = await TradingAccountService.getTradingAccounts(portfolioId);
+      setTradingAccounts(accounts);
+    } catch (error) {
+      console.error('加载交易账户失败:', error);
+      message.error('加载交易账户失败');
+    } finally {
+      setTradingAccountsLoading(false);
+    }
+  };
+
+  // 搜索资产
+  const handleSearchAssets = async (keyword: string) => {
+    if (!keyword || keyword.length < 2) return;
+    
+    try {
+      setAssetsLoading(true);
+      const response = await AssetService.searchAssets({ 
+        keyword, 
+        limit: 20 
+      });
+      setAssets(response.assets);
+    } catch (error) {
+      console.error('搜索资产失败:', error);
+    } finally {
+      setAssetsLoading(false);
+    }
+  };
+
+  // 导入成功回调
+  const handleImportSuccess = () => {
+    message.success('导入成功');
+    fetchTransactions();
   };
 
   const handleFilter = (values: any) => {
@@ -1003,6 +1043,18 @@ const TransactionManagement: React.FC = () => {
           </Form.Item>
         </Form>
       </Drawer>
+
+      {/* 批量导入弹窗 */}
+      <TransactionImportModal
+        visible={importModalVisible}
+        onClose={() => setImportModalVisible(false)}
+        onSuccess={handleImportSuccess}
+        portfolios={portfolios}
+        tradingAccounts={tradingAccounts}
+        assets={assets}
+        onLoadAccounts={handleLoadAccounts}
+        onSearchAssets={handleSearchAssets}
+      />
     </div>
   );
 };
