@@ -128,46 +128,44 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
     setSortedInfo(sorter);
   };
 
-  const getActionMenu = (holding: Holding) => (
-    <Menu>
-      <Menu.Item 
-        key="buy" 
-        icon={<ShoppingCartOutlined />}
-        onClick={() => onBuy?.(holding)}
-      >
-        买入
-      </Menu.Item>
-      <Menu.Item 
-        key="sell" 
-        icon={<DollarOutlined />}
-        onClick={() => onSell?.(holding)}
-      >
-        卖出
-      </Menu.Item>
-      <Menu.Divider />
-      <Menu.Item 
-        key="edit" 
-        icon={<EditOutlined />}
-        onClick={() => onEdit?.(holding)}
-      >
-        编辑
-      </Menu.Item>
-      <Menu.Item 
-        key="delete" 
-        icon={<DeleteOutlined />}
-        danger
-        onClick={() => {
+  const getActionMenu = (holding: Holding) => ({
+    items: [
+      {
+        key: 'buy',
+        icon: <ShoppingCartOutlined />,
+        label: '买入',
+        onClick: () => onBuy?.(holding),
+      },
+      {
+        key: 'sell',
+        icon: <DollarOutlined />,
+        label: '卖出',
+        onClick: () => onSell?.(holding),
+      },
+      {
+        type: 'divider' as const,
+      },
+      {
+        key: 'edit',
+        icon: <EditOutlined />,
+        label: '编辑',
+        onClick: () => onEdit?.(holding),
+      },
+      {
+        key: 'delete',
+        icon: <DeleteOutlined />,
+        label: '删除',
+        danger: true,
+        onClick: () => {
           Modal.confirm({
             title: '确认删除',
             content: `确定要删除 ${holding.assetName} 的持仓记录吗？`,
             onOk: () => onDelete?.(holding)
           });
-        }}
-      >
-        删除
-      </Menu.Item>
-    </Menu>
-  );
+        },
+      },
+    ],
+  });
 
   const columns: ColumnsType<Holding> = [
     {
@@ -274,7 +272,7 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
       width: 60,
       align: 'center',
       render: (_, record) => (
-        <Dropdown overlay={getActionMenu(record)} trigger={['click']}>
+        <Dropdown menu={getActionMenu(record)} trigger={['click']}>
           <Button type="text" icon={<MoreOutlined />} />
         </Dropdown>
       )

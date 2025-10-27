@@ -296,15 +296,16 @@ export class AssetService {
       let whereConditions: string[] = [];
 
       if (criteria.keyword) {
-        whereConditions.push(`(a.symbol ILIKE '%${criteria.keyword}%' OR a.name ILIKE '%${criteria.keyword}%')`);
+        const keyword = criteria.keyword.replace(/'/g, "''"); // 转义单引号
+        whereConditions.push(`(a.symbol ILIKE '%${keyword}%' OR a.name ILIKE '%${keyword}%')`);
       }
 
       if (criteria.assetTypeId) {
-        whereConditions.push(`a.asset_type_id = '${criteria.assetTypeId}'`);
+        whereConditions.push(`a.asset_type_id = '${criteria.assetTypeId}'::uuid`);
       }
 
       if (criteria.marketId) {
-        whereConditions.push(`a.market_id = '${criteria.marketId}'`);
+        whereConditions.push(`a.market_id = '${criteria.marketId}'::uuid`);
       }
 
       if (criteria.currency) {
@@ -329,7 +330,8 @@ export class AssetService {
 
       const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
       const limit = criteria.limit || 50;
-      const offset = criteria.offset || 0;
+      const page = criteria.page || 1;
+      const offset = (page - 1) * limit;
 
       const assets = await this.db.prisma.$queryRawUnsafe(`
         SELECT 
@@ -802,7 +804,7 @@ export class AssetService {
 
   // 批量价格更新（支持多种数据源）
   async bulkUpdatePrices(data: any): Promise<any> {
-    const { updates, source = 'bulk_update' } = data;
+    const { updates, source = 'MANUAL' } = data;
     const results = {
       success: true,
       totalRecords: updates?.length || 0,
@@ -823,24 +825,32 @@ export class AssetService {
         for (let i = 0; i < updates.length; i++) {
           const update = updates[i];
           try {
-            // 验证资产是否存在
+            // 验证资产是否存在并获取币种
             const asset = await prisma.$queryRaw`
-              SELECT id FROM assets WHERE id = ${update.assetId}::uuid
+              SELECT id, currency FROM assets WHERE id = ${update.assetId}::uuid
             ` as any[];
 
             if (asset.length === 0) {
-              throw new Error(`Asset with ID ${update.assetId} not found`);
+              throw new Error(`资产 ${update.assetId} 不存在`);
             }
+
+            // 验证收盘价必填
+            if (!update.closePrice || update.closePrice <= 0) {
+              throw new Error('收盘价必须大于0');
+            }
+
+            // 使用资产的币种或更新中提供的币种
+            const currency = update.currency || asset[0].currency;
 
             // 插入或更新价格
             await prisma.$queryRaw`
               INSERT INTO asset_prices (
                 asset_id, price_date, open_price, high_price, low_price, 
-                close_price, volume, adjusted_price, source
+                close_price, volume, adjusted_close, currency, data_source
               ) VALUES (
-                ${update.assetId}, ${update.priceDate}, ${update.openPrice || null}, 
+                ${update.assetId}::uuid, ${update.priceDate}::date, ${update.openPrice || null}, 
                 ${update.highPrice || null}, ${update.lowPrice || null}, ${update.closePrice},
-                ${update.volume || null}, ${update.adjustedPrice || null}, ${source}
+                ${update.volume || null}, ${update.adjustedPrice || null}, ${currency}, ${source}
               )
               ON CONFLICT (asset_id, price_date) 
               DO UPDATE SET
@@ -849,8 +859,9 @@ export class AssetService {
                 low_price = EXCLUDED.low_price,
                 close_price = EXCLUDED.close_price,
                 volume = EXCLUDED.volume,
-                adjusted_price = EXCLUDED.adjusted_price,
-                source = EXCLUDED.source
+                adjusted_close = EXCLUDED.adjusted_close,
+                currency = EXCLUDED.currency,
+                data_source = EXCLUDED.data_source
             `;
 
             results.successCount++;

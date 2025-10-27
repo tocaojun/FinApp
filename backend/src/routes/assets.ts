@@ -24,13 +24,13 @@ router.put('/:id', requirePermission('asset', 'update'), assetController.updateA
 router.delete('/:id', requirePermission('asset', 'delete'), assetController.deleteAsset);
 
 // 价格管理路由
+router.post('/prices/bulk', requirePermission('price', 'update'), assetController.bulkUpdatePrices);
+router.post('/prices/import', requirePermission('price', 'import'), assetController.bulkImportPrices);
+router.put('/prices/:id', requirePermission('price', 'update'), assetController.updatePrice);
+router.delete('/prices/:id', requirePermission('price', 'delete'), assetController.deletePrice);
+
 router.get('/:id/prices', assetController.getAssetPrices);
 router.post('/:id/prices', requirePermission('price', 'create'), assetController.addPrice);
 router.get('/:id/prices/export', requirePermission('price', 'export'), assetController.exportPrices);
-router.post('/prices/import', requirePermission('price', 'import'), assetController.bulkImportPrices);
-router.post('/prices/bulk-update', requirePermission('price', 'update'), assetController.bulkUpdatePrices);
-
-router.put('/prices/:id', requirePermission('price', 'update'), assetController.updatePrice);
-router.delete('/prices/:id', requirePermission('price', 'delete'), assetController.deletePrice);
 
 export default router;

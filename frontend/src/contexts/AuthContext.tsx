@@ -118,18 +118,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (token && userStr) {
           const user = JSON.parse(userStr);
           
-          // 验证 token 是否有效
-          const isValid = await AuthService.validateToken(token);
-          if (isValid) {
-            dispatch({
-              type: 'LOGIN_SUCCESS',
-              payload: { user, token }
-            });
-          } else {
-            // Token 无效，清除本地存储
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('auth_user');
-          }
+          // 直接使用本地存储的信息，不验证token
+          // token验证会在实际API调用时由后端处理
+          dispatch({
+            type: 'LOGIN_SUCCESS',
+            payload: { user, token }
+          });
+          
+          // 可选：在后台异步验证token，但不阻塞UI
+          AuthService.validateToken(token).then(isValid => {
+            if (!isValid) {
+              console.warn('Token validation failed, user will be logged out on next API call');
+            }
+          }).catch(err => {
+            console.warn('Token validation error:', err);
+          });
         }
       } catch (error) {
         console.error('Auth initialization error:', error);

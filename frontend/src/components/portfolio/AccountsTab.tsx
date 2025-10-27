@@ -231,25 +231,23 @@ const AccountsTab: React.FC<AccountsTabProps> = ({ portfolioId }) => {
     }
   };
 
-  const getActionMenu = (account: Account) => (
-    <Menu>
-      <Menu.Item 
-        key="edit" 
-        icon={<EditOutlined />}
-        onClick={() => handleEditAccount(account)}
-      >
-        编辑
-      </Menu.Item>
-      <Menu.Item 
-        key="delete" 
-        icon={<DeleteOutlined />}
-        danger
-        onClick={() => handleDeleteAccount(account)}
-      >
-        删除
-      </Menu.Item>
-    </Menu>
-  );
+  const getActionMenu = (account: Account) => ({
+    items: [
+      {
+        key: 'edit',
+        icon: <EditOutlined />,
+        label: '编辑',
+        onClick: () => handleEditAccount(account),
+      },
+      {
+        key: 'delete',
+        icon: <DeleteOutlined />,
+        label: '删除',
+        danger: true,
+        onClick: () => handleDeleteAccount(account),
+      },
+    ],
+  });
 
   const columns: ColumnsType<Account> = [
     {
@@ -328,7 +326,7 @@ const AccountsTab: React.FC<AccountsTabProps> = ({ portfolioId }) => {
       width: 60,
       align: 'center',
       render: (_, record) => (
-        <Dropdown overlay={getActionMenu(record)} trigger={['click']}>
+        <Dropdown menu={getActionMenu(record)} trigger={['click']}>
           <Button type="text" icon={<MoreOutlined />} />
         </Dropdown>
       )

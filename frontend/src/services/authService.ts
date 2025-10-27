@@ -101,7 +101,8 @@ export class AuthService {
       const response = await authApi.get('/validate', {
         headers: {
           Authorization: `Bearer ${token}`
-        }
+        },
+        timeout: 3000 // 3秒超时，避免卡住页面
       });
       return response.status === 200;
     } catch (error) {

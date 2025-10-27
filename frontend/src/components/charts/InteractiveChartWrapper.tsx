@@ -58,32 +58,30 @@ const InteractiveChartWrapper: React.FC<InteractiveChartWrapperProps> = ({
   }, []);
 
   // 导出菜单
-  const exportMenu = useMemo(() => (
-    <Menu
-      items={[
-        {
-          key: 'png',
-          label: 'PNG 图片',
-          onClick: () => handleExport('png'),
-        },
-        {
-          key: 'jpg',
-          label: 'JPG 图片',
-          onClick: () => handleExport('jpg'),
-        },
-        {
-          key: 'svg',
-          label: 'SVG 矢量图',
-          onClick: () => handleExport('svg'),
-        },
-        {
-          key: 'pdf',
-          label: 'PDF 文档',
-          onClick: () => handleExport('pdf'),
-        },
-      ]}
-    />
-  ), []);
+  const exportMenu = useMemo(() => ({
+    items: [
+      {
+        key: 'png',
+        label: 'PNG 图片',
+        onClick: () => handleExport('png'),
+      },
+      {
+        key: 'jpg',
+        label: 'JPG 图片',
+        onClick: () => handleExport('jpg'),
+      },
+      {
+        key: 'svg',
+        label: 'SVG 矢量图',
+        onClick: () => handleExport('svg'),
+      },
+      {
+        key: 'pdf',
+        label: 'PDF 文档',
+        onClick: () => handleExport('pdf'),
+      },
+    ],
+  }), []);
 
   // 处理导出
   const handleExport = useCallback((format: 'png' | 'jpg' | 'svg' | 'pdf') => {
@@ -201,7 +199,7 @@ const InteractiveChartWrapper: React.FC<InteractiveChartWrapperProps> = ({
         </Tooltip>
 
         {showExport && (
-          <Dropdown overlay={exportMenu} trigger={['click']}>
+          <Dropdown menu={exportMenu} trigger={['click']}>
             <Tooltip title="导出图表">
               <Button
                 type="text"

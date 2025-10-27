@@ -201,6 +201,22 @@ npm run test:e2e
 API 文档将在后端服务启动后自动生成，访问地址：
 - Swagger UI: http://localhost:8000/api/docs
 
+## 📚 价格同步文档
+
+### 快速开始
+- **[价格同步快速开始](./QUICK_START_HISTORY_SYNC.md)** ⭐ - 3 步开始使用
+- **[文档索引](./PRICE_SYNC_DOCS_INDEX.md)** - 所有价格同步相关文档
+
+### 详细指南
+- [长时间历史数据同步指南](./LONG_HISTORY_SYNC_GUIDE.md) - 支持最多 10 年历史数据
+- [历史数据同步快速参考](./HISTORY_SYNC_QUICK_REFERENCE.md) - 速查表和常用命令
+
+### 技术报告
+- [价格同步数据保存修复报告](./PRICE_SYNC_FIX_COMPLETE.md) - 数据保存问题修复
+- [美团和京东价格同步修复报告](./MEITUAN_JD_SYNC_FIX_REPORT.md) - 港股 Symbol 格式修复 🆕
+- [历史数据回溯限制移除报告](./HISTORY_SYNC_LIMIT_REMOVAL.md) - 365 天限制移除
+- [本次会话修复总结](./SESSION_SUMMARY.md) - 完整修复过程
+
 ## 🔍 故障排查
 
 ### 常见问题

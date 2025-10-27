@@ -215,6 +215,13 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           icon: <DollarOutlined />,
           label: '汇率管理'
         });
+
+        // 添加价格管理中心
+        adminChildren.push({
+          key: '/admin/price-management',
+          icon: <DatabaseOutlined />,
+          label: '价格管理中心'
+        });
       }
 
       adminItems[0].children = adminChildren;
@@ -246,6 +253,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     if (path.startsWith('/admin/tags')) return '标签管理';
     if (path.startsWith('/admin/products')) return '产品管理';
     if (path.startsWith('/admin/exchange-rates')) return '汇率管理';
+    if (path.startsWith('/admin/price-management')) return '价格管理中心';
     if (path.startsWith('/auth/login')) return '用户登录';
     
     // 查找菜单项中的标题
@@ -286,6 +294,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     if (path.startsWith('/admin/tags')) return ['/admin/tags'];
     if (path.startsWith('/admin/products')) return ['/admin/products'];
     if (path.startsWith('/admin/exchange-rates')) return ['/admin/exchange-rates'];
+    if (path.startsWith('/admin/price-management')) return ['/admin/price-management'];
     
     return ['/'];
   };

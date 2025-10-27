@@ -627,7 +627,18 @@ export class AssetController {
   // 批量价格更新
   bulkUpdatePrices = async (req: Request, res: Response): Promise<void> => {
     try {
-      const result = await this.assetService.bulkUpdatePrices(req.body);
+      const { updates } = req.body;
+      
+      // 验证逻辑
+      if (!updates || !Array.isArray(updates)) {
+        res.status(400).json({ success: false, message: '无效的请求数据' });
+        return;
+      }
+
+      const result = await this.assetService.bulkUpdatePrices({ 
+        updates, 
+        source: 'MANUAL' 
+      });
       
       const statusCode = result.success ? 200 : 207; // 207 Multi-Status for partial success
       
@@ -635,13 +646,13 @@ export class AssetController {
         success: result.success,
         data: result,
         message: result.success 
-          ? 'Prices updated successfully' 
-          : 'Prices updated with some errors'
+          ? `成功保存 ${result.successCount} 条价格记录` 
+          : `保存了 ${result.successCount} 条记录，${result.errorCount} 条失败`
       });
     } catch (error) {
       res.status(500).json({
         success: false,
-        message: error instanceof Error ? error.message : 'Failed to update prices'
+        message: error instanceof Error ? error.message : '保存价格失败'
       });
     }
   };

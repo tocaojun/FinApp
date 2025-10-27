@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinApp Debug</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .log { margin: 5px 0; padding: 5px; background: #f0f0f0; }
+        .error { background: #ffcccc; }
+        .success { background: #ccffcc; }
+        .info { background: #cce5ff; }
+    </style>
+</head>
+<body>
+    <h1>FinApp 调试页面</h1>
+    <div id="logs"></div>
+    
+    <script>
+        const logsDiv = document.getElementById('logs');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsDiv.appendChild(div);
+            console.log(message);
+        }
+
+        async function runTests() {
+            log('开始诊断...', 'info');
+            
+            // 测试1: 检查localStorage
+            log('测试1: 检查localStorage', 'info');
+            const token = localStorage.getItem('auth_token');
+            const user = localStorage.getItem('auth_user');
+            log(`Token: ${token ? '存在' : '不存在'}`, token ? 'info' : 'success');
+            log(`User: ${user ? '存在' : '不存在'}`, user ? 'info' : 'success');
+            
+            // 测试2: 测试后端健康检查
+            log('测试2: 测试后端健康检查', 'info');
+            try {
+                const start = Date.now();
+                const response = await fetch('/health', { 
+                    method: 'GET',
+                    signal: AbortSignal.timeout(5000)
+                });
+                const elapsed = Date.now() - start;
+                const data = await response.json();
+                log(`✓ 健康检查成功 (${elapsed}ms)`, 'success');
+                log(`状态: ${data.status}`, 'success');
+            } catch (error) {
+                log(`✗ 健康检查失败: ${error.message}`, 'error');
+            }
+            
+            // 测试3: 测试API代理
+            log('测试3: 测试API代理', 'info');
+            try {
+                const start = Date.now();
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: 'test', password: 'test' }),
+                    signal: AbortSignal.timeout(5000)
+                });
+                const elapsed = Date.now() - start;
+                const data = await response.json();
+                log(`✓ API代理工作正常 (${elapsed}ms)`, 'success');
+            } catch (error) {
+                log(`✗ API代理失败: ${error.message}`, 'error');
+            }
+            
+            // 测试4: 测试validate端点（如果有token）
+            if (token) {
+                log('测试4: 测试token验证', 'info');
+                try {
+                    const start = Date.now();
+                    const response = await fetch('/api/auth/validate', {
+                        method: 'GET',
+                        headers: { 'Authorization': `Bearer ${token}` },
+                        signal: AbortSignal.timeout(5000)
+                    });
+                    const elapsed = Date.now() - start;
+                    log(`✓ Token验证响应 (${elapsed}ms) - 状态: ${response.status}`, 
+                        response.status === 200 ? 'success' : 'info');
+                } catch (error) {
+                    log(`✗ Token验证失败: ${error.message}`, 'error');
+                }
+            }
+            
+            log('诊断完成！', 'success');
+            log('', 'info');
+            log('如果所有测试都通过，问题可能在React应用初始化', 'info');
+            log('请检查浏览器控制台的JavaScript错误', 'info');
+        }
+        
+        // 页面加载后自动运行测试
+        window.onload = () => {
+            log('页面加载完成，开始测试...', 'info');
+            runTests();
+        };
+    </script>
+</body>
+</html>

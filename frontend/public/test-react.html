@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>React加载测试</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .warning { background: #fff3cd; color: #856404; }
+        button {
+            padding: 12px 24px;
+            margin: 10px 5px;
+            border: none;
+            border-radius: 4px;
+            background: #1890ff;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover { background: #40a9ff; }
+        iframe {
+            width: 100%;
+            height: 500px;
+            border: 2px solid #d9d9d9;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+        #console-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .console-line {
+            margin: 3px 0;
+            padding: 2px 0;
+        }
+        .console-error { color: #f48771; }
+        .console-warn { color: #dcdcaa; }
+        .console-info { color: #4fc1ff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 React应用加载诊断</h1>
+        
+        <div class="status info">
+            <strong>当前状态：</strong>准备测试
+        </div>
+
+        <div>
+            <button onclick="loadInIframe()">在iframe中加载React应用</button>
+            <button onclick="openInNewTab()">在新标签页打开</button>
+            <button onclick="checkAPIs()">检查后端API</button>
+            <button onclick="clearConsole()">清除日志</button>
+        </div>
+
+        <div id="status-area"></div>
+        <div id="console-output"></div>
+        <div id="iframe-container"></div>
+    </div>
+
+    <script>
+        const statusArea = document.getElementById('status-area');
+        const consoleOutput = document.getElementById('console-output');
+        const iframeContainer = document.getElementById('iframe-container');
+
+        function updateStatus(message, type = 'info') {
+            statusArea.innerHTML = `<div class="status ${type}"><strong>状态：</strong>${message}</div>`;
+        }
+
+        function logToConsole(message, type = 'info') {
+            const line = document.createElement('div');
+            line.className = `console-line console-${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consoleOutput.appendChild(line);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+
+        function clearConsole() {
+            consoleOutput.innerHTML = '';
+        }
+
+        function loadInIframe() {
+            updateStatus('正在iframe中加载React应用...', 'info');
+            logToConsole('开始加载React应用', 'info');
+            
+            iframeContainer.innerHTML = '<iframe id="test-iframe" src="/"></iframe>';
+            const iframe = document.getElementById('test-iframe');
+            
+            let loaded = false;
+            let startTime = Date.now();
+            
+            iframe.onload = function() {
+                loaded = true;
+                const loadTime = Date.now() - startTime;
+                updateStatus(`✓ React应用加载成功！耗时: ${loadTime}ms`, 'success');
+                logToConsole(`React应用加载成功，耗时: ${loadTime}ms`, 'info');
+                
+                // 尝试检查iframe内容
+                try {
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    const root = iframeDoc.getElementById('root');
+                    if (root) {
+                        logToConsole(`找到root元素，内容长度: ${root.innerHTML.length}`, 'info');
+                        if (root.innerHTML.length === 0) {
+                            updateStatus('⚠️ 页面加载了但root元素为空！', 'warning');
+                            logToConsole('警告：root元素为空，React可能未渲染', 'warn');
+                        }
+                    } else {
+                        logToConsole('未找到root元素', 'error');
+                    }
+                } catch (e) {
+                    logToConsole(`无法访问iframe内容: ${e.message}`, 'warn');
+                }
+            };
+            
+            iframe.onerror = function(e) {
+                updateStatus('✗ iframe加载失败', 'error');
+                logToConsole(`iframe加载失败: ${e}`, 'error');
+            };
+            
+            // 15秒超时检测
+            setTimeout(() => {
+                if (!loaded) {
+                    updateStatus('✗ 加载超时（15秒）- 页面可能卡住了', 'error');
+                    logToConsole('加载超时，页面可能卡在某个地方', 'error');
+                    logToConsole('建议：检查浏览器Console标签的错误信息', 'warn');
+                }
+            }, 15000);
+        }
+
+        function openInNewTab() {
+            logToConsole('在新标签页打开React应用', 'info');
+            window.open('/', '_blank');
+            updateStatus('已在新标签页打开，请查看该标签页', 'info');
+        }
+
+        async function checkAPIs() {
+            updateStatus('正在检查后端API...', 'info');
+            logToConsole('开始检查后端API', 'info');
+            
+            // 检查健康端点
+            try {
+                logToConsole('测试: GET /health', 'info');
+                const res1 = await fetch('/health', { signal: AbortSignal.timeout(3000) });
+                const data1 = await res1.json();
+                logToConsole(`✓ /health - 状态: ${data1.status}`, 'info');
+            } catch (e) {
+                logToConsole(`✗ /health - 失败: ${e.message}`, 'error');
+            }
+            
+            // 检查登录API
+            try {
+                logToConsole('测试: POST /api/auth/login', 'info');
+                const res2 = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: 'test', password: 'test' }),
+                    signal: AbortSignal.timeout(3000)
+                });
+                const data2 = await res2.json();
+                logToConsole(`✓ /api/auth/login - 响应正常`, 'info');
+            } catch (e) {
+                logToConsole(`✗ /api/auth/login - 失败: ${e.message}`, 'error');
+            }
+            
+            updateStatus('API检查完成，查看日志了解详情', 'success');
+            logToConsole('API检查完成', 'info');
+        }
+
+        // 页面加载时自动显示说明
+        window.onload = function() {
+            logToConsole('诊断页面已加载', 'info');
+            logToConsole('点击"在iframe中加载React应用"开始测试', 'info');
+            logToConsole('如果iframe中页面空白，说明React渲染有问题', 'warn');
+            logToConsole('如果iframe一直不加载，说明页面卡住了', 'warn');
+        };
+    </script>
+</body>
+</html>

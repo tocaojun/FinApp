@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简单测试页面</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 { color: #1890ff; margin-bottom: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            background: #1890ff;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover { background: #40a9ff; }
+        #log { 
+            margin-top: 20px; 
+            padding: 15px; 
+            background: #f5f5f5; 
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .log-item {
+            padding: 5px;
+            margin: 3px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 FinApp 简单测试</h1>
+        
+        <div class="status info">
+            <strong>说明：</strong>这是一个完全独立的测试页面，不加载任何外部资源
+        </div>
+
+        <div>
+            <button onclick="testBackendAPI()">测试后端API</button>
+            <button onclick="testReactApp()">测试React应用</button>
+            <button onclick="clearLog()">清除日志</button>
+        </div>
+
+        <div id="log"></div>
+    </div>
+
+    <script>
+        const logDiv = document.getElementById('log');
+        
+        function log(message, type = 'info') {
+            const item = document.createElement('div');
+            item.className = 'log-item';
+            item.style.color = type === 'error' ? '#d32f2f' : type === 'success' ? '#388e3c' : '#1976d2';
+            item.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(item);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            logDiv.innerHTML = '';
+        }
+
+        async function testBackendAPI() {
+            log('开始测试后端API...', 'info');
+            
+            // 测试1: 健康检查
+            try {
+                log('测试1: 健康检查 /health');
+                const start1 = Date.now();
+                const res1 = await fetch('/health', { 
+                    signal: AbortSignal.timeout(5000) 
+                });
+                const data1 = await res1.json();
+                log(`✓ 健康检查成功 (${Date.now() - start1}ms) - 状态: ${data1.status}`, 'success');
+            } catch (err) {
+                log(`✗ 健康检查失败: ${err.message}`, 'error');
+            }
+
+            // 测试2: 登录API
+            try {
+                log('测试2: 登录API /api/auth/login');
+                const start2 = Date.now();
+                const res2 = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email: 'testapi@finapp.com', 
+                        password: 'testapi123' 
+                    }),
+                    signal: AbortSignal.timeout(5000)
+                });
+                const data2 = await res2.json();
+                log(`✓ 登录API响应 (${Date.now() - start2}ms) - 成功: ${data2.success}`, 
+                    data2.success ? 'success' : 'error');
+                
+                if (data2.success) {
+                    localStorage.setItem('test_token', data2.data.tokens.accessToken);
+                    log('Token已保存到localStorage', 'success');
+                }
+            } catch (err) {
+                log(`✗ 登录API失败: ${err.message}`, 'error');
+            }
+
+            // 测试3: 验证token
+            const token = localStorage.getItem('test_token');
+            if (token) {
+                try {
+                    log('测试3: 验证Token /api/auth/validate');
+                    const start3 = Date.now();
+                    const res3 = await fetch('/api/auth/validate', {
+                        headers: { 'Authorization': `Bearer ${token}` },
+                        signal: AbortSignal.timeout(5000)
+                    });
+                    log(`✓ Token验证响应 (${Date.now() - start3}ms) - 状态: ${res3.status}`, 
+                        res3.status === 200 ? 'success' : 'error');
+                } catch (err) {
+                    log(`✗ Token验证失败: ${err.message}`, 'error');
+                }
+            }
+
+            log('后端API测试完成！', 'success');
+        }
+
+        async function testReactApp() {
+            log('测试React应用加载...', 'info');
+            
+            try {
+                log('尝试加载主页面...');
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = '/';
+                
+                let loaded = false;
+                iframe.onload = () => {
+                    loaded = true;
+                    log('✓ React应用加载成功！', 'success');
+                    document.body.removeChild(iframe);
+                };
+                
+                document.body.appendChild(iframe);
+                
+                // 10秒超时
+                setTimeout(() => {
+                    if (!loaded) {
+                        log('✗ React应用加载超时（10秒）', 'error');
+                        log('建议：检查Console标签的JavaScript错误', 'info');
+                        document.body.removeChild(iframe);
+                    }
+                }, 10000);
+                
+            } catch (err) {
+                log(`✗ 测试失败: ${err.message}`, 'error');
+            }
+        }
+
+        // 页面加载时自动运行
+        window.onload = () => {
+            log('测试页面已加载', 'success');
+            log('点击按钮开始测试', 'info');
+        };
+    </script>
+</body>
+</html>

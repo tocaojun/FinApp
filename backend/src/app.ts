@@ -22,6 +22,7 @@ import liquidityTagRoutes from './routes/liquidityTags';
 import exchangeRatesRouter from './routes/exchangeRates';
 import tagRoutes from './routes/tagRoutes';
 import holdingsRouter from './routes/holdings';
+import priceSyncRouter from './routes/priceSync';
 import { databaseService } from './services/DatabaseService';
 import { CacheService } from './services/CacheService';
 import { logger } from './utils/logger';
@@ -149,6 +150,9 @@ class App {
     // 交易账户管理路由（需要认证）
     this.app.use('/api/trading-accounts', authenticateToken, tradingAccountsRouter);
 
+    // 价格同步管理路由（需要认证）
+    this.app.use('/api/price-sync', authenticateToken, priceSyncRouter);
+
     // TODO: 添加其他路由
     // this.app.use('/api/reports', authenticateToken, reportsRouter);
 
@@ -192,7 +196,7 @@ class App {
         },
         security: [
           {
-            bearerAuth: [],
+            bearerAuth: [] as string[],
           },
         ],
       },
