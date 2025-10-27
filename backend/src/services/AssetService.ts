@@ -1,4 +1,6 @@
 import { databaseService } from './DatabaseService';
+import { assetDetailsService } from './AssetDetailsService';
+import { AssetWithDetails, CreateAssetWithDetailsRequest } from '../types/asset-details.types';
 
 interface SimpleAssetType {
   id: string;
@@ -885,5 +887,350 @@ export class AssetService {
 
     results.success = results.errorCount === 0;
     return results;
+  }
+
+  // ============================================
+  // 多资产类型支持（新增）
+  // ============================================
+
+  /**
+   * 获取完整资产信息（包含详情）
+   */
+  async getAssetWithDetails(assetId: string): Promise<AssetWithDetails | null> {
+    try {
+      // 1. 获取基础资产信息
+      const query = `
+        SELECT 
+          a.*,
+          at.name as asset_type_name,
+          at.code as asset_type_code,
+          m.name as market_name
+        FROM finapp.assets a
+        LEFT JOIN finapp.asset_types at ON a.asset_type_id = at.id
+        LEFT JOIN finapp.markets m ON a.market_id = m.id
+        WHERE a.id = $1::uuid
+      `;
+      
+      const result = await this.db.executeRawQuery(query, [assetId]);
+      
+      if (!result || result.length === 0) {
+        return null;
+      }
+      
+      const row = result[0];
+      const baseAsset: AssetWithDetails = {
+        id: row.id,
+        symbol: row.symbol,
+        name: row.name,
+        assetTypeId: row.asset_type_id,
+        assetTypeName: row.asset_type_name,
+        assetTypeCode: row.asset_type_code,
+        marketId: row.market_id,
+        marketName: row.market_name,
+        currency: row.currency,
+        isin: row.isin,
+        cusip: row.cusip,
+        description: row.description,
+        riskLevel: row.risk_level,
+        liquidityTag: row.liquidity_tag,
+        isActive: row.is_active,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
+      
+      // 2. 获取类型特定的详情
+      if (row.asset_type_code) {
+        const details = await assetDetailsService.getAssetDetails(assetId, row.asset_type_code);
+        if (details) {
+          baseAsset.details = details;
+        }
+      }
+      
+      return baseAsset;
+    } catch (error) {
+      console.error('Error fetching asset with details:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 创建资产（带详情）
+   */
+  async createAssetWithDetails(data: CreateAssetWithDetailsRequest): Promise<AssetWithDetails> {
+    try {
+      return await this.db.prisma.$transaction(async (tx) => {
+        // 1. 获取资产类型ID
+        const assetTypeQuery = `
+          SELECT id FROM finapp.asset_types WHERE code = $1
+        `;
+        const assetTypeResult = await this.db.executeRawQuery(assetTypeQuery, [data.assetTypeCode]);
+        
+        if (!assetTypeResult || assetTypeResult.length === 0) {
+          throw new Error(`Asset type not found: ${data.assetTypeCode}`);
+        }
+        
+        const assetTypeId = assetTypeResult[0].id;
+        
+        // 2. 创建基础资产
+        const createAssetQuery = `
+          INSERT INTO finapp.assets (
+            symbol, name, asset_type_id, market_id, currency,
+            isin, cusip, description, risk_level, liquidity_tag
+          ) VALUES (
+            $1, $2, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, $10::uuid
+          )
+          RETURNING *
+        `;
+        
+        const assetResult = await this.db.executeRawQuery(createAssetQuery, [
+          data.symbol.toUpperCase(),
+          data.name,
+          assetTypeId,
+          data.marketId || null,
+          data.currency,
+          data.isin || null,
+          data.cusip || null,
+          data.description || null,
+          data.riskLevel || null,
+          data.liquidityTag || null,
+        ]);
+        
+        const asset = assetResult[0];
+        
+        // 3. 创建详情记录
+        let details = null;
+        if (data.details) {
+          details = await assetDetailsService.createAssetDetails(
+            asset.id,
+            data.assetTypeCode,
+            data.details
+          );
+        }
+        
+        // 4. 返回完整资产
+        return {
+          id: asset.id,
+          symbol: asset.symbol,
+          name: asset.name,
+          assetTypeId: asset.asset_type_id,
+          assetTypeCode: data.assetTypeCode,
+          marketId: asset.market_id,
+          currency: asset.currency,
+          isin: asset.isin,
+          cusip: asset.cusip,
+          description: asset.description,
+          riskLevel: asset.risk_level,
+          liquidityTag: asset.liquidity_tag,
+          isActive: asset.is_active,
+          createdAt: asset.created_at,
+          updatedAt: asset.updated_at,
+          details: details || undefined,
+        };
+      });
+    } catch (error) {
+      console.error('Error creating asset with details:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 更新资产（带详情）
+   */
+  async updateAssetWithDetails(
+    assetId: string,
+    data: Partial<CreateAssetWithDetailsRequest>
+  ): Promise<AssetWithDetails> {
+    try {
+      return await this.db.prisma.$transaction(async (tx) => {
+        // 1. 获取当前资产信息
+        const currentAsset = await this.getAssetWithDetails(assetId);
+        if (!currentAsset) {
+          throw new Error('Asset not found');
+        }
+        
+        // 2. 更新基础资产
+        if (data.symbol || data.name || data.currency || data.description || data.riskLevel) {
+          const updateFields: string[] = [];
+          const values: any[] = [];
+          let paramIndex = 1;
+          
+          if (data.symbol) {
+            updateFields.push(`symbol = $${paramIndex}`);
+            values.push(data.symbol.toUpperCase());
+            paramIndex++;
+          }
+          if (data.name) {
+            updateFields.push(`name = $${paramIndex}`);
+            values.push(data.name);
+            paramIndex++;
+          }
+          if (data.currency) {
+            updateFields.push(`currency = $${paramIndex}`);
+            values.push(data.currency);
+            paramIndex++;
+          }
+          if (data.description !== undefined) {
+            updateFields.push(`description = $${paramIndex}`);
+            values.push(data.description);
+            paramIndex++;
+          }
+          if (data.riskLevel !== undefined) {
+            updateFields.push(`risk_level = $${paramIndex}`);
+            values.push(data.riskLevel);
+            paramIndex++;
+          }
+          
+          if (updateFields.length > 0) {
+            values.push(assetId);
+            const updateQuery = `
+              UPDATE finapp.assets
+              SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+              WHERE id = $${paramIndex}::uuid
+            `;
+            await this.db.executeRawQuery(updateQuery, values);
+          }
+        }
+        
+        // 3. 更新详情
+        if (data.details && currentAsset.assetTypeCode) {
+          await assetDetailsService.updateAssetDetails(
+            assetId,
+            currentAsset.assetTypeCode,
+            data.details
+          );
+        }
+        
+        // 4. 返回更新后的资产
+        return await this.getAssetWithDetails(assetId) as AssetWithDetails;
+      });
+    } catch (error) {
+      console.error('Error updating asset with details:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 使用视图查询完整资产列表
+   */
+  async getAssetsFullView(filters?: {
+    assetTypeCode?: string;
+    marketId?: string;
+    sector?: string;
+    fundType?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ assets: AssetWithDetails[]; total: number }> {
+    try {
+      const conditions: string[] = ['a.is_active = true'];
+      const values: any[] = [];
+      let paramIndex = 1;
+      
+      if (filters?.assetTypeCode) {
+        conditions.push(`at.code = $${paramIndex}`);
+        values.push(filters.assetTypeCode);
+        paramIndex++;
+      }
+      
+      if (filters?.marketId) {
+        conditions.push(`a.market_id = $${paramIndex}::uuid`);
+        values.push(filters.marketId);
+        paramIndex++;
+      }
+      
+      if (filters?.sector) {
+        conditions.push(`sd.sector = $${paramIndex}`);
+        values.push(filters.sector);
+        paramIndex++;
+      }
+      
+      if (filters?.fundType) {
+        conditions.push(`fd.fund_type = $${paramIndex}`);
+        values.push(filters.fundType);
+        paramIndex++;
+      }
+      
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+      
+      // 查询总数
+      const countQuery = `
+        SELECT COUNT(*) as total
+        FROM finapp.v_assets_full a
+        LEFT JOIN finapp.asset_types at ON a.asset_type_id = at.id
+        LEFT JOIN finapp.stock_details sd ON a.id = sd.asset_id
+        LEFT JOIN finapp.fund_details fd ON a.id = fd.asset_id
+        ${whereClause}
+      `;
+      
+      const countResult = await this.db.executeRawQuery(countQuery, values);
+      const total = parseInt(countResult[0].total);
+      
+      // 查询数据
+      const limit = filters?.limit || 50;
+      const offset = filters?.offset || 0;
+      
+      const dataQuery = `
+        SELECT * FROM finapp.v_assets_full
+        ${whereClause}
+        ORDER BY created_at DESC
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      `;
+      
+      const assets = await this.db.executeRawQuery(dataQuery, [...values, limit, offset]);
+      
+      return {
+        assets: assets.map((row: any) => this.mapAssetFullView(row)),
+        total,
+      };
+    } catch (error) {
+      console.error('Error fetching assets full view:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 映射视图数据到AssetWithDetails
+   */
+  private mapAssetFullView(row: any): AssetWithDetails {
+    const base: AssetWithDetails = {
+      id: row.id,
+      symbol: row.symbol,
+      name: row.name,
+      assetTypeId: row.asset_type_id,
+      assetTypeName: row.asset_type_name,
+      assetTypeCode: row.asset_type_code,
+      marketId: row.market_id,
+      marketName: row.market_name,
+      currency: row.currency,
+      isin: row.isin,
+      cusip: row.cusip,
+      description: row.description,
+      riskLevel: row.risk_level,
+      liquidityTag: row.liquidity_tag,
+      isActive: row.is_active,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+    
+    // 根据资产类型添加详情
+    if (row.asset_type_code === 'STOCK' && (row.sector || row.industry)) {
+      base.details = {
+        sector: row.sector,
+        industry: row.industry,
+        marketCap: row.market_cap,
+        peRatio: row.pe_ratio,
+        pbRatio: row.pb_ratio,
+        dividendYield: row.dividend_yield,
+      } as any;
+    } else if (row.asset_type_code === 'FUND' && row.fund_type) {
+      base.details = {
+        fundType: row.fund_type,
+        managementFee: row.management_fee,
+        nav: row.nav,
+        navDate: row.nav_date,
+      } as any;
+    }
+    // 可以继续添加其他类型...
+    
+    return base;
   }
 }
