@@ -51,13 +51,13 @@ const AccountsTab: React.FC<AccountsTabProps> = ({ portfolioId }) => {
   }, [portfolioId]);
 
   const loadAccounts = async () => {
-    console.log('开始加载交易账户, portfolioId:', portfolioId); // 调试日志
+
     setLoading(true);
     try {
       // 导入PortfolioService
       const { PortfolioService } = await import('../../services/portfolioService');
       const data = await PortfolioService.getTradingAccounts(portfolioId);
-      console.log('从后端获取的账户数据:', data); // 调试日志
+
       
       // 转换数据格式以匹配组件需要的类型
       const convertedAccounts: Account[] = data.map(account => ({
@@ -74,7 +74,7 @@ const AccountsTab: React.FC<AccountsTabProps> = ({ portfolioId }) => {
         updatedAt: account.updatedAt
       }));
       
-      console.log('转换后的账户数据:', convertedAccounts); // 调试日志
+
       setAccounts(convertedAccounts);
     } catch (error) {
       console.error('加载账户数据失败:', error);

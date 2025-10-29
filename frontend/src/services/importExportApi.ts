@@ -228,7 +228,7 @@ const generateMockImportRecords = (): ImportRecord[] => {
         fee: 0,
         executedAt: ''
       },
-      errors: ['无效的资产代码', '数量不能为负数', '价格不能为0', '执行时间不能为空'],
+      errors: ['无效的资产代码', '数量不能为负数', '价格不能为0', '执行日期不能为空'],
       warnings: [],
       status: 'error'
     },

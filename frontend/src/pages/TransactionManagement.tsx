@@ -34,7 +34,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import { TransactionService } from '../services/transactionService';
+import { TransactionService, Transaction } from '../services/transactionService';
 import { PortfolioService } from '../services/portfolioService';
 import { Portfolio } from '../types/portfolio';
 import { AssetService, Asset } from '../services/assetService';
@@ -46,27 +46,6 @@ import { TransactionImportModal } from '../components/transaction/TransactionImp
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 const { Title, Text, Paragraph } = Typography;
-
-interface Transaction {
-  id: string;
-  portfolioId: string;
-  portfolioName: string;
-  assetId: string;
-  assetName: string;
-  assetSymbol: string;
-  transactionType: 'BUY' | 'SELL' | 'DEPOSIT' | 'WITHDRAWAL' | 'DIVIDEND' | 'INTEREST';
-  side: 'LONG' | 'SHORT';
-  quantity: number;
-  price: number;
-  amount: number;
-  fee: number;
-  executedAt: string;
-  status: 'PENDING' | 'EXECUTED' | 'CANCELLED' | 'FAILED';
-  notes?: string;
-  tags: string[];
-  createdAt: string;
-  updatedAt: string;
-}
 
 interface TransactionFormData {
   portfolioId: string;
@@ -108,6 +87,7 @@ const TransactionManagement: React.FC = () => {
   const [importModalVisible, setImportModalVisible] = useState(false);
   const [filterDrawerVisible, setFilterDrawerVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [form] = Form.useForm<TransactionFormData>();
   const [filterForm] = Form.useForm();
   const [searchText, setSearchText] = useState('');
@@ -151,19 +131,22 @@ const TransactionManagement: React.FC = () => {
           id: tx.id,
           portfolioId: tx.portfolioId || '',
           portfolioName,
+          tradingAccountId: tx.tradingAccountId || '',
           assetId: tx.assetId,
           assetName: tx.asset?.name || tx.assetName || '未知资产',
           assetSymbol: tx.asset?.symbol || tx.assetSymbol || '',
           transactionType: tx.transactionType?.toUpperCase() || tx.type?.toUpperCase() || 'BUY',
-          side: 'LONG',
+          side: tx.side || 'LONG',
           quantity: Number(tx.quantity || 0),
           price: Number(tx.price || 0),
+          totalAmount: Number(tx.totalAmount || tx.amount || 0),
           amount: Number(tx.totalAmount || tx.amount || 0),
           fee: Number(tx.fees || tx.fee || 0),
+          currency: tx.currency || 'CNY',
           executedAt: tx.transactionDate || tx.executedAt || tx.createdAt,
-          status: 'EXECUTED',
+          status: tx.status || 'EXECUTED',
           notes: tx.notes || '',
-          tags: [],
+          tags: tx.tags || [],
           createdAt: tx.createdAt,
           updatedAt: tx.updatedAt
         };
@@ -265,18 +248,18 @@ const TransactionManagement: React.FC = () => {
   const calculateStatistics = (data: Transaction[]) => {
     const stats: TransactionStats = {
       totalTransactions: data.length,
-      totalAmount: data.reduce((sum, t) => sum + t.amount, 0),
+      totalAmount: data.reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0),
       totalFees: data.reduce((sum, t) => sum + t.fee, 0),
       pendingCount: data.filter(t => t.status === 'PENDING').length,
       buyCount: data.filter(t => ['BUY', 'DEPOSIT'].includes(t.transactionType)).length,
       sellCount: data.filter(t => ['SELL', 'WITHDRAWAL'].includes(t.transactionType)).length,
       profitLoss: 0, // 需要根据实际业务逻辑计算
-      avgTransactionSize: data.length > 0 ? data.reduce((sum, t) => sum + t.amount, 0) / data.length : 0
+      avgTransactionSize: data.length > 0 ? data.reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0) / data.length : 0
     };
     
     // 简单的盈亏计算（卖出 - 买入）
-    const sellAmount = data.filter(t => t.transactionType === 'SELL').reduce((sum, t) => sum + t.amount, 0);
-    const buyAmount = data.filter(t => t.transactionType === 'BUY').reduce((sum, t) => sum + t.amount, 0);
+    const sellAmount = data.filter(t => t.transactionType === 'SELL').reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0);
+    const buyAmount = data.filter(t => t.transactionType === 'BUY').reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0);
     stats.profitLoss = sellAmount - buyAmount;
     
     setStatistics(stats);
@@ -285,11 +268,11 @@ const TransactionManagement: React.FC = () => {
   // 表格列定义
   const columns: ColumnsType<Transaction> = [
     {
-      title: '交易时间',
+      title: '交易日期',
       dataIndex: 'executedAt',
       key: 'executedAt',
       width: 150,
-      render: (text) => dayjs(text).format('MM-DD HH:mm'),
+      render: (text) => dayjs(text).format('YYYY-MM-DD'),
       sorter: (a, b) => dayjs(a.executedAt).unix() - dayjs(b.executedAt).unix(),
     },
     {
@@ -454,17 +437,68 @@ const TransactionManagement: React.FC = () => {
   // 事件处理函数
   const handleAdd = () => {
     setEditingTransaction(null);
+    setSelectedAsset(null);
     form.resetFields();
     setModalVisible(true);
   };
 
-  const handleEdit = (transaction: Transaction) => {
-    setEditingTransaction(transaction);
-    form.setFieldsValue({
-      ...transaction,
-      executedAt: dayjs(transaction.executedAt),
-    });
-    setModalVisible(true);
+  const handleEdit = async (transaction: Transaction) => {
+    try {
+      setEditingTransaction(transaction);
+      
+      // 找到对应的 asset 并设置
+      const asset = assets.find(a => a.id === transaction.assetId);
+      setSelectedAsset(asset || null);
+      
+      // 加载该投资组合的交易账户列表
+      if (transaction.portfolioId) {
+        await fetchTradingAccounts(transaction.portfolioId);
+      }
+      
+      // 日期处理: 使用日期字符串的前10位避免时区问题
+      let executedAtValue;
+      if (typeof transaction.executedAt === 'string') {
+        // 如果是字符串，取前10位作为日期部分，避免时区转换
+        const dateStr = transaction.executedAt.substring(0, 10);
+        executedAtValue = dayjs(dateStr + 'T12:00:00'); // 设置为中午12点避免时区问题
+      } else {
+        executedAtValue = dayjs(transaction.executedAt);
+      }
+      
+      // 标签处理: 确保标签是字符串数组
+      let tagsValue = transaction.tags || [];
+      if (typeof tagsValue === 'string') {
+        try {
+          tagsValue = JSON.parse(tagsValue);
+        } catch (e) {
+          tagsValue = tagsValue.split(',').map(tag => tag.trim()).filter(tag => tag);
+        }
+      }
+      if (!Array.isArray(tagsValue)) {
+        tagsValue = [];
+      }
+      
+      // 设置表单值，确保包含 tradingAccountId 和 tags
+      const formValues = {
+        portfolioId: transaction.portfolioId,
+        tradingAccountId: transaction.tradingAccountId,
+        assetId: transaction.assetId,
+        transactionType: transaction.transactionType.toLowerCase(), // 转换为小写以匹配表单选项
+        side: transaction.side,
+        quantity: transaction.quantity,
+        price: transaction.price,
+        fee: transaction.fee,
+        executedAt: executedAtValue,
+        notes: transaction.notes || '',
+        tags: tagsValue,
+      };
+      
+      form.setFieldsValue(formValues);
+      setModalVisible(true);
+    } catch (error) {
+      console.error('编辑交易失败:', error);
+      message.error('加载交易信息失败，请重试');
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -488,7 +522,17 @@ const TransactionManagement: React.FC = () => {
 
   const handleSubmit = async (values: TransactionFormData) => {
     setLoading(true);
+    
     try {
+      // 获取选中资产的 currency
+      const asset = selectedAsset || assets.find(a => a.id === values.assetId);
+      
+      if (!asset) {
+        message.error('请先选择产品');
+        setLoading(false);
+        return;
+      }
+      
       // 准备交易数据，匹配后端API格式
       const transactionData = {
         portfolioId: values.portfolioId,
@@ -505,14 +549,16 @@ const TransactionManagement: React.FC = () => {
         totalAmount: values.price * values.quantity, // 添加 totalAmount 字段
         fee: values.fee || 0, // 添加 fee 字段
         fees: values.fee || 0,
-        currency: 'CNY', // 默认货币
-        executedAt: values.executedAt.toISOString(), // 使用ISO格式
-        settledAt: values.executedAt.toISOString(), // 使用相同的时间
+        currency: asset.currency, // 使用资产的 currency
+        executedAt: values.executedAt.format('YYYY-MM-DD') + 'T12:00:00.000Z',
+        settledAt: values.executedAt.format('YYYY-MM-DD') + 'T12:00:00.000Z', // 使用相同的时间
         notes: values.notes || '',
         tags: values.tags || []
       } as any; // 临时使用 any 类型避免类型错误
 
       if (editingTransaction) {
+
+        
         // 更新交易记录
         await TransactionService.updateTransaction(editingTransaction.id, transactionData);
         message.success('交易记录更新成功');
@@ -599,9 +645,9 @@ const TransactionManagement: React.FC = () => {
   // 筛选后的数据
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = !searchText || 
-      transaction.assetName.toLowerCase().includes(searchText.toLowerCase()) ||
-      transaction.assetSymbol.toLowerCase().includes(searchText.toLowerCase()) ||
-      transaction.portfolioName.toLowerCase().includes(searchText.toLowerCase());
+      (transaction.assetName || '').toLowerCase().includes(searchText.toLowerCase()) ||
+      (transaction.assetSymbol || '').toLowerCase().includes(searchText.toLowerCase()) ||
+      (transaction.portfolioName || '').toLowerCase().includes(searchText.toLowerCase());
     
     const matchesType = !selectedType || transaction.transactionType === selectedType;
     const matchesStatus = !selectedStatus || transaction.status === selectedStatus;
@@ -840,13 +886,18 @@ const TransactionManagement: React.FC = () => {
                   placeholder="选择产品" 
                   showSearch
                   loading={assetsLoading}
+                  onChange={(assetId) => {
+                    // 保存完整的 asset 对象
+                    const asset = assets.find(a => a.id === assetId);
+                    setSelectedAsset(asset || null);
+                  }}
                   filterOption={(input, option) =>
                     option?.children?.toString().toLowerCase().includes(input.toLowerCase()) || false
                   }
                 >
                   {assets.map(asset => (
                     <Option key={asset.id} value={asset.id}>
-                      {asset.symbol} - {asset.name}
+                      {asset.symbol} - {asset.name} ({asset.currency})
                     </Option>
                   ))}
                 </Select>
@@ -930,14 +981,14 @@ const TransactionManagement: React.FC = () => {
           </Row>
 
           <Form.Item
-            label="执行时间"
+            label="执行日期"
             name="executedAt"
-            rules={[{ required: true, message: '请选择执行时间' }]}
+            rules={[{ required: true, message: '请选择执行日期' }]}
           >
             <DatePicker
-              showTime
               style={{ width: '100%' }}
-              placeholder="选择执行时间"
+              placeholder="选择执行日期"
+              format="YYYY-MM-DD"
             />
           </Form.Item>
 

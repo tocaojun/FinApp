@@ -104,10 +104,18 @@ export class ExchangeRateService {
       const total = parseInt(countResult[0].count);
 
       // 获取数据
+      // 将驼峰命名转换为下划线命名
+      const sortColumn = sortBy === 'createdAt' ? 'created_at' : 
+                        sortBy === 'rateDate' ? 'rate_date' :
+                        sortBy === 'fromCurrency' ? 'from_currency' :
+                        sortBy === 'toCurrency' ? 'to_currency' :
+                        sortBy === 'dataSource' ? 'data_source' :
+                        sortBy;
+      
       const dataQuery = `
         SELECT * FROM exchange_rates 
         ${whereClause}
-        ORDER BY ${sortBy === 'createdAt' ? 'created_at' : sortBy} ${sortOrder}
+        ORDER BY ${sortColumn} ${sortOrder}
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}
       `;
       params.push(limit, offset);
@@ -127,19 +135,24 @@ export class ExchangeRateService {
       return { rates, total };
     } catch (error) {
       console.error('Error searching exchange rates:', error);
-      return { rates: [], total: 0 };
+      throw error;
     }
   }
 
   // 创建汇率记录
   async createExchangeRate(data: ExchangeRateCreateRequest): Promise<SimpleExchangeRate> {
     try {
+      // 确保日期格式正确 (YYYY-MM-DD)
+      const rateDateStr = data.rateDate.includes('T') 
+        ? data.rateDate.split('T')[0] 
+        : data.rateDate;
+      
       const result = await this.db.prisma.$queryRaw`
         INSERT INTO exchange_rates (
           from_currency, to_currency, rate_date, rate, data_source
         ) VALUES (
           ${data.fromCurrency.toUpperCase()}, ${data.toCurrency.toUpperCase()}, 
-          ${data.rateDate}, ${data.rate}, ${data.dataSource || 'manual'}
+          ${rateDateStr}::date, ${data.rate}, ${data.dataSource || 'manual'}
         )
         ON CONFLICT (from_currency, to_currency, rate_date)
         DO UPDATE SET 

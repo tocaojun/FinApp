@@ -24,14 +24,17 @@ const createTransactionValidation = [
   body('tradingAccountId').isUUID().withMessage('Trading account ID must be a valid UUID'),
   body('assetId').isUUID().withMessage('Asset ID must be a valid UUID'),
   body('transactionType').isIn([
-    'buy', 'sell', 'dividend', 'split', 'merger', 'spin_off', 'deposit', 'withdrawal'
+    'buy', 'sell', 'dividend', 'split', 'merger', 'spin_off', 'deposit', 'withdrawal',
+    'BUY', 'SELL', 'DIVIDEND', 'SPLIT', 'MERGER', 'SPIN_OFF', 'DEPOSIT', 'WITHDRAWAL',
+    'STOCK_BUY', 'STOCK_SELL', 'FUND_SUBSCRIBE', 'FUND_REDEEM', 'BOND_BUY', 'BOND_SELL',
+    'OPTION_BUY', 'OPTION_SELL', 'OPTION_EXERCISE', 'TRANSFER_IN', 'TRANSFER_OUT', 'FEE', 'INTEREST'
   ]).withMessage('Invalid transaction type'),
   body('side').isIn(['BUY', 'SELL', 'DEPOSIT', 'WITHDRAWAL']).withMessage('Invalid transaction side'),
   body('quantity').isFloat({ min: 0.000001 }).withMessage('Quantity must be greater than 0'),
   body('price').isFloat({ min: 0.01 }).withMessage('Price must be greater than 0'),
   body('fees').optional().isFloat({ min: 0 }).withMessage('Fees cannot be negative'),
   body('currency').isLength({ min: 3, max: 3 }).withMessage('Currency must be 3 characters'),
-  body('executedAt').isISO8601().withMessage('Executed at must be a valid date'),
+  body('executedAt').isISO8601().withMessage('Execution date must be a valid date'),
   body('settledAt').optional().isISO8601().withMessage('Settled at must be a valid date'),
   body('notes').optional().isLength({ max: 1000 }).withMessage('Notes cannot exceed 1000 characters'),
   body('tags').optional().isArray().withMessage('Tags must be an array'),
@@ -41,14 +44,17 @@ const createTransactionValidation = [
 const updateTransactionValidation = [
   param('id').isUUID().withMessage('Transaction ID must be a valid UUID'),
   body('transactionType').optional().isIn([
-    'buy', 'sell', 'dividend', 'split', 'merger', 'spin_off', 'deposit', 'withdrawal'
+    'buy', 'sell', 'dividend', 'split', 'merger', 'spin_off', 'deposit', 'withdrawal',
+    'BUY', 'SELL', 'DIVIDEND', 'SPLIT', 'MERGER', 'SPIN_OFF', 'DEPOSIT', 'WITHDRAWAL',
+    'STOCK_BUY', 'STOCK_SELL', 'FUND_SUBSCRIBE', 'FUND_REDEEM', 'BOND_BUY', 'BOND_SELL',
+    'OPTION_BUY', 'OPTION_SELL', 'OPTION_EXERCISE', 'TRANSFER_IN', 'TRANSFER_OUT', 'FEE', 'INTEREST'
   ]).withMessage('Invalid transaction type'),
   body('side').optional().isIn(['BUY', 'SELL', 'DEPOSIT', 'WITHDRAWAL']).withMessage('Invalid transaction side'),
   body('quantity').optional().isFloat({ min: 0.000001 }).withMessage('Quantity must be greater than 0'),
   body('price').optional().isFloat({ min: 0.01 }).withMessage('Price must be greater than 0'),
   body('fees').optional().isFloat({ min: 0 }).withMessage('Fees cannot be negative'),
   body('currency').optional().isLength({ min: 3, max: 3 }).withMessage('Currency must be 3 characters'),
-  body('executedAt').optional().isISO8601().withMessage('Executed at must be a valid date'),
+  body('executedAt').optional().isISO8601().withMessage('Execution date must be a valid date'),
   body('settledAt').optional().isISO8601().withMessage('Settled at must be a valid date'),
   body('notes').optional().isLength({ max: 1000 }).withMessage('Notes cannot exceed 1000 characters'),
   body('tags').optional().isArray().withMessage('Tags must be an array'),

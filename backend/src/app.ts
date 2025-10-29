@@ -25,6 +25,7 @@ import holdingsRouter from './routes/holdings';
 import priceSyncRouter from './routes/priceSync';
 import { databaseService } from './services/DatabaseService';
 import { CacheService } from './services/CacheService';
+import { exchangeRateUpdateService } from './services/ExchangeRateUpdateService';
 import { logger } from './utils/logger';
 
 // 加载环境变量
@@ -225,6 +226,15 @@ class App {
       // CacheService 已在构造函数中初始化
       logger.info('Cache service initialized successfully');
 
+      // 启动汇率自动更新服务
+      if (process.env.ENABLE_EXCHANGE_RATE_AUTO_UPDATE === 'true') {
+        const schedule = process.env.EXCHANGE_RATE_UPDATE_SCHEDULE || '0 */4 * * *';
+        exchangeRateUpdateService.startAutoUpdate(schedule);
+        logger.info(`Exchange rate auto update service started with schedule: ${schedule}`);
+      } else {
+        logger.info('Exchange rate auto update service is disabled');
+      }
+
       logger.info('Application initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize application:', error);
@@ -234,6 +244,12 @@ class App {
 
   public async shutdown(): Promise<void> {
     try {
+      // 停止汇率自动更新服务
+      if (process.env.ENABLE_EXCHANGE_RATE_AUTO_UPDATE === 'true') {
+        exchangeRateUpdateService.stopAutoUpdate();
+        logger.info('Exchange rate auto update service stopped');
+      }
+      
       await this.dbService.disconnect();
       this.cacheService.close();
       logger.info('Application shutdown completed');

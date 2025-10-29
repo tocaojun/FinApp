@@ -32,6 +32,10 @@ const CategoryTagSelector: React.FC<CategoryTagSelectorProps> = ({
 
   // 当外部value变化时，更新内部状态
   useEffect(() => {
+
+      valueIsArray: Array.isArray(value),
+      valueLength: value?.length
+    });
     setSelectedTags(value);
   }, [value]);
 

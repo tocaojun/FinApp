@@ -3,6 +3,7 @@
  * 处理不同资产类型的详情数据
  */
 
+import { PrismaClient } from '@prisma/client';
 import { databaseService } from './DatabaseService';
 import {
   AssetTypeCode,
@@ -12,15 +13,23 @@ import {
   FuturesDetails,
   WealthProductDetails,
   TreasuryDetails,
+  StockOptionDetails,
   CreateStockDetailsInput,
   CreateFundDetailsInput,
   CreateBondDetailsInput,
   CreateFuturesDetailsInput,
   CreateWealthProductDetailsInput,
   CreateTreasuryDetailsInput,
+  CreateStockOptionDetailsInput,
   AssetDetails,
   CreateAssetDetailsInput,
 } from '../types/asset-details.types';
+
+/**
+ * 事务上下文类型
+ * 使用 any 类型以兼容 Prisma 的事务客户端
+ */
+type TransactionClient = any;
 
 export class AssetDetailsService {
   
@@ -41,6 +50,8 @@ export class AssetDetailsService {
         return this.getWealthProductDetails(assetId);
       case AssetTypeCode.TREASURY:
         return this.getTreasuryDetails(assetId);
+      case AssetTypeCode.STOCK_OPTION:
+        return this.getStockOptionDetails(assetId);
       default:
         return null;
     }
@@ -48,25 +59,32 @@ export class AssetDetailsService {
 
   /**
    * 创建资产详情
+   * @param assetId 资产ID
+   * @param assetTypeCode 资产类型代码
+   * @param details 详情数据
+   * @param tx 可选的事务客户端，如果提供则在事务中执行
    */
   async createAssetDetails(
     assetId: string,
     assetTypeCode: string,
-    details: CreateAssetDetailsInput
+    details: CreateAssetDetailsInput,
+    tx?: TransactionClient
   ): Promise<AssetDetails | null> {
     switch (assetTypeCode) {
       case AssetTypeCode.STOCK:
-        return this.createStockDetails(assetId, details as CreateStockDetailsInput);
+        return this.createStockDetails(assetId, details as CreateStockDetailsInput, tx);
       case AssetTypeCode.FUND:
-        return this.createFundDetails(assetId, details as CreateFundDetailsInput);
+        return this.createFundDetails(assetId, details as CreateFundDetailsInput, tx);
       case AssetTypeCode.BOND:
-        return this.createBondDetails(assetId, details as CreateBondDetailsInput);
+        return this.createBondDetails(assetId, details as CreateBondDetailsInput, tx);
       case AssetTypeCode.FUTURES:
-        return this.createFuturesDetails(assetId, details as CreateFuturesDetailsInput);
+        return this.createFuturesDetails(assetId, details as CreateFuturesDetailsInput, tx);
       case AssetTypeCode.WEALTH:
-        return this.createWealthProductDetails(assetId, details as CreateWealthProductDetailsInput);
+        return this.createWealthProductDetails(assetId, details as CreateWealthProductDetailsInput, tx);
       case AssetTypeCode.TREASURY:
-        return this.createTreasuryDetails(assetId, details as CreateTreasuryDetailsInput);
+        return this.createTreasuryDetails(assetId, details as CreateTreasuryDetailsInput, tx);
+      case AssetTypeCode.STOCK_OPTION:
+        return this.createStockOptionDetails(assetId, details as CreateStockOptionDetailsInput, tx);
       default:
         return null;
     }
@@ -93,6 +111,8 @@ export class AssetDetailsService {
         return this.updateWealthProductDetails(assetId, details as Partial<CreateWealthProductDetailsInput>);
       case AssetTypeCode.TREASURY:
         return this.updateTreasuryDetails(assetId, details as Partial<CreateTreasuryDetailsInput>);
+      case AssetTypeCode.STOCK_OPTION:
+        return this.updateStockOptionDetails(assetId, details as Partial<CreateStockOptionDetailsInput>);
       default:
         return null;
     }
@@ -111,7 +131,7 @@ export class AssetDetailsService {
     return result.length > 0 ? this.mapStockDetails(result[0]) : null;
   }
 
-  async createStockDetails(assetId: string, details: CreateStockDetailsInput): Promise<StockDetails> {
+  async createStockDetails(assetId: string, details: CreateStockDetailsInput, tx?: TransactionClient): Promise<StockDetails> {
     const query = `
       INSERT INTO finapp.stock_details (
         asset_id, sector, industry, market_cap, shares_outstanding,
@@ -121,7 +141,7 @@ export class AssetDetailsService {
       )
       RETURNING *
     `;
-    const result = await databaseService.executeRawQuery(query, [
+    const params = [
       assetId,
       details.sector || null,
       details.industry || null,
@@ -133,8 +153,11 @@ export class AssetDetailsService {
       details.companyWebsite || null,
       details.headquarters || null,
       details.foundedYear || null,
-    ]);
-    return this.mapStockDetails(result[0]);
+    ];
+    const result = tx 
+      ? await tx.$queryRawUnsafe(query, ...params)
+      : await databaseService.executeRawQuery(query, params);
+    return this.mapStockDetails((result as any)[0]);
   }
 
   async updateStockDetails(assetId: string, details: Partial<CreateStockDetailsInput>): Promise<StockDetails> {
@@ -180,7 +203,7 @@ export class AssetDetailsService {
     return result.length > 0 ? this.mapFundDetails(result[0]) : null;
   }
 
-  async createFundDetails(assetId: string, details: CreateFundDetailsInput): Promise<FundDetails> {
+  async createFundDetails(assetId: string, details: CreateFundDetailsInput, tx?: TransactionClient): Promise<FundDetails> {
     const query = `
       INSERT INTO finapp.fund_details (
         asset_id, fund_type, fund_category, management_fee, custodian_fee,
@@ -188,11 +211,11 @@ export class AssetDetailsService {
         fund_size, inception_date, fund_manager, fund_company,
         min_investment, min_redemption
       ) VALUES (
-        $1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+        $1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::date, $10, $11, $12::date, $13, $14, $15, $16
       )
       RETURNING *
     `;
-    const result = await databaseService.executeRawQuery(query, [
+    const params = [
       assetId,
       details.fundType,
       details.fundCategory || null,
@@ -209,8 +232,11 @@ export class AssetDetailsService {
       details.fundCompany || null,
       details.minInvestment || null,
       details.minRedemption || null,
-    ]);
-    return this.mapFundDetails(result[0]);
+    ];
+    const result = tx 
+      ? await tx.$queryRawUnsafe(query, ...params)
+      : await databaseService.executeRawQuery(query, params);
+    return this.mapFundDetails((result as any)[0]);
   }
 
   async updateFundDetails(assetId: string, details: Partial<CreateFundDetailsInput>): Promise<FundDetails> {
@@ -256,7 +282,7 @@ export class AssetDetailsService {
     return result.length > 0 ? this.mapBondDetails(result[0]) : null;
   }
 
-  async createBondDetails(assetId: string, details: CreateBondDetailsInput): Promise<BondDetails> {
+  async createBondDetails(assetId: string, details: CreateBondDetailsInput, tx?: TransactionClient): Promise<BondDetails> {
     const query = `
       INSERT INTO finapp.bond_details (
         asset_id, bond_type, credit_rating, face_value, coupon_rate,
@@ -264,11 +290,11 @@ export class AssetDetailsService {
         yield_to_maturity, current_yield, issuer, issue_price, issue_size,
         callable, call_date, call_price
       ) VALUES (
-        $1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+        $1::uuid, $2, $3, $4, $5, $6, $7::date, $8::date, $9, $10, $11, $12, $13, $14, $15, $16::date, $17
       )
       RETURNING *
     `;
-    const result = await databaseService.executeRawQuery(query, [
+    const params = [
       assetId,
       details.bondType,
       details.creditRating || null,
@@ -286,8 +312,11 @@ export class AssetDetailsService {
       details.callable || false,
       details.callDate || null,
       details.callPrice || null,
-    ]);
-    return this.mapBondDetails(result[0]);
+    ];
+    const result = tx 
+      ? await tx.$queryRawUnsafe(query, ...params)
+      : await databaseService.executeRawQuery(query, params);
+    return this.mapBondDetails((result as any)[0]);
   }
 
   async updateBondDetails(assetId: string, details: Partial<CreateBondDetailsInput>): Promise<BondDetails> {
@@ -333,7 +362,7 @@ export class AssetDetailsService {
     return result.length > 0 ? this.mapFuturesDetails(result[0]) : null;
   }
 
-  async createFuturesDetails(assetId: string, details: CreateFuturesDetailsInput): Promise<FuturesDetails> {
+  async createFuturesDetails(assetId: string, details: CreateFuturesDetailsInput, tx?: TransactionClient): Promise<FuturesDetails> {
     const query = `
       INSERT INTO finapp.futures_details (
         asset_id, futures_type, underlying_asset, contract_month, contract_size,
@@ -341,11 +370,11 @@ export class AssetDetailsService {
         delivery_method, initial_margin, maintenance_margin, margin_rate,
         position_limit, daily_price_limit
       ) VALUES (
-        $1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+        $1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::date, $10::date, $11, $12, $13, $14, $15, $16
       )
       RETURNING *
     `;
-    const result = await databaseService.executeRawQuery(query, [
+    const params = [
       assetId,
       details.futuresType,
       details.underlyingAsset || null,
@@ -362,8 +391,11 @@ export class AssetDetailsService {
       details.marginRate || null,
       details.positionLimit || null,
       details.dailyPriceLimit || null,
-    ]);
-    return this.mapFuturesDetails(result[0]);
+    ];
+    const result = tx 
+      ? await tx.$queryRawUnsafe(query, ...params)
+      : await databaseService.executeRawQuery(query, params);
+    return this.mapFuturesDetails((result as any)[0]);
   }
 
   async updateFuturesDetails(assetId: string, details: Partial<CreateFuturesDetailsInput>): Promise<FuturesDetails> {
@@ -409,7 +441,7 @@ export class AssetDetailsService {
     return result.length > 0 ? this.mapWealthProductDetails(result[0]) : null;
   }
 
-  async createWealthProductDetails(assetId: string, details: CreateWealthProductDetailsInput): Promise<WealthProductDetails> {
+  async createWealthProductDetails(assetId: string, details: CreateWealthProductDetailsInput, tx?: TransactionClient): Promise<WealthProductDetails> {
     const query = `
       INSERT INTO finapp.wealth_product_details (
         asset_id, product_type, risk_level, expected_return, min_return,
@@ -417,11 +449,11 @@ export class AssetDetailsService {
         lock_period, min_investment, max_investment, investment_increment,
         issuer, product_code, early_redemption, redemption_fee
       ) VALUES (
-        $1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
+        $1::uuid, $2, $3, $4, $5, $6, $7, $8::date, $9::date, $10::date, $11, $12, $13, $14, $15, $16, $17, $18
       )
       RETURNING *
     `;
-    const result = await databaseService.executeRawQuery(query, [
+    const params = [
       assetId,
       details.productType,
       details.riskLevel,
@@ -440,8 +472,11 @@ export class AssetDetailsService {
       details.productCode || null,
       details.earlyRedemption || false,
       details.redemptionFee || null,
-    ]);
-    return this.mapWealthProductDetails(result[0]);
+    ];
+    const result = tx 
+      ? await tx.$queryRawUnsafe(query, ...params)
+      : await databaseService.executeRawQuery(query, params);
+    return this.mapWealthProductDetails((result as any)[0]);
   }
 
   async updateWealthProductDetails(assetId: string, details: Partial<CreateWealthProductDetailsInput>): Promise<WealthProductDetails> {
@@ -487,18 +522,18 @@ export class AssetDetailsService {
     return result.length > 0 ? this.mapTreasuryDetails(result[0]) : null;
   }
 
-  async createTreasuryDetails(assetId: string, details: CreateTreasuryDetailsInput): Promise<TreasuryDetails> {
+  async createTreasuryDetails(assetId: string, details: CreateTreasuryDetailsInput, tx?: TransactionClient): Promise<TreasuryDetails> {
     const query = `
       INSERT INTO finapp.treasury_details (
         asset_id, treasury_type, term_type, face_value, coupon_rate,
         coupon_frequency, issue_date, maturity_date, term_years,
         issue_price, issue_number, yield_to_maturity, tradable, min_holding_period
       ) VALUES (
-        $1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+        $1::uuid, $2, $3, $4, $5, $6, $7::date, $8::date, $9, $10, $11, $12, $13, $14
       )
       RETURNING *
     `;
-    const result = await databaseService.executeRawQuery(query, [
+    const params = [
       assetId,
       details.treasuryType,
       details.termType || null,
@@ -513,8 +548,11 @@ export class AssetDetailsService {
       details.yieldToMaturity || null,
       details.tradable !== undefined ? details.tradable : true,
       details.minHoldingPeriod || null,
-    ]);
-    return this.mapTreasuryDetails(result[0]);
+    ];
+    const result = tx 
+      ? await tx.$queryRawUnsafe(query, ...params)
+      : await databaseService.executeRawQuery(query, params);
+    return this.mapTreasuryDetails((result as any)[0]);
   }
 
   async updateTreasuryDetails(assetId: string, details: Partial<CreateTreasuryDetailsInput>): Promise<TreasuryDetails> {
@@ -690,6 +728,316 @@ export class AssetDetailsService {
       yieldToMaturity: row.yield_to_maturity ? parseFloat(row.yield_to_maturity) : undefined,
       tradable: row.tradable,
       minHoldingPeriod: row.min_holding_period,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  // ============================================
+  // 股票期权详情方法
+  // ============================================
+
+  /**
+   * 获取股票期权详情
+   */
+  async getStockOptionDetails(assetId: string): Promise<StockOptionDetails | null> {
+    try {
+      const query = `
+        SELECT * FROM finapp.stock_option_details
+        WHERE asset_id = $1::uuid
+      `;
+      
+      const result = await databaseService.executeRawQuery(query, [assetId]);
+      
+      if (!result || result.length === 0) {
+        return null;
+      }
+      
+      return this.mapStockOptionDetails(result[0]);
+    } catch (error) {
+      console.error('Error fetching stock option details:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 创建股票期权详情
+   * @param assetId 资产ID
+   * @param details 详情数据
+   * @param tx 可选的事务客户端
+   */
+  async createStockOptionDetails(
+    assetId: string,
+    details: CreateStockOptionDetailsInput,
+    tx?: TransactionClient
+  ): Promise<StockOptionDetails> {
+    try {
+      const query = `
+        INSERT INTO finapp.stock_option_details (
+          asset_id, underlying_stock_id, underlying_stock_symbol, underlying_stock_name,
+          option_type, strike_price, expiration_date, contract_size, exercise_style,
+          settlement_type, multiplier, trading_unit, min_price_change,
+          margin_requirement, commission_rate, delta, gamma, theta, vega, rho,
+          implied_volatility, historical_volatility, premium_currency,
+          intrinsic_value, time_value, cost_divisor, notes
+        ) VALUES (
+          $1::uuid, $2::uuid, $3, $4, $5, $6, $7::date, $8, $9, $10,
+          $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+          $21, $22, $23, $24, $25, $26, $27
+        )
+        RETURNING *
+      `;
+      
+      const params = [
+        assetId,
+        details.underlyingStockId || null,
+        details.underlyingStockSymbol || null,
+        details.underlyingStockName || null,
+        details.optionType,
+        details.strikePrice,
+        details.expirationDate,
+        details.contractSize || 10000,
+        details.exerciseStyle || 'AMERICAN',
+        details.settlementType || 'PHYSICAL',
+        details.multiplier || 1.0,
+        details.tradingUnit || '手',
+        details.minPriceChange || null,
+        details.marginRequirement || null,
+        details.commissionRate || null,
+        details.delta || null,
+        details.gamma || null,
+        details.theta || null,
+        details.vega || null,
+        details.rho || null,
+        details.impliedVolatility || null,
+        details.historicalVolatility || null,
+        details.premiumCurrency || 'CNY',
+        details.intrinsicValue || null,
+        details.timeValue || null,
+        details.costDivisor || 3.5,
+        details.notes || null,
+      ];
+      
+      // 如果提供了事务客户端，使用它；否则使用全局客户端
+      const result = tx 
+        ? await tx.$queryRawUnsafe(query, ...params)
+        : await databaseService.executeRawQuery(query, params);
+      
+      return this.mapStockOptionDetails((result as any)[0]);
+    } catch (error) {
+      console.error('Error creating stock option details:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 更新股票期权详情
+   */
+  async updateStockOptionDetails(
+    assetId: string,
+    details: Partial<CreateStockOptionDetailsInput>
+  ): Promise<StockOptionDetails> {
+    try {
+      const updates: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      if (details.underlyingStockId !== undefined) {
+        updates.push(`underlying_stock_id = $${paramIndex}::uuid`);
+        values.push(details.underlyingStockId);
+        paramIndex++;
+      }
+      if (details.underlyingStockSymbol !== undefined) {
+        updates.push(`underlying_stock_symbol = $${paramIndex}`);
+        values.push(details.underlyingStockSymbol);
+        paramIndex++;
+      }
+      if (details.underlyingStockName !== undefined) {
+        updates.push(`underlying_stock_name = $${paramIndex}`);
+        values.push(details.underlyingStockName);
+        paramIndex++;
+      }
+      if (details.optionType !== undefined) {
+        updates.push(`option_type = $${paramIndex}`);
+        values.push(details.optionType);
+        paramIndex++;
+      }
+      if (details.strikePrice !== undefined) {
+        updates.push(`strike_price = $${paramIndex}`);
+        values.push(details.strikePrice);
+        paramIndex++;
+      }
+      if (details.expirationDate !== undefined) {
+        updates.push(`expiration_date = $${paramIndex}::date`);
+        values.push(details.expirationDate);
+        paramIndex++;
+      }
+      if (details.contractSize !== undefined) {
+        updates.push(`contract_size = $${paramIndex}`);
+        values.push(details.contractSize);
+        paramIndex++;
+      }
+      if (details.exerciseStyle !== undefined) {
+        updates.push(`exercise_style = $${paramIndex}`);
+        values.push(details.exerciseStyle);
+        paramIndex++;
+      }
+      if (details.settlementType !== undefined) {
+        updates.push(`settlement_type = $${paramIndex}`);
+        values.push(details.settlementType);
+        paramIndex++;
+      }
+      if (details.multiplier !== undefined) {
+        updates.push(`multiplier = $${paramIndex}`);
+        values.push(details.multiplier);
+        paramIndex++;
+      }
+      if (details.tradingUnit !== undefined) {
+        updates.push(`trading_unit = $${paramIndex}`);
+        values.push(details.tradingUnit);
+        paramIndex++;
+      }
+      if (details.minPriceChange !== undefined) {
+        updates.push(`min_price_change = $${paramIndex}`);
+        values.push(details.minPriceChange);
+        paramIndex++;
+      }
+      if (details.marginRequirement !== undefined) {
+        updates.push(`margin_requirement = $${paramIndex}`);
+        values.push(details.marginRequirement);
+        paramIndex++;
+      }
+      if (details.commissionRate !== undefined) {
+        updates.push(`commission_rate = $${paramIndex}`);
+        values.push(details.commissionRate);
+        paramIndex++;
+      }
+      if (details.delta !== undefined) {
+        updates.push(`delta = $${paramIndex}`);
+        values.push(details.delta);
+        paramIndex++;
+      }
+      if (details.gamma !== undefined) {
+        updates.push(`gamma = $${paramIndex}`);
+        values.push(details.gamma);
+        paramIndex++;
+      }
+      if (details.theta !== undefined) {
+        updates.push(`theta = $${paramIndex}`);
+        values.push(details.theta);
+        paramIndex++;
+      }
+      if (details.vega !== undefined) {
+        updates.push(`vega = $${paramIndex}`);
+        values.push(details.vega);
+        paramIndex++;
+      }
+      if (details.rho !== undefined) {
+        updates.push(`rho = $${paramIndex}`);
+        values.push(details.rho);
+        paramIndex++;
+      }
+      if (details.impliedVolatility !== undefined) {
+        updates.push(`implied_volatility = $${paramIndex}`);
+        values.push(details.impliedVolatility);
+        paramIndex++;
+      }
+      if (details.historicalVolatility !== undefined) {
+        updates.push(`historical_volatility = $${paramIndex}`);
+        values.push(details.historicalVolatility);
+        paramIndex++;
+      }
+      if (details.premiumCurrency !== undefined) {
+        updates.push(`premium_currency = $${paramIndex}`);
+        values.push(details.premiumCurrency);
+        paramIndex++;
+      }
+      if (details.intrinsicValue !== undefined) {
+        updates.push(`intrinsic_value = $${paramIndex}`);
+        values.push(details.intrinsicValue);
+        paramIndex++;
+      }
+      if (details.timeValue !== undefined) {
+        updates.push(`time_value = $${paramIndex}`);
+        values.push(details.timeValue);
+        paramIndex++;
+      }
+      if (details.costDivisor !== undefined) {
+        updates.push(`cost_divisor = $${paramIndex}`);
+        values.push(details.costDivisor);
+        paramIndex++;
+      }
+      if (details.notes !== undefined) {
+        updates.push(`notes = $${paramIndex}`);
+        values.push(details.notes);
+        paramIndex++;
+      }
+
+      if (updates.length === 0) {
+        // 没有更新，直接返回现有数据
+        const existing = await this.getStockOptionDetails(assetId);
+        if (!existing) {
+          throw new Error('Stock option details not found');
+        }
+        return existing;
+      }
+
+      updates.push(`updated_at = CURRENT_TIMESTAMP`);
+      values.push(assetId);
+
+      const query = `
+        UPDATE finapp.stock_option_details
+        SET ${updates.join(', ')}
+        WHERE asset_id = $${paramIndex}::uuid
+        RETURNING *
+      `;
+
+      const result = await databaseService.executeRawQuery(query, values);
+      
+      if (!result || result.length === 0) {
+        throw new Error('Failed to update stock option details');
+      }
+
+      return this.mapStockOptionDetails(result[0]);
+    } catch (error) {
+      console.error('Error updating stock option details:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 映射股票期权详情数据
+   */
+  private mapStockOptionDetails(row: any): StockOptionDetails {
+    return {
+      id: row.id,
+      assetId: row.asset_id,
+      underlyingStockId: row.underlying_stock_id,
+      underlyingStockSymbol: row.underlying_stock_symbol,
+      underlyingStockName: row.underlying_stock_name,
+      optionType: row.option_type,
+      strikePrice: parseFloat(row.strike_price),
+      expirationDate: row.expiration_date,
+      contractSize: row.contract_size,
+      exerciseStyle: row.exercise_style,
+      settlementType: row.settlement_type,
+      multiplier: row.multiplier ? parseFloat(row.multiplier) : undefined,
+      tradingUnit: row.trading_unit,
+      minPriceChange: row.min_price_change ? parseFloat(row.min_price_change) : undefined,
+      marginRequirement: row.margin_requirement ? parseFloat(row.margin_requirement) : undefined,
+      commissionRate: row.commission_rate ? parseFloat(row.commission_rate) : undefined,
+      delta: row.delta ? parseFloat(row.delta) : undefined,
+      gamma: row.gamma ? parseFloat(row.gamma) : undefined,
+      theta: row.theta ? parseFloat(row.theta) : undefined,
+      vega: row.vega ? parseFloat(row.vega) : undefined,
+      rho: row.rho ? parseFloat(row.rho) : undefined,
+      impliedVolatility: row.implied_volatility ? parseFloat(row.implied_volatility) : undefined,
+      historicalVolatility: row.historical_volatility ? parseFloat(row.historical_volatility) : undefined,
+      premiumCurrency: row.premium_currency,
+      intrinsicValue: row.intrinsic_value ? parseFloat(row.intrinsic_value) : undefined,
+      timeValue: row.time_value ? parseFloat(row.time_value) : undefined,
+      costDivisor: row.cost_divisor ? parseFloat(row.cost_divisor) : undefined,
+      notes: row.notes,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

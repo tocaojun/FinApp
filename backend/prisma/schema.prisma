@@ -36,7 +36,6 @@ model User {
   reports                 Report[]
   tag_categories          tag_categories[]
   tags                    tags[]
-  transaction_tags        transaction_tags[]
   transactions            Transaction[]
   assignedRoles           UserRole[]               @relation("AssignedBy")
   userRoles               UserRole[]
@@ -104,40 +103,48 @@ model TradingAccount {
 }
 
 model Asset {
-  id                                                        String              @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
-  symbol                                                    String              @db.VarChar(50)
-  name                                                      String              @db.VarChar(200)
-  assetTypeId                                               String              @map("asset_type_id") @db.Uuid
-  marketId                                                  String?             @map("market_id") @db.Uuid
-  currency                                                  String              @db.VarChar(3)
-  isin                                                      String?             @db.VarChar(12)
-  cusip                                                     String?             @db.VarChar(9)
-  sector                                                    String?             @db.VarChar(100)
-  industry                                                  String?             @db.VarChar(100)
-  description                                               String?
-  metadata                                                  Json?
-  isActive                                                  Boolean?            @default(true) @map("is_active")
-  createdAt                                                 DateTime?           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                                                 DateTime?           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  risk_level                                                String?             @default("MEDIUM") @db.VarChar(20)
-  lot_size                                                  Int?                @default(1)
-  tick_size                                                 Decimal?            @default(0.01) @db.Decimal(10, 6)
-  listing_date                                              DateTime?           @db.Date
-  delisting_date                                            DateTime?           @db.Date
-  tags                                                      String[]
-  created_by                                                String?             @db.Uuid
-  updated_by                                                String?             @db.Uuid
-  liquidity_tag                                             String?             @db.Uuid
-  assetPrices                                               AssetPrice[]
-  assetType                                                 AssetType           @relation(fields: [assetTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  market                                                    Market?             @relation(fields: [marketId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  liquidity_tags                                            LiquidityTag?       @relation(fields: [liquidity_tag], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_assets_liquidity_tag")
-  cash_flows                                                CashFlow[]
-  optionDetails                                             OptionDetail[]
-  option_details_option_details_underlying_asset_idToassets OptionDetail[]      @relation("option_details_underlying_asset_idToassets")
-  positions                                                 Position[]
-  price_sync_errors                                         price_sync_errors[]
-  transactions                                              Transaction[]
+  id                                                                    String                  @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  symbol                                                                String                  @db.VarChar(50)
+  name                                                                  String                  @db.VarChar(200)
+  assetTypeId                                                           String                  @map("asset_type_id") @db.Uuid
+  marketId                                                              String?                 @map("market_id") @db.Uuid
+  currency                                                              String                  @db.VarChar(3)
+  isin                                                                  String?                 @db.VarChar(12)
+  cusip                                                                 String?                 @db.VarChar(9)
+  sector                                                                String?                 @db.VarChar(100)
+  industry                                                              String?                 @db.VarChar(100)
+  description                                                           String?
+  metadata                                                              Json?
+  isActive                                                              Boolean?                @default(true) @map("is_active")
+  createdAt                                                             DateTime?               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                                                             DateTime?               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  risk_level                                                            String?                 @default("MEDIUM") @db.VarChar(20)
+  lot_size                                                              Int?                    @default(1)
+  tick_size                                                             Decimal?                @default(0.01) @db.Decimal(10, 6)
+  listing_date                                                          DateTime?               @db.Date
+  delisting_date                                                        DateTime?               @db.Date
+  tags                                                                  String[]
+  created_by                                                            String?                 @db.Uuid
+  updated_by                                                            String?                 @db.Uuid
+  liquidity_tag                                                         String?                 @db.Uuid
+  assetPrices                                                           AssetPrice[]
+  assetType                                                             AssetType               @relation(fields: [assetTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  market                                                                Market?                 @relation(fields: [marketId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  liquidity_tags                                                        LiquidityTag?           @relation(fields: [liquidity_tag], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_assets_liquidity_tag")
+  bond_details                                                          bond_details?
+  cash_flows                                                            CashFlow[]
+  fund_details                                                          fund_details?
+  futures_details                                                       futures_details?
+  optionDetails                                                         OptionDetail[]
+  option_details_option_details_underlying_asset_idToassets             OptionDetail[]          @relation("option_details_underlying_asset_idToassets")
+  positions                                                             Position[]
+  price_sync_errors                                                     price_sync_errors[]
+  stock_details                                                         stock_details?
+  stock_option_details_stock_option_details_asset_idToassets            stock_option_details?   @relation("stock_option_details_asset_idToassets")
+  stock_option_details_stock_option_details_underlying_stock_idToassets stock_option_details[]  @relation("stock_option_details_underlying_stock_idToassets")
+  transactions                                                          Transaction[]
+  treasury_details                                                      treasury_details?
+  wealth_product_details                                                wealth_product_details?
 
   @@unique([symbol, marketId])
   @@index([isActive], map: "idx_assets_active")
@@ -694,38 +701,29 @@ model tags {
   is_system      Boolean?         @default(false)
   is_active      Boolean?         @default(true)
   usage_count    Int?             @default(0)
-  created_at     DateTime?        @default(now()) @db.Timestamp(6)
-  updated_at     DateTime?        @default(now()) @db.Timestamp(6)
-  portfolio_tags portfolio_tags[]
-  tag_categories tag_categories?  @relation(fields: [category_id], references: [id], onUpdate: NoAction)
-  users          User             @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  created_at                 DateTime?                    @default(now()) @db.Timestamp(6)
+  updated_at                 DateTime?                    @default(now()) @db.Timestamp(6)
+  portfolio_tags             portfolio_tags[]
+  transaction_tag_mappings   transaction_tag_mappings[]
+  tag_categories             tag_categories?              @relation(fields: [category_id], references: [id], onUpdate: NoAction)
+  users                      User                         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([user_id, name])
 }
 
+/// 交易标签映射表：每个交易可以在每个分类中选择一个标签
 model transaction_tag_mappings {
-  transaction_id   String           @db.Uuid
-  tag_id           String           @db.Uuid
-  transaction_tags transaction_tags @relation(fields: [tag_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  transactions     Transaction      @relation(fields: [transaction_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  transaction_id String      @db.Uuid
+  tag_id         Int
+  created_at     DateTime?   @default(now()) @db.Timestamp(6)
+  tags           tags        @relation(fields: [tag_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  transactions   Transaction @relation(fields: [transaction_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([transaction_id, tag_id])
+  @@index([transaction_id], map: "idx_transaction_tag_mappings_transaction_id")
+  @@index([tag_id], map: "idx_transaction_tag_mappings_tag_id")
 }
 
-model transaction_tags {
-  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                     String                     @unique @db.VarChar(100)
-  description              String?
-  color                    String?                    @db.VarChar(7)
-  user_id                  String?                    @db.Uuid
-  is_system                Boolean?                   @default(false)
-  created_at               DateTime?                  @default(now()) @db.Timestamptz(6)
-  transaction_tag_mappings transaction_tag_mappings[]
-  users                    User?                      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([name], map: "idx_transaction_tags_name")
-  @@index([user_id], map: "idx_transaction_tags_user_id")
-}
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -828,4 +826,210 @@ model price_sync_tasks {
   @@index([is_active], map: "idx_price_sync_tasks_active")
   @@index([data_source_id], map: "idx_price_sync_tasks_data_source")
   @@index([schedule_type, is_active], map: "idx_price_sync_tasks_schedule")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model bond_details {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  asset_id          String    @unique @db.Uuid
+  bond_type         String    @db.VarChar(50)
+  credit_rating     String?   @db.VarChar(10)
+  face_value        Decimal   @db.Decimal(20, 2)
+  coupon_rate       Decimal   @db.Decimal(5, 2)
+  coupon_frequency  String?   @db.VarChar(20)
+  issue_date        DateTime  @db.Date
+  maturity_date     DateTime  @db.Date
+  years_to_maturity Decimal?  @db.Decimal(5, 2)
+  yield_to_maturity Decimal?  @db.Decimal(5, 2)
+  current_yield     Decimal?  @db.Decimal(5, 2)
+  issuer            String?   @db.VarChar(200)
+  issue_price       Decimal?  @db.Decimal(20, 2)
+  issue_size        Decimal?  @db.Decimal(20, 2)
+  callable          Boolean?  @default(false)
+  call_date         DateTime? @db.Date
+  call_price        Decimal?  @db.Decimal(20, 2)
+  created_at        DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime? @default(now()) @db.Timestamptz(6)
+  assets            Asset     @relation(fields: [asset_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([asset_id], map: "idx_bond_details_asset")
+  @@index([maturity_date], map: "idx_bond_details_maturity")
+  @@index([bond_type], map: "idx_bond_details_type")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model fund_details {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  asset_id         String    @unique @db.Uuid
+  fund_type        String    @db.VarChar(50)
+  fund_category    String?   @db.VarChar(50)
+  management_fee   Decimal?  @db.Decimal(5, 2)
+  custodian_fee    Decimal?  @db.Decimal(5, 2)
+  subscription_fee Decimal?  @db.Decimal(5, 2)
+  redemption_fee   Decimal?  @db.Decimal(5, 2)
+  nav              Decimal?  @db.Decimal(20, 4)
+  nav_date         DateTime? @db.Date
+  accumulated_nav  Decimal?  @db.Decimal(20, 4)
+  fund_size        Decimal?  @db.Decimal(20, 2)
+  inception_date   DateTime? @db.Date
+  fund_manager     String?   @db.VarChar(200)
+  fund_company     String?   @db.VarChar(200)
+  min_investment   Decimal?  @db.Decimal(20, 2)
+  min_redemption   Decimal?  @db.Decimal(20, 2)
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime? @default(now()) @db.Timestamptz(6)
+  assets           Asset     @relation(fields: [asset_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([asset_id], map: "idx_fund_details_asset")
+  @@index([fund_type], map: "idx_fund_details_type")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model futures_details {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  asset_id           String    @unique @db.Uuid
+  futures_type       String    @db.VarChar(50)
+  underlying_asset   String?   @db.VarChar(200)
+  contract_month     String    @db.VarChar(10)
+  contract_size      Decimal?  @db.Decimal(20, 4)
+  tick_size          Decimal?  @db.Decimal(20, 8)
+  tick_value         Decimal?  @db.Decimal(20, 2)
+  trading_hours      String?   @db.VarChar(100)
+  last_trading_date  DateTime? @db.Date
+  delivery_date      DateTime? @db.Date
+  delivery_method    String?   @db.VarChar(50)
+  initial_margin     Decimal?  @db.Decimal(20, 2)
+  maintenance_margin Decimal?  @db.Decimal(20, 2)
+  margin_rate        Decimal?  @db.Decimal(5, 2)
+  position_limit     Int?
+  daily_price_limit  Decimal?  @db.Decimal(5, 2)
+  created_at         DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime? @default(now()) @db.Timestamptz(6)
+  assets             Asset     @relation(fields: [asset_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([asset_id], map: "idx_futures_details_asset")
+  @@index([contract_month], map: "idx_futures_details_month")
+  @@index([futures_type], map: "idx_futures_details_type")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model stock_details {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  asset_id           String    @unique @db.Uuid
+  sector             String?   @db.VarChar(100)
+  industry           String?   @db.VarChar(100)
+  market_cap         Decimal?  @db.Decimal(20, 2)
+  shares_outstanding BigInt?
+  pe_ratio           Decimal?  @db.Decimal(10, 2)
+  pb_ratio           Decimal?  @db.Decimal(10, 2)
+  dividend_yield     Decimal?  @db.Decimal(5, 2)
+  company_website    String?   @db.VarChar(200)
+  headquarters       String?   @db.VarChar(200)
+  founded_year       Int?
+  created_at         DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime? @default(now()) @db.Timestamptz(6)
+  assets             Asset     @relation(fields: [asset_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([asset_id], map: "idx_stock_details_asset")
+  @@index([industry], map: "idx_stock_details_industry")
+  @@index([sector], map: "idx_stock_details_sector")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model stock_option_details {
+  id                                                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  asset_id                                                String    @unique @db.Uuid
+  underlying_stock_id                                     String?   @db.Uuid
+  underlying_stock_symbol                                 String?   @db.VarChar(50)
+  underlying_stock_name                                   String?   @db.VarChar(200)
+  option_type                                             String    @db.VarChar(10)
+  strike_price                                            Decimal   @db.Decimal(20, 8)
+  expiration_date                                         DateTime  @db.Date
+  contract_size                                           Int?      @default(100)
+  exercise_style                                          String?   @default("AMERICAN") @db.VarChar(20)
+  settlement_type                                         String?   @default("PHYSICAL") @db.VarChar(20)
+  multiplier                                              Decimal?  @default(1.0) @db.Decimal(10, 4)
+  trading_unit                                            String?   @default("手") @db.VarChar(20)
+  min_price_change                                        Decimal?  @db.Decimal(20, 8)
+  margin_requirement                                      Decimal?  @db.Decimal(20, 2)
+  commission_rate                                         Decimal?  @db.Decimal(5, 4)
+  delta                                                   Decimal?  @db.Decimal(10, 6)
+  gamma                                                   Decimal?  @db.Decimal(10, 6)
+  theta                                                   Decimal?  @db.Decimal(10, 6)
+  vega                                                    Decimal?  @db.Decimal(10, 6)
+  rho                                                     Decimal?  @db.Decimal(10, 6)
+  implied_volatility                                      Decimal?  @db.Decimal(10, 6)
+  historical_volatility                                   Decimal?  @db.Decimal(10, 6)
+  premium_currency                                        String?   @default("CNY") @db.VarChar(10)
+  intrinsic_value                                         Decimal?  @db.Decimal(20, 8)
+  time_value                                              Decimal?  @db.Decimal(20, 8)
+  cost_divisor                                            Decimal?  @default(3.5) @db.Decimal(10, 2)
+  notes                                                   String?
+  created_at                                              DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                                              DateTime? @default(now()) @db.Timestamptz(6)
+  assets_stock_option_details_asset_idToassets            Asset     @relation("stock_option_details_asset_idToassets", fields: [asset_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  assets_stock_option_details_underlying_stock_idToassets Asset?    @relation("stock_option_details_underlying_stock_idToassets", fields: [underlying_stock_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([asset_id], map: "idx_stock_option_details_asset")
+  @@index([expiration_date], map: "idx_stock_option_details_expiration")
+  @@index([strike_price], map: "idx_stock_option_details_strike")
+  @@index([option_type], map: "idx_stock_option_details_type")
+  @@index([underlying_stock_id], map: "idx_stock_option_details_underlying")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model treasury_details {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  asset_id           String    @unique @db.Uuid
+  treasury_type      String    @db.VarChar(50)
+  term_type          String?   @db.VarChar(20)
+  face_value         Decimal   @db.Decimal(20, 2)
+  coupon_rate        Decimal   @db.Decimal(5, 2)
+  coupon_frequency   String?   @db.VarChar(20)
+  issue_date         DateTime  @db.Date
+  maturity_date      DateTime  @db.Date
+  term_years         Int?
+  issue_price        Decimal?  @db.Decimal(20, 2)
+  issue_number       String?   @db.VarChar(50)
+  yield_to_maturity  Decimal?  @db.Decimal(5, 2)
+  tradable           Boolean?  @default(true)
+  min_holding_period Int?
+  created_at         DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime? @default(now()) @db.Timestamptz(6)
+  assets             Asset     @relation(fields: [asset_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([asset_id], map: "idx_treasury_details_asset")
+  @@index([maturity_date], map: "idx_treasury_details_maturity")
+  @@index([treasury_type], map: "idx_treasury_details_type")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model wealth_product_details {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  asset_id             String    @unique @db.Uuid
+  product_type         String    @db.VarChar(50)
+  risk_level           String    @db.VarChar(20)
+  expected_return      Decimal?  @db.Decimal(5, 2)
+  min_return           Decimal?  @db.Decimal(5, 2)
+  max_return           Decimal?  @db.Decimal(5, 2)
+  return_type          String?   @db.VarChar(20)
+  issue_date           DateTime  @db.Date
+  start_date           DateTime  @db.Date
+  maturity_date        DateTime  @db.Date
+  lock_period          Int?
+  min_investment       Decimal?  @db.Decimal(20, 2)
+  max_investment       Decimal?  @db.Decimal(20, 2)
+  investment_increment Decimal?  @db.Decimal(20, 2)
+  issuer               String?   @db.VarChar(200)
+  product_code         String?   @db.VarChar(50)
+  early_redemption     Boolean?  @default(false)
+  redemption_fee       Decimal?  @db.Decimal(5, 2)
+  created_at           DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime? @default(now()) @db.Timestamptz(6)
+  assets               Asset     @relation(fields: [asset_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([asset_id], map: "idx_wealth_details_asset")
+  @@index([risk_level], map: "idx_wealth_details_risk")
+  @@index([product_type], map: "idx_wealth_details_type")
 }

@@ -32,6 +32,30 @@ export class TransactionService {
       throw new Error(`Transaction validation failed: ${validation.errors.join(', ')}`);
     }
 
+    // 从 asset 表获取正确的 currency，而不是使用前端传入的值
+    const assetQuery = `
+      SELECT a.currency, a.symbol, a.name, at.code as asset_type_code 
+      FROM finapp.assets a 
+      LEFT JOIN finapp.asset_types at ON a.asset_type_id = at.id 
+      WHERE a.id = $1::uuid
+    `;
+    const assetResult = await databaseService.executeRawQuery(assetQuery, [request.assetId]);
+    
+    if (!Array.isArray(assetResult) || assetResult.length === 0) {
+      throw new Error(`Asset not found: ${request.assetId}`);
+    }
+    
+    const correctCurrency = assetResult[0].currency;
+    
+    // 如果前端传入的 currency 与 asset 不一致，记录警告
+    if (request.currency && request.currency !== correctCurrency) {
+      console.warn(
+        `[Currency Mismatch] Asset ${request.assetId}: ` +
+        `request.currency=${request.currency}, asset.currency=${correctCurrency}. ` +
+        `Using asset currency.`
+      );
+    }
+
     const transactionId = uuidv4();
     // 交易金额应该始终为正数，表示交易的绝对金额
     const totalAmount = Math.abs(request.quantity) * request.price;
@@ -49,7 +73,7 @@ export class TransactionService {
       price: request.price,
       totalAmount,
       fees,
-      currency: request.currency,
+      currency: correctCurrency,  // 使用从 asset 表获取的正确 currency
       executedAt: request.executedAt || new Date(),
       settledAt: request.settledAt,
       notes: request.notes,
@@ -117,7 +141,6 @@ export class TransactionService {
         transaction.currency,
         transaction.executedAt
       );
-      console.log('Position updated successfully for transaction:', transactionId);
     } catch (error) {
       console.error('Failed to update position for transaction:', transactionId, error);
       // 不抛出错误，避免影响交易创建
@@ -164,13 +187,13 @@ export class TransactionService {
     }
 
     if (filter.dateFrom) {
-      conditions.push(`t.transaction_date >= $${paramIndex}`);
+      conditions.push(`COALESCE(t.executed_at::date, t.transaction_date) >= $${paramIndex}`);
       values.push(filter.dateFrom);
       paramIndex++;
     }
 
     if (filter.dateTo) {
-      conditions.push(`t.transaction_date <= $${paramIndex}`);
+      conditions.push(`COALESCE(t.executed_at::date, t.transaction_date) <= $${paramIndex}`);
       values.push(filter.dateTo);
       paramIndex++;
     }
@@ -199,37 +222,76 @@ export class TransactionService {
       JOIN finapp.portfolios p ON t.portfolio_id = p.id 
       LEFT JOIN finapp.assets a ON t.asset_id = a.id
       ${whereClause}
-      ORDER BY t.transaction_date ${sortOrder}
+      ORDER BY COALESCE(t.executed_at, t.transaction_date) ${sortOrder}
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
     values.push(limit, offset);
 
     const results = await databaseService.executeRawQuery<any[]>(query, values);
-    const transactions: Transaction[] = results.map((row: any) => ({
-      id: row.id,
-      userId: userId, // 从参数获取，因为表中没有这个字段
-      portfolioId: row.portfolio_id,
-      tradingAccountId: row.trading_account_id,
-      assetId: row.asset_id,
-      transactionType: row.transaction_type,
-      side: 'BUY', // 默认值，因为表中没有这个字段
-      quantity: parseFloat(row.quantity),
-      price: parseFloat(row.price),
-      totalAmount: parseFloat(row.total_amount),
-      fees: parseFloat(row.fees || '0'),
-      currency: row.currency,
-      portfolioName: row.portfolio_name,
-      assetName: row.asset_name,
-      assetSymbol: row.asset_symbol,
-      executedAt: new Date(row.transaction_date),
-      settledAt: row.settlement_date ? new Date(row.settlement_date) : undefined,
-      notes: row.notes,
-      tags: [], // 需要单独查询
-      liquidityTag: row.liquidity_tag,
-      status: row.status,
-      createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at)
-    }));
+    
+    // 批量查询所有交易的标签
+    const transactionIds = results.map(row => row.id);
+    let tagsMap: Map<string, string[]> = new Map();
+    
+    if (transactionIds.length > 0) {
+      const tagsQuery = `
+        SELECT ttm.transaction_id, t.name
+        FROM finapp.transaction_tag_mappings ttm
+        JOIN finapp.tags t ON ttm.tag_id = t.id
+        WHERE ttm.transaction_id = ANY($1::uuid[])
+      `;
+      const tagsResult = await databaseService.executeRawQuery<Array<{transaction_id: string, name: string}>>(
+        tagsQuery, 
+        [transactionIds]
+      );
+      
+      // 构建标签映射
+      tagsResult.forEach(row => {
+        if (!tagsMap.has(row.transaction_id)) {
+          tagsMap.set(row.transaction_id, []);
+        }
+        tagsMap.get(row.transaction_id)!.push(row.name);
+      });
+    }
+    
+    const transactions: Transaction[] = results.map((row: any) => {
+      const transactionTags = tagsMap.get(row.id) || [];
+      
+      return {
+        id: row.id,
+        userId: userId, // 从参数获取，因为表中没有这个字段
+        portfolioId: row.portfolio_id,
+        tradingAccountId: row.trading_account_id,
+        assetId: row.asset_id,
+        transactionType: row.transaction_type,
+        side: 'BUY', // 默认值，因为表中没有这个字段
+        quantity: parseFloat(row.quantity),
+        price: parseFloat(row.price),
+        totalAmount: parseFloat(row.total_amount),
+        fees: parseFloat(row.fees || '0'),
+        currency: row.currency,
+        portfolioName: row.portfolio_name,
+        assetName: row.asset_name,
+        assetSymbol: row.asset_symbol,
+        executedAt: (() => {
+        if (row.executed_at) {
+          return new Date(row.executed_at);
+        } else if (row.transaction_date) {
+          const dateStr = row.transaction_date + 'T12:00:00.000Z';
+          return new Date(dateStr);
+        } else {
+          return new Date();
+        }
+      })(),
+        settledAt: row.settlement_date ? new Date(row.settlement_date) : undefined,
+        notes: row.notes,
+        tags: transactionTags,
+        liquidityTag: row.liquidity_tag,
+        status: row.status,
+        createdAt: new Date(row.created_at),
+        updatedAt: new Date(row.updated_at)
+      };
+    });
 
     return {
       transactions,
@@ -260,6 +322,17 @@ export class TransactionService {
     }
 
     const row = results[0];
+    
+    // 查询交易的标签（从 tags 表）
+    const tagsQuery = `
+      SELECT t.name
+      FROM finapp.transaction_tag_mappings ttm
+      JOIN finapp.tags t ON ttm.tag_id = t.id
+      WHERE ttm.transaction_id = $1::uuid
+    `;
+    const tagsResult = await databaseService.executeRawQuery<Array<{name: string}>>(tagsQuery, [transactionId]);
+    const tags = tagsResult.map(t => t.name);
+    
     return {
       id: row.id,
       userId: row.user_id,
@@ -273,10 +346,19 @@ export class TransactionService {
       totalAmount: parseFloat(row.total_amount),
       fees: parseFloat(row.fees || '0'),
       currency: row.currency,
-      executedAt: new Date(row.executed_at),
+      executedAt: (() => {
+        if (row.executed_at) {
+          return new Date(row.executed_at);
+        } else if (row.transaction_date) {
+          const dateStr = row.transaction_date + 'T12:00:00.000Z';
+          return new Date(dateStr);
+        } else {
+          return new Date();
+        }
+      })(),
       settledAt: row.settled_at ? new Date(row.settled_at) : undefined,
       notes: row.notes,
-      tags: [], // 需要单独查询
+      tags: tags,
       liquidityTag: row.liquidity_tag,
       status: row.status,
       createdAt: new Date(row.created_at),
@@ -326,6 +408,12 @@ export class TransactionService {
       paramIndex++;
     }
 
+    if (request.executedAt !== undefined) {
+      updateFields.push(`executed_at = $${paramIndex}::timestamp with time zone`);
+      values.push(request.executedAt);
+      paramIndex++;
+    }
+
     // 重新计算总金额
     if (request.quantity !== undefined || request.price !== undefined) {
       const newQuantity = request.quantity ?? existingTransaction.quantity;
@@ -338,17 +426,24 @@ export class TransactionService {
       paramIndex++;
     }
 
-    updateFields.push(`updated_at = $${paramIndex}`);
+    updateFields.push(`updated_at = $${paramIndex}::timestamp`);
     values.push(new Date());
     paramIndex++;
 
-    values.push(transactionId, userId);
+    // 添加 WHERE 条件的参数
+    const transactionIdParam = paramIndex;
+    values.push(transactionId);
+    paramIndex++;
+    
+    const userIdParam = paramIndex;
+    values.push(userId);
+    paramIndex++;
 
     const query = `
       UPDATE finapp.transactions 
       SET ${updateFields.join(', ')}
-      WHERE id = $${paramIndex - 1}::uuid AND portfolio_id IN (
-        SELECT id FROM finapp.portfolios WHERE user_id = $${paramIndex}::uuid
+      WHERE id = $${transactionIdParam}::uuid AND portfolio_id IN (
+        SELECT id FROM finapp.portfolios WHERE user_id = $${userIdParam}::uuid
       )
       RETURNING *
     `;
@@ -357,6 +452,17 @@ export class TransactionService {
     
     if (results.length === 0) {
       throw new Error('Failed to update transaction');
+    }
+
+    // 处理标签更新
+    if (request.tags !== undefined) {
+      // 先删除旧标签
+      await this.removeTransactionTags(transactionId);
+      
+      // 再添加新标签
+      if (request.tags.length > 0) {
+        await this.addTransactionTags(transactionId, request.tags);
+      }
     }
 
     // 清除缓存
@@ -562,27 +668,41 @@ export class TransactionService {
     };
   }
 
+  // 删除交易的所有标签
+  private async removeTransactionTags(transactionId: string): Promise<void> {
+    try {
+      const query = `
+        DELETE FROM finapp.transaction_tag_mappings
+        WHERE transaction_id = $1::uuid
+      `;
+      await databaseService.executeRawCommand(query, [transactionId]);
+    } catch (error) {
+      console.error(`Error removing tags from transaction ${transactionId}:`, error);
+      throw error;
+    }
+  }
+
   // 添加交易标签
   private async addTransactionTags(transactionId: string, tags: string[]): Promise<void> {
     for (const tagName of tags) {
       try {
-        // 首先查找标签ID
-        const tagQuery = `SELECT id FROM finapp.transaction_tags WHERE name = $1 LIMIT 1`;
-        const tagResult = await databaseService.executeRawQuery(tagQuery, [tagName]);
+        // 从 finapp.tags 表查找标签ID
+        const tagQuery = `SELECT id FROM finapp.tags WHERE name = $1 LIMIT 1`;
+        const tagResult = await databaseService.executeRawQuery<Array<{id: number}>>(tagQuery, [tagName]);
         
         if (Array.isArray(tagResult) && tagResult.length > 0) {
           const tagId = tagResult[0].id;
           
-          // 插入交易标签映射
+          // 插入交易标签映射（tag_id 现在是 integer 类型）
           const mappingQuery = `
             INSERT INTO finapp.transaction_tag_mappings (transaction_id, tag_id)
-            VALUES ($1::uuid, $2::uuid)
+            VALUES ($1::uuid, $2::integer)
             ON CONFLICT (transaction_id, tag_id) DO NOTHING
           `;
           await databaseService.executeRawCommand(mappingQuery, [transactionId, tagId]);
         }
       } catch (error) {
-        console.error(`Error adding tag ${tagName} to transaction ${transactionId}:`, error);
+        console.error(`Error adding tag "${tagName}":`, error);
         // 继续处理其他标签，不中断整个流程
       }
     }

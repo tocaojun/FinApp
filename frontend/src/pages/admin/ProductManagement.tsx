@@ -71,6 +71,7 @@ import {
   WealthProductDetailsFields,
   TreasuryDetailsFields,
   OptionDetailsFields,
+  StockOptionDetailsFields,
 } from '../../components/asset/details';
 
 const { Search } = Input;
@@ -224,11 +225,34 @@ const ProductManagement: React.FC = () => {
     const assetType = assetTypes.find(t => t.id === asset.assetTypeId);
     setFormAssetTypeCode(assetType?.code || '');
     
-    form.setFieldsValue({
+    // 准备表单数据，包含details字段
+    const formData: any = {
       ...asset,
       listingDate: asset.listingDate ? dayjs(asset.listingDate) : undefined,
       delistingDate: asset.delistingDate ? dayjs(asset.delistingDate) : undefined,
-    });
+    };
+    
+    // 如果有details字段，需要处理日期类型
+    if (asset.details) {
+      formData.details = { ...asset.details };
+      
+      // 处理期权和期货的到期日期
+      if (asset.details.expirationDate) {
+        formData.details.expirationDate = dayjs(asset.details.expirationDate);
+      }
+      
+      // 处理债券和国债的到期日期
+      if (asset.details.maturityDate) {
+        formData.details.maturityDate = dayjs(asset.details.maturityDate);
+      }
+      
+      // 处理基金的成立日期
+      if (asset.details.inceptionDate) {
+        formData.details.inceptionDate = dayjs(asset.details.inceptionDate);
+      }
+    }
+    
+    form.setFieldsValue(formData);
     setModalVisible(true);
   };
 
@@ -252,16 +276,52 @@ const ProductManagement: React.FC = () => {
 
   const handleSaveProduct = async (values: any) => {
     try {
+      console.log('=== 开始保存产品 ===');
+      console.log('表单原始值:', values);
+      console.log('编辑中的资产:', editingAsset);
+      
       const productData: AssetCreateRequest | AssetUpdateRequest = {
         ...values,
         listingDate: values.listingDate ? values.listingDate.format('YYYY-MM-DD') : undefined,
         delistingDate: values.delistingDate ? values.delistingDate.format('YYYY-MM-DD') : undefined,
       };
+      
+      console.log('处理后的产品数据（日期转换前）:', productData);
 
+      // 处理 details 字段中的日期格式
+      if (productData.details) {
+        // 处理期权和股票期权的到期日期
+        if (productData.details.expirationDate && typeof productData.details.expirationDate === 'object') {
+          productData.details.expirationDate = productData.details.expirationDate.format('YYYY-MM-DD');
+        }
+        
+        // 处理债券和国债的到期日期
+        if (productData.details.maturityDate && typeof productData.details.maturityDate === 'object') {
+          productData.details.maturityDate = productData.details.maturityDate.format('YYYY-MM-DD');
+        }
+        
+        // 处理基金的成立日期
+        if (productData.details.inceptionDate && typeof productData.details.inceptionDate === 'object') {
+          productData.details.inceptionDate = productData.details.inceptionDate.format('YYYY-MM-DD');
+        }
+        
+        // 处理理财产品的日期
+        if (productData.details.issueDate && typeof productData.details.issueDate === 'object') {
+          productData.details.issueDate = productData.details.issueDate.format('YYYY-MM-DD');
+        }
+        if (productData.details.startDate && typeof productData.details.startDate === 'object') {
+          productData.details.startDate = productData.details.startDate.format('YYYY-MM-DD');
+        }
+      }
+
+      console.log('最终提交的数据:', JSON.stringify(productData, null, 2));
+      
       if (editingAsset) {
+        console.log('执行更新操作，资产ID:', editingAsset.id);
         await AssetService.updateAsset(editingAsset.id, productData);
         message.success('产品更新成功');
       } else {
+        console.log('执行创建操作');
         await AssetService.createAsset(productData as AssetCreateRequest);
         message.success('产品创建成功');
       }
@@ -270,9 +330,11 @@ const ProductManagement: React.FC = () => {
       form.resetFields();
       fetchAssets();
       fetchStatistics();
-    } catch (error) {
-      message.error(editingAsset ? '更新产品失败' : '创建产品失败');
+    } catch (error: any) {
+      const errorMsg = error?.response?.data?.error?.message || error?.message || '未知错误';
+      message.error(`${editingAsset ? '更新产品失败' : '创建产品失败'}: ${errorMsg}`);
       console.error('Error saving asset:', error);
+      console.error('Error details:', error?.response?.data);
     }
   };
 
@@ -614,15 +676,10 @@ const ProductManagement: React.FC = () => {
   // 加载流动性标签
   const fetchLiquidityTags = async () => {
     try {
-      console.log('🔍 开始加载流动性标签...');
       const tags = await getActiveLiquidityTags();
-      console.log('✅ 成功获取流动性标签:', tags);
-      console.log('📊 标签数量:', tags.length);
-      console.log('📋 标签详情:', JSON.stringify(tags, null, 2));
       setLiquidityTags(tags);
-      console.log('✅ 已更新状态，当前liquidityTags:', tags);
     } catch (error) {
-      console.error('❌ 加载流动性标签失败:', error);
+      console.error('加载流动性标签失败:', error);
       if (error instanceof Error) {
         console.error('错误消息:', error.message);
         console.error('错误堆栈:', error.stack);
@@ -958,6 +1015,7 @@ const ProductManagement: React.FC = () => {
               {formAssetTypeCode === 'WEALTH' && <WealthProductDetailsFields />}
               {formAssetTypeCode === 'TREASURY' && <TreasuryDetailsFields />}
               {formAssetTypeCode === 'OPTION' && <OptionDetailsFields />}
+              {formAssetTypeCode === 'STOCK_OPTION' && <StockOptionDetailsFields form={form} />}
             </>
           )}
           <Row gutter={16}>

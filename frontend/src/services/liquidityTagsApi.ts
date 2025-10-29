@@ -65,12 +65,8 @@ export const getLiquidityTags = async (): Promise<LiquidityTag[]> => {
 
 // 获取活跃的流动性标签
 export const getActiveLiquidityTags = async (): Promise<LiquidityTag[]> => {
-  console.log('🔍 获取活跃流动性标签...');
   const allTags = await getLiquidityTags();
-  console.log('📊 所有标签:', allTags);
   const activeTags = allTags.filter(tag => tag.isActive);
-  console.log('✅ 活跃标签:', activeTags);
-  console.log('📈 活跃标签数量:', activeTags.length);
   return activeTags;
 };
 

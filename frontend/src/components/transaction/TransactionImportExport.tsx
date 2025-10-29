@@ -124,7 +124,7 @@ const TransactionImportExport: React.FC<TransactionImportExportProps> = ({
     price: '价格',
     amount: '金额',
     fee: '手续费',
-    executedAt: '执行时间',
+    executedAt: '执行日期',
     status: '状态',
     notes: '备注',
     tags: '标签'

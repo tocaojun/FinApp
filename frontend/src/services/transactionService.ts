@@ -2,17 +2,26 @@ import { apiGet, apiPost, apiPut, apiDelete } from './api';
 
 export interface Transaction {
   id: string;
+  portfolioId: string;
+  portfolioName?: string;
+  tradingAccountId: string;
   assetId: string;
   assetName?: string;
   assetSymbol?: string;
-  type: 'BUY' | 'SELL' | 'DIVIDEND' | 'SPLIT' | 'TRANSFER';
+  type?: 'BUY' | 'SELL' | 'DIVIDEND' | 'SPLIT' | 'TRANSFER';
+  transactionType: string;  // 交易类型（后端主要字段）
+  side?: string;  // 交易方向
   quantity: number;
   price: number;
   totalAmount: number;
+  amount?: number;  // 兼容前端使用的 amount 字段
   fee: number;
+  fees?: number;  // 兼容后端字段
   currency: string;
   executedAt: string;
   notes?: string;
+  tags: string[];  // 标签数组
+  status?: string;  // 交易状态
   createdAt: string;
   updatedAt: string;
 }

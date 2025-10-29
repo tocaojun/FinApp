@@ -42,7 +42,7 @@ export interface EnrichedTransaction extends ImportTransaction {
   totalAmount: number;       // 总金额
   side: 'BUY' | 'SELL';     // 交易方向
   status: 'EXECUTED';        // 状态
-  executedAt: Date;          // 执行时间
+  executedAt: Date;          // 执行日期
 }
 
 /**

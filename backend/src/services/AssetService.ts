@@ -292,6 +292,35 @@ export class AssetService {
     }
   }
 
+  // 搜索资产（带详情）
+  async searchAssetsWithDetails(criteria: any): Promise<{ assets: any[], total: number }> {
+    try {
+      // 先获取基础资产列表
+      const result = await this.searchAssets(criteria);
+      
+      // 为每个资产获取详情
+      const assetsWithDetails = await Promise.all(
+        result.assets.map(async (asset) => {
+          try {
+            const fullAsset = await this.getAssetWithDetails(asset.id);
+            return fullAsset || asset;
+          } catch (error) {
+            console.error(`Error fetching details for asset ${asset.id}:`, error);
+            return asset;
+          }
+        })
+      );
+      
+      return {
+        assets: assetsWithDetails,
+        total: result.total
+      };
+    } catch (error) {
+      console.error('Error searching assets with details:', error);
+      return { assets: [], total: 0 };
+    }
+  }
+
   // 搜索资产
   async searchAssets(criteria: any): Promise<{ assets: SimpleAsset[], total: number }> {
     try {
@@ -339,6 +368,7 @@ export class AssetService {
         SELECT 
           a.*,
           at.name as "assetTypeName",
+          at.code as "assetTypeCode",
           m.name as "marketName"
         FROM assets a
         LEFT JOIN asset_types at ON a.asset_type_id = at.id
@@ -363,6 +393,7 @@ export class AssetService {
           name: row.name,
           assetTypeId: row.asset_type_id,
           assetTypeName: row.assetTypeName,
+          assetTypeCode: row.assetTypeCode,
           marketId: row.market_id,
           marketName: row.marketName,
           currency: row.currency,
@@ -958,18 +989,19 @@ export class AssetService {
    */
   async createAssetWithDetails(data: CreateAssetWithDetailsRequest): Promise<AssetWithDetails> {
     try {
+      // 使用 Prisma 事务确保原子性
       return await this.db.prisma.$transaction(async (tx) => {
         // 1. 获取资产类型ID
         const assetTypeQuery = `
           SELECT id FROM finapp.asset_types WHERE code = $1
         `;
-        const assetTypeResult = await this.db.executeRawQuery(assetTypeQuery, [data.assetTypeCode]);
+        const assetTypeResult = await tx.$queryRawUnsafe(assetTypeQuery, data.assetTypeCode);
         
-        if (!assetTypeResult || assetTypeResult.length === 0) {
+        if (!assetTypeResult || (assetTypeResult as any[]).length === 0) {
           throw new Error(`Asset type not found: ${data.assetTypeCode}`);
         }
         
-        const assetTypeId = assetTypeResult[0].id;
+        const assetTypeId = (assetTypeResult as any[])[0].id;
         
         // 2. 创建基础资产
         const createAssetQuery = `
@@ -982,7 +1014,8 @@ export class AssetService {
           RETURNING *
         `;
         
-        const assetResult = await this.db.executeRawQuery(createAssetQuery, [
+        const assetResult = await tx.$queryRawUnsafe(
+          createAssetQuery,
           data.symbol.toUpperCase(),
           data.name,
           assetTypeId,
@@ -992,18 +1025,19 @@ export class AssetService {
           data.cusip || null,
           data.description || null,
           data.riskLevel || null,
-          data.liquidityTag || null,
-        ]);
+          data.liquidityTag || null
+        );
         
-        const asset = assetResult[0];
+        const asset = (assetResult as any[])[0];
         
-        // 3. 创建详情记录
+        // 3. 创建详情记录（在同一事务中）
         let details = null;
         if (data.details) {
           details = await assetDetailsService.createAssetDetails(
             asset.id,
             data.assetTypeCode,
-            data.details
+            data.details,
+            tx // 传入事务客户端
           );
         }
         

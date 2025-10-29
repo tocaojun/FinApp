@@ -171,7 +171,7 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({ onNavigate }) =
                   <div>
                     <div>
                       <Text type="secondary">
-                        {dayjs(transaction.executedAt).format('MM-DD HH:mm')}
+                        {dayjs(transaction.executedAt).format('YYYY-MM-DD')}
                       </Text>
                     </div>
                     <div>

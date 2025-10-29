@@ -102,10 +102,17 @@ export class AuthService {
         headers: {
           Authorization: `Bearer ${token}`
         },
-        timeout: 3000 // 3秒超时，避免卡住页面
+        timeout: 10000 // 10秒超时，给后端更多时间
       });
       return response.status === 200;
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Token validation error:', error.message);
+      // 如果是网络错误或超时，假设token有效（避免误判）
+      // 这样可以避免因临时网络问题导致用户被强制登出
+      if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout')) {
+        console.warn('Network/timeout error during token validation, assuming token is valid');
+        return true;
+      }
       return false;
     }
   }

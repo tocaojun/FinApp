@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { exchangeRateService } from '../services/ExchangeRateService';
+import { exchangeRateUpdateService } from '../services/ExchangeRateUpdateService';
 
 export class ExchangeRateController {
   // 获取汇率列表
@@ -37,6 +38,7 @@ export class ExchangeRateController {
         message: 'Exchange rates retrieved successfully'
       });
     } catch (error) {
+      console.error('Exchange rate search error:', error);
       res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to retrieve exchange rates'
@@ -395,6 +397,84 @@ export class ExchangeRateController {
       res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to convert currency'
+      });
+    }
+  };
+
+  // 手动触发汇率更新
+  refreshExchangeRates = async (req: Request, res: Response): Promise<void> => {
+    try {
+      // 触发异步更新，不等待完成
+      exchangeRateUpdateService.updateAllRates().catch(error => {
+        console.error('Background exchange rate update failed:', error);
+      });
+
+      res.json({
+        success: true,
+        message: 'Exchange rate refresh initiated. This may take a few minutes to complete.'
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to refresh exchange rates'
+      });
+    }
+  };
+
+  // 获取自动更新服务状态
+  getAutoUpdateStatus = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const status = exchangeRateUpdateService.getStatus();
+      const isEnabled = process.env.ENABLE_EXCHANGE_RATE_AUTO_UPDATE === 'true';
+      const schedule = process.env.EXCHANGE_RATE_UPDATE_SCHEDULE || '0 */4 * * *';
+
+      res.json({
+        success: true,
+        data: {
+          enabled: isEnabled,
+          running: status.isRunning,
+          schedule: schedule,
+          monitoredPairs: status.monitoredPairs
+        },
+        message: 'Auto update status retrieved successfully'
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get auto update status'
+      });
+    }
+  };
+
+  // 导入历史汇率数据
+  importHistoricalRates = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { years = 10 } = req.body;
+
+      // 验证参数
+      if (years < 1 || years > 20) {
+        res.status(400).json({
+          success: false,
+          message: 'Years must be between 1 and 20'
+        });
+        return;
+      }
+
+      // 异步执行导入，不阻塞响应
+      exchangeRateUpdateService.importHistoricalRates(years).then(result => {
+        console.log('Historical import completed:', result);
+      }).catch(error => {
+        console.error('Historical import failed:', error);
+      });
+
+      res.json({
+        success: true,
+        message: `Historical exchange rate import initiated for the past ${years} years. This will take several minutes to complete. Check logs for progress.`
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to import historical rates'
       });
     }
   };

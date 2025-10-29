@@ -239,7 +239,8 @@ export class AssetController {
         sortOrder: req.query.sortOrder as 'ASC' | 'DESC'
       };
 
-      const result = await this.assetService.searchAssets(criteria);
+      // 使用带详情的搜索方法，以便编辑时能获取完整信息
+      const result = await this.assetService.searchAssetsWithDetails(criteria);
       
       res.json({
         success: true,

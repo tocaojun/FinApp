@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import * as cron from 'node-cron';
 import axios from 'axios';
 import { ExchangeRateService } from './ExchangeRateService';
 import { logger } from '../utils/logger';
@@ -101,9 +101,6 @@ export class ExchangeRateUpdateService {
       // 每4小时更新一次汇率
       this.updateJob = cron.schedule(schedule, async () => {
         await this.updateAllRates();
-      }, {
-        scheduled: true,
-        timezone: 'Asia/Shanghai'
       });
 
       this.isRunning = true;
@@ -122,6 +119,124 @@ export class ExchangeRateUpdateService {
     }
     this.isRunning = false;
     logger.info('Exchange rate auto update stopped');
+  }
+
+  // 导入历史汇率数据
+  async importHistoricalRates(years: number = 10): Promise<{
+    success: boolean;
+    totalDays: number;
+    successCount: number;
+    errorCount: number;
+    message: string;
+  }> {
+    logger.info(`Starting historical exchange rate import for the past ${years} years...`);
+    
+    let successCount = 0;
+    let errorCount = 0;
+    const totalDays = years * 365;
+    
+    try {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setFullYear(startDate.getFullYear() - years);
+      
+      // 按月份批量导入，避免API限制
+      const currentDate = new Date(startDate);
+      
+      while (currentDate <= endDate) {
+        const year = currentDate.getFullYear();
+        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+        const day = String(currentDate.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        
+        try {
+          // 使用 Frankfurter API 的历史数据端点（免费，支持历史数据）
+          const url = `https://api.frankfurter.app/${dateStr}?base=USD`;
+          
+          const response = await axios.get(url, {
+            timeout: 10000,
+            headers: {
+              'User-Agent': 'FinApp/1.0'
+            }
+          });
+          
+          if (response.data && response.data.rates) {
+            const rates = response.data.rates;
+            
+            // 只导入监控的货币对
+            for (const pair of this.monitoredPairs) {
+              if (pair.from === 'USD' && rates[pair.to]) {
+                try {
+                  await this.exchangeRateService.createExchangeRate({
+                    fromCurrency: 'USD',
+                    toCurrency: pair.to,
+                    rate: rates[pair.to],
+                    rateDate: dateStr,
+                    dataSource: 'historical_import'
+                  });
+                  successCount++;
+                } catch (error) {
+                  // 忽略重复数据错误
+                  if (!error.message?.includes('duplicate') && !error.message?.includes('unique')) {
+                    errorCount++;
+                  }
+                }
+              }
+            }
+            
+            // 处理反向货币对（如 EUR/USD）
+            for (const pair of this.monitoredPairs) {
+              if (pair.to === 'USD' && rates[pair.from]) {
+                try {
+                  await this.exchangeRateService.createExchangeRate({
+                    fromCurrency: pair.from,
+                    toCurrency: 'USD',
+                    rate: rates[pair.from],
+                    rateDate: dateStr,
+                    dataSource: 'historical_import'
+                  });
+                  successCount++;
+                } catch (error) {
+                  if (!error.message?.includes('duplicate') && !error.message?.includes('unique')) {
+                    errorCount++;
+                  }
+                }
+              }
+            }
+          }
+          
+          // 每导入30天的数据，暂停1秒，避免API限制
+          if (currentDate.getDate() === 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            logger.info(`Historical import progress: ${dateStr}, Success: ${successCount}, Errors: ${errorCount}`);
+          }
+          
+        } catch (error) {
+          errorCount++;
+          if (errorCount % 100 === 0) {
+            logger.warn(`Historical import error at ${dateStr}:`, error.message);
+          }
+        }
+        
+        // 移动到下一天
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      
+      const message = `Historical import completed. Success: ${successCount}, Errors: ${errorCount}`;
+      logger.info(message);
+      
+      return {
+        success: errorCount < successCount,
+        totalDays,
+        successCount,
+        errorCount,
+        message
+      };
+      
+    } catch (error) {
+      logger.error('Historical exchange rate import failed:', error);
+      throw error;
+    }
   }
 
   // 手动触发更新所有汇率
@@ -195,11 +310,14 @@ export class ExchangeRateUpdateService {
           );
 
           if (isMonitored) {
+            const today = new Date();
+            const rateDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            
             await this.exchangeRateService.createExchangeRate({
               fromCurrency: rate.fromCurrency,
               toCurrency: rate.toCurrency,
               rate: rate.rate,
-              rateDate: new Date().toISOString().split('T')[0],
+              rateDate: rateDate,
               dataSource: 'api'
             });
             updateCount++;
@@ -230,14 +348,12 @@ export class ExchangeRateUpdateService {
       for (const pair of this.monitoredPairs) {
         const todayRate = await this.exchangeRateService.getLatestRate(
           pair.from, 
-          pair.to, 
-          today
+          pair.to
         );
         
         const yesterdayRate = await this.exchangeRateService.getLatestRate(
           pair.from, 
-          pair.to, 
-          yesterday
+          pair.to
         );
 
         if (todayRate && yesterdayRate) {
@@ -346,10 +462,9 @@ export class ExchangeRateUpdateService {
   }
 
   // 获取服务状态
-  getStatus(): { isRunning: boolean; nextRun?: string; monitoredPairs: number } {
+  getStatus(): { isRunning: boolean; monitoredPairs: number } {
     return {
       isRunning: this.isRunning,
-      nextRun: this.updateJob?.nextDate()?.toISOString(),
       monitoredPairs: this.monitoredPairs.length
     };
   }

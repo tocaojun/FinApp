@@ -30,7 +30,12 @@ export interface Holding {
   totalCost: number;
   unrealizedPnL: number;
   unrealizedPnLPercent: number;
-  currency: string;
+  currency: string; // 资产币种
+  portfolioCurrency?: string; // 投资组合基础币种
+  exchangeRate?: number; // 汇率（资产币种 -> 投资组合币种）
+  convertedMarketValue?: number; // 转换后的市值
+  convertedTotalCost?: number; // 转换后的总成本
+  convertedUnrealizedPnL?: number; // 转换后的未实现盈亏
   lastUpdated: string;
 }
 

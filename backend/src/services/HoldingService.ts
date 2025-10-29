@@ -1,4 +1,5 @@
 import { databaseService } from './DatabaseService';
+import { ExchangeRateService } from './ExchangeRateService';
 
 export interface Holding {
   id: string;
@@ -15,7 +16,12 @@ export interface Holding {
   marketValue: number;
   unrealizedPnL: number;
   unrealizedPnLPercent: number;
-  currency: string;
+  currency: string; // 资产币种（从assets表获取）
+  portfolioCurrency?: string; // 投资组合基础币种
+  exchangeRate?: number; // 汇率（资产币种 -> 投资组合币种）
+  convertedMarketValue?: number; // 转换后的市值
+  convertedTotalCost?: number; // 转换后的总成本
+  convertedUnrealizedPnL?: number; // 转换后的未实现盈亏
   firstPurchaseDate?: string;
   lastTransactionDate?: string;
   isActive: boolean;
@@ -24,17 +30,24 @@ export interface Holding {
 }
 
 export class HoldingService {
+  private exchangeRateService: ExchangeRateService;
+
+  constructor() {
+    this.exchangeRateService = new ExchangeRateService();
+  }
   
   // 获取投资组合的所有持仓
   async getHoldingsByPortfolio(userId: string, portfolioId: string): Promise<Holding[]> {
-    // 验证投资组合所有权
-    const portfolioCheck = await databaseService.prisma.$queryRaw`
-      SELECT id FROM portfolios WHERE id = ${portfolioId}::uuid AND user_id = ${userId}::uuid
+    // 验证投资组合所有权并获取基础币种
+    const portfolioCheck = await databaseService.prisma.$queryRaw<Array<{id: string, base_currency: string}>>`
+      SELECT id, base_currency FROM portfolios WHERE id = ${portfolioId}::uuid AND user_id = ${userId}::uuid
     `;
     
     if (!Array.isArray(portfolioCheck) || portfolioCheck.length === 0) {
       throw new Error('Portfolio not found or access denied');
     }
+
+    const portfolioCurrency = portfolioCheck[0].base_currency || 'CNY';
 
     const query = `
       SELECT 
@@ -45,7 +58,8 @@ export class HoldingService {
         p.quantity,
         p.average_cost,
         p.total_cost,
-        p.currency,
+        p.currency as position_currency,  -- 使用 position 表的 currency
+        a.currency as asset_currency,     -- 保留 asset currency 用于对比
         p.first_purchase_date,
         p.last_transaction_date,
         p.is_active,
@@ -54,10 +68,40 @@ export class HoldingService {
         a.symbol as asset_symbol,
         a.name as asset_name,
         at.name as asset_type,
-        COALESCE(ap.close_price, 0) as current_price
+        at.code as asset_type_code,
+        -- 股票期权特殊字段
+        sod.underlying_stock_id,
+        sod.strike_price,
+        sod.option_type,
+        -- 计算当前价格：
+        -- 对于股票期权，使用标的股票价格计算内在价值
+        -- 对于其他资产，使用资产自身价格
+        CASE 
+          WHEN at.code = 'STOCK_OPTION' THEN
+            COALESCE(
+              (SELECT close_price FROM asset_prices 
+               WHERE asset_id = sod.underlying_stock_id 
+               ORDER BY price_date DESC LIMIT 1),
+              0
+            )
+          ELSE
+            COALESCE(ap.close_price, 0)
+        END as current_price,
+        -- 标的股票价格（仅用于股票期权）
+        CASE 
+          WHEN at.code = 'STOCK_OPTION' THEN
+            COALESCE(
+              (SELECT close_price FROM asset_prices 
+               WHERE asset_id = sod.underlying_stock_id 
+               ORDER BY price_date DESC LIMIT 1),
+              0
+            )
+          ELSE NULL
+        END as underlying_stock_price
       FROM positions p
       JOIN assets a ON p.asset_id = a.id
       LEFT JOIN asset_types at ON a.asset_type_id = at.id
+      LEFT JOIN finapp.stock_option_details sod ON a.id = sod.asset_id
       LEFT JOIN LATERAL (
         SELECT close_price 
         FROM asset_prices 
@@ -74,15 +118,87 @@ export class HoldingService {
     const result = await databaseService.executeRawQuery(query, [portfolioId]);
     const positions = Array.isArray(result) ? result : [];
 
+    // 收集所有需要的汇率对，使用 position_currency
+    const currencyPairs = new Set<string>();
+    positions.forEach(row => {
+      const positionCurrency = row.position_currency || 'CNY';
+      if (positionCurrency !== portfolioCurrency) {
+        currencyPairs.add(`${positionCurrency}/${portfolioCurrency}`);
+      }
+    });
+
+    // 批量获取汇率
+    const exchangeRates = new Map<string, number>();
+    for (const pair of currencyPairs) {
+      const [from, to] = pair.split('/');
+      try {
+        const rateData = await this.exchangeRateService.getLatestRate(from, to);
+        if (rateData) {
+          exchangeRates.set(pair, rateData.rate);
+        }
+      } catch (error) {
+        console.warn(`Failed to get exchange rate for ${pair}:`, error);
+        // 使用默认汇率1.0
+        exchangeRates.set(pair, 1.0);
+      }
+    }
+
     return positions.map(row => {
       const quantity = parseFloat(row.quantity) || 0;
       const averageCost = parseFloat(row.average_cost) || 0;
       const totalCost = Math.abs(parseFloat(row.total_cost) || 0); // 确保总成本为正数
-      const currentPrice = parseFloat(row.current_price) || 0;
-      const marketValue = quantity * currentPrice;
+      
+      let currentPrice = parseFloat(row.current_price) || 0;
+      let marketValue = 0;
+      
+      // 股票期权特殊处理
+      if (row.asset_type_code === 'STOCK_OPTION') {
+        const underlyingStockPrice = parseFloat(row.underlying_stock_price) || 0;
+        const strikePrice = parseFloat(row.strike_price) || 0;
+        const optionType = row.option_type;
+        
+        // 计算期权内在价值
+        let intrinsicValue = 0;
+        if (optionType === 'CALL') {
+          // 看涨期权：max(标的价格 - 行权价, 0)
+          intrinsicValue = Math.max(underlyingStockPrice - strikePrice, 0);
+        } else if (optionType === 'PUT') {
+          // 看跌期权：max(行权价 - 标的价格, 0)
+          intrinsicValue = Math.max(strikePrice - underlyingStockPrice, 0);
+        }
+        
+        // 期权的当前价格就是内在价值（简化计算，不考虑时间价值）
+        currentPrice = intrinsicValue;
+        marketValue = quantity * intrinsicValue;
+      } else {
+        // 其他资产：市值 = 数量 × 当前价格
+        marketValue = quantity * currentPrice;
+      }
+      
       // 正确的盈亏计算：(当前价格 - 平均成本) × 持仓数量
       const unrealizedPnL = (currentPrice - averageCost) * quantity;
       const unrealizedPnLPercent = totalCost > 0 ? (unrealizedPnL / totalCost) * 100 : 0;
+
+      // 使用 position 表的 currency，而不是 asset 表的
+      const positionCurrency = row.position_currency || 'CNY';
+      const assetCurrency = row.asset_currency || 'CNY';
+      
+      // 如果 position currency 与 asset currency 不一致，记录警告
+      if (positionCurrency !== assetCurrency) {
+        console.warn(
+          `[Currency Mismatch Detected] Position ${row.id}: ` +
+          `position.currency=${positionCurrency}, asset.currency=${assetCurrency}. ` +
+          `Asset: ${row.asset_symbol} (${row.asset_name})`
+        );
+      }
+      
+      const exchangeRateKey = `${positionCurrency}/${portfolioCurrency}`;
+      const exchangeRate = positionCurrency === portfolioCurrency ? 1.0 : (exchangeRates.get(exchangeRateKey) || 1.0);
+
+      // 计算转换后的金额
+      const convertedMarketValue = marketValue * exchangeRate;
+      const convertedTotalCost = totalCost * exchangeRate;
+      const convertedUnrealizedPnL = unrealizedPnL * exchangeRate;
 
       return {
         id: row.id,
@@ -99,7 +215,12 @@ export class HoldingService {
         marketValue,
         unrealizedPnL,
         unrealizedPnLPercent,
-        currency: row.currency || 'CNY',
+        currency: positionCurrency,  // 使用 position 的 currency
+        portfolioCurrency,
+        exchangeRate,
+        convertedMarketValue,
+        convertedTotalCost,
+        convertedUnrealizedPnL,
         firstPurchaseDate: row.first_purchase_date,
         lastTransactionDate: row.last_transaction_date,
         isActive: row.is_active,
@@ -120,7 +241,8 @@ export class HoldingService {
         p.quantity,
         p.average_cost,
         p.total_cost,
-        p.currency,
+        p.currency as position_currency,  -- 使用 position 表的 currency
+        a.currency as asset_currency,     -- 保留 asset currency 用于对比
         p.first_purchase_date,
         p.last_transaction_date,
         p.is_active,
@@ -129,11 +251,40 @@ export class HoldingService {
         a.symbol as asset_symbol,
         a.name as asset_name,
         at.name as asset_type,
-        COALESCE(ap.close_price, 0) as current_price,
-        po.user_id
+        at.code as asset_type_code,
+        po.user_id,
+        po.base_currency as portfolio_currency,
+        -- 股票期权特殊字段
+        sod.underlying_stock_id,
+        sod.strike_price,
+        sod.option_type,
+        -- 计算当前价格
+        CASE 
+          WHEN at.code = 'STOCK_OPTION' THEN
+            COALESCE(
+              (SELECT close_price FROM asset_prices 
+               WHERE asset_id = sod.underlying_stock_id 
+               ORDER BY price_date DESC LIMIT 1),
+              0
+            )
+          ELSE
+            COALESCE(ap.close_price, 0)
+        END as current_price,
+        -- 标的股票价格
+        CASE 
+          WHEN at.code = 'STOCK_OPTION' THEN
+            COALESCE(
+              (SELECT close_price FROM asset_prices 
+               WHERE asset_id = sod.underlying_stock_id 
+               ORDER BY price_date DESC LIMIT 1),
+              0
+            )
+          ELSE NULL
+        END as underlying_stock_price
       FROM positions p
       JOIN assets a ON p.asset_id = a.id
       LEFT JOIN asset_types at ON a.asset_type_id = at.id
+      LEFT JOIN finapp.stock_option_details sod ON a.id = sod.asset_id
       LEFT JOIN LATERAL (
         SELECT close_price 
         FROM asset_prices 
@@ -153,14 +304,71 @@ export class HoldingService {
     }
 
     const row = rows[0];
+    const portfolioCurrency = row.portfolio_currency || 'CNY';
+    const positionCurrency = row.position_currency || 'CNY';  // 使用 position_currency
+    const assetCurrency = row.asset_currency || 'CNY';
+    
+    // 如果 position currency 与 asset currency 不一致，记录警告
+    if (positionCurrency !== assetCurrency) {
+      console.warn(
+        `[Currency Mismatch Detected] Position ${row.id}: ` +
+        `position.currency=${positionCurrency}, asset.currency=${assetCurrency}. ` +
+        `Asset: ${row.asset_symbol} (${row.asset_name})`
+      );
+    }
+    
     const quantity = parseFloat(row.quantity) || 0;
     const averageCost = parseFloat(row.average_cost) || 0;
     const totalCost = Math.abs(parseFloat(row.total_cost) || 0); // 确保总成本为正数
-    const currentPrice = parseFloat(row.current_price) || 0;
-    const marketValue = quantity * currentPrice;
+    
+    let currentPrice = parseFloat(row.current_price) || 0;
+    let marketValue = 0;
+    
+    // 股票期权特殊处理
+    if (row.asset_type_code === 'STOCK_OPTION') {
+      const underlyingStockPrice = parseFloat(row.underlying_stock_price) || 0;
+      const strikePrice = parseFloat(row.strike_price) || 0;
+      const optionType = row.option_type;
+      
+      // 计算期权内在价值
+      let intrinsicValue = 0;
+      if (optionType === 'CALL') {
+        // 看涨期权：max(标的价格 - 行权价, 0)
+        intrinsicValue = Math.max(underlyingStockPrice - strikePrice, 0);
+      } else if (optionType === 'PUT') {
+        // 看跌期权：max(行权价 - 标的价格, 0)
+        intrinsicValue = Math.max(strikePrice - underlyingStockPrice, 0);
+      }
+      
+      // 期权的当前价格就是内在价值
+      currentPrice = intrinsicValue;
+      marketValue = quantity * intrinsicValue;
+    } else {
+      // 其他资产：市值 = 数量 × 当前价格
+      marketValue = quantity * currentPrice;
+    }
+    
     // 正确的盈亏计算：(当前价格 - 平均成本) × 持仓数量
     const unrealizedPnL = (currentPrice - averageCost) * quantity;
     const unrealizedPnLPercent = totalCost > 0 ? (unrealizedPnL / totalCost) * 100 : 0;
+
+    // 使用 position_currency 获取汇率
+    let exchangeRate = 1.0;
+    if (positionCurrency !== portfolioCurrency) {
+      try {
+        const rateData = await this.exchangeRateService.getLatestRate(positionCurrency, portfolioCurrency);
+        if (rateData) {
+          exchangeRate = rateData.rate;
+        }
+      } catch (error) {
+        console.warn(`Failed to get exchange rate for ${positionCurrency}/${portfolioCurrency}:`, error);
+      }
+    }
+
+    // 计算转换后的金额
+    const convertedMarketValue = marketValue * exchangeRate;
+    const convertedTotalCost = totalCost * exchangeRate;
+    const convertedUnrealizedPnL = unrealizedPnL * exchangeRate;
 
     return {
       id: row.id,
@@ -177,7 +385,12 @@ export class HoldingService {
       marketValue,
       unrealizedPnL,
       unrealizedPnLPercent,
-      currency: row.currency || 'CNY',
+      currency: positionCurrency,  // 使用 position 的 currency
+      portfolioCurrency,
+      exchangeRate,
+      convertedMarketValue,
+      convertedTotalCost,
+      convertedUnrealizedPnL,
       firstPurchaseDate: row.first_purchase_date,
       lastTransactionDate: row.last_transaction_date,
       isActive: row.is_active,
@@ -195,39 +408,16 @@ export class HoldingService {
     assetCount: number;
     currency: string;
   }> {
-    // 验证投资组合所有权
-    const portfolioCheck = await databaseService.prisma.$queryRaw`
-      SELECT id, base_currency FROM portfolios WHERE id = ${portfolioId}::uuid AND user_id = ${userId}::uuid
-    `;
+    // 使用getHoldingsByPortfolio获取所有持仓（已包含币种转换）
+    const holdings = await this.getHoldingsByPortfolio(userId, portfolioId);
     
-    if (!Array.isArray(portfolioCheck) || portfolioCheck.length === 0) {
-      throw new Error('Portfolio not found or access denied');
-    }
-
-    const baseCurrency = portfolioCheck[0].base_currency || 'CNY';
-
-    const query = `
-      SELECT 
-        COUNT(*) as asset_count,
-        SUM(p.total_cost) as total_cost,
-        SUM(p.quantity * COALESCE(ap.close_price, 0)) as total_value
-      FROM positions p
-      LEFT JOIN LATERAL (
-        SELECT close_price 
-        FROM asset_prices 
-        WHERE asset_id = p.asset_id 
-        ORDER BY price_date DESC 
-        LIMIT 1
-      ) ap ON true
-      WHERE p.portfolio_id = $1::uuid 
-        AND p.is_active = true 
-        AND p.quantity != 0
-    `;
-
-    const result = await databaseService.executeRawQuery(query, [portfolioId]);
-    const rows = Array.isArray(result) ? result : [];
-    
-    if (rows.length === 0) {
+    if (holdings.length === 0) {
+      // 获取投资组合基础币种
+      const portfolioCheck = await databaseService.prisma.$queryRaw<Array<{base_currency: string}>>`
+        SELECT base_currency FROM portfolios WHERE id = ${portfolioId}::uuid AND user_id = ${userId}::uuid
+      `;
+      const baseCurrency = (portfolioCheck && portfolioCheck[0]?.base_currency) || 'CNY';
+      
       return {
         totalValue: 0,
         totalCost: 0,
@@ -238,9 +428,15 @@ export class HoldingService {
       };
     }
 
-    const row = rows[0];
-    const totalCost = parseFloat(row.total_cost) || 0;
-    const totalValue = parseFloat(row.total_value) || 0;
+    // 使用转换后的金额进行汇总
+    let totalValue = 0;
+    let totalCost = 0;
+    
+    holdings.forEach(holding => {
+      totalValue += holding.convertedMarketValue || 0;
+      totalCost += holding.convertedTotalCost || 0;
+    });
+
     const totalGainLoss = totalValue - totalCost;
     const totalGainLossPercent = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
 
@@ -249,8 +445,8 @@ export class HoldingService {
       totalCost,
       totalGainLoss,
       totalGainLossPercent,
-      assetCount: parseInt(row.asset_count) || 0,
-      currency: baseCurrency
+      assetCount: holdings.length,
+      currency: holdings[0].portfolioCurrency || 'CNY'
     };
   }
 }

@@ -81,6 +81,11 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
         unrealizedPnL: holding.unrealizedPnL,
         unrealizedPnLPercent: holding.unrealizedPnLPercent,
         currency: holding.currency,
+        portfolioCurrency: holding.portfolioCurrency,
+        exchangeRate: holding.exchangeRate,
+        convertedMarketValue: holding.convertedMarketValue,
+        convertedTotalCost: holding.convertedTotalCost,
+        convertedUnrealizedPnL: holding.convertedUnrealizedPnL,
         lastUpdated: holding.updatedAt
       }));
       
@@ -237,18 +242,25 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
       title: '市值',
       dataIndex: 'marketValue',
       key: 'marketValue',
-      width: 120,
+      width: 150,
       align: 'right',
       sorter: (a, b) => a.marketValue - b.marketValue,
       sortOrder: sortedInfo.columnKey === 'marketValue' ? sortedInfo.order : null,
       render: (value, record) => (
-        <Text strong>{formatCurrency(value, record.currency)}</Text>
+        <div>
+          <Text strong>{formatCurrency(value, record.currency)}</Text>
+          {record.currency !== record.portfolioCurrency && record.convertedMarketValue && (
+            <div style={{ fontSize: '12px', color: '#999', marginTop: 2 }}>
+              ≈ {formatCurrency(record.convertedMarketValue, record.portfolioCurrency || 'CNY')}
+            </div>
+          )}
+        </div>
       )
     },
     {
       title: '盈亏',
       key: 'pnl',
-      width: 120,
+      width: 150,
       align: 'right',
       sorter: (a, b) => a.unrealizedPnL - b.unrealizedPnL,
       sortOrder: sortedInfo.columnKey === 'pnl' ? sortedInfo.order : null,
@@ -260,6 +272,14 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
           }}>
             {formatCurrency(record.unrealizedPnL, record.currency)}
           </div>
+          {record.currency !== record.portfolioCurrency && record.convertedUnrealizedPnL !== undefined && (
+            <div style={{ 
+              fontSize: '12px', 
+              color: record.unrealizedPnL >= 0 ? '#52c41a' : '#ff4d4f'
+            }}>
+              ≈ {formatCurrency(record.convertedUnrealizedPnL, record.portfolioCurrency || 'CNY')}
+            </div>
+          )}
           <div style={{ fontSize: '12px' }}>
             {formatPercent(record.unrealizedPnLPercent)}
           </div>

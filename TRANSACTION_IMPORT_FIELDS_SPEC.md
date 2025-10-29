@@ -34,7 +34,7 @@
 | **total_amount** | 总金额 | 自动计算：quantity × price ± fee |
 | **side** | 交易方向 | 根据type自动映射 |
 | **status** | 状态 | 默认：`EXECUTED` |
-| **executed_at** | 执行时间 | 使用交易日期 |
+| **executed_at** | 执行日期 | 使用交易日期 |
 | **created_at** | 创建时间 | 系统当前时间 |
 | **updated_at** | 更新时间 | 系统当前时间 |
 

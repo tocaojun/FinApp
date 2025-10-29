@@ -41,6 +41,8 @@ export class PositionService {
     transactionDate: Date
   ): Promise<Position> {
     
+
+    
     // 查找现有持仓
     const existingPosition = await this.getPosition(portfolioId, tradingAccountId, assetId);
     
@@ -107,6 +109,18 @@ export class PositionService {
     transactionDate: Date
   ): Promise<Position> {
     
+    // 从asset表获取正确的currency，而不是使用传入的参数
+    const assetQuery = `
+      SELECT currency FROM finapp.assets WHERE id = $1::uuid
+    `;
+    const assetResult = await databaseService.executeRawQuery(assetQuery, [assetId]);
+    
+    if (!Array.isArray(assetResult) || assetResult.length === 0) {
+      throw new Error(`Asset not found: ${assetId}`);
+    }
+    
+    const correctCurrency = assetResult[0].currency;
+    
     // 根据交易类型计算持仓数量
     const positionQuantity = this.isBuyTransaction(transactionType) ? quantity : -quantity;
     // totalCost 应该反映实际持有的成本，对于正持仓是正数，负持仓是负数
@@ -137,7 +151,7 @@ export class PositionService {
       positionQuantity,
       averageCost,
       totalCost,
-      currency,
+      correctCurrency,  // 使用从asset表获取的currency
       transactionDate,
       transactionDate,
       true,
@@ -231,9 +245,11 @@ export class PositionService {
    * 判断是否为买入交易
    */
   private isBuyTransaction(transactionType: string): boolean {
+    // 转换为大写进行比较，支持大小写不敏感
+    const upperType = transactionType.toUpperCase();
+    
     const buyTypes = [
-      'buy',           // 简单买入类型
-      'BUY',           // 大写买入类型
+      'BUY',           // 通用买入类型
       'STOCK_BUY',
       'BOND_BUY', 
       'FUND_BUY',
@@ -241,10 +257,12 @@ export class PositionService {
       'ETF_BUY',
       'CRYPTO_BUY',
       'OPTION_BUY',
-      'FUTURES_BUY'
+      'FUTURES_BUY',
+      'DEPOSIT',       // 存入也算作增加持仓
+      'TRANSFER_IN'    // 转入也算作增加持仓
     ];
     
-    return buyTypes.includes(transactionType);
+    return buyTypes.includes(upperType);
   }
 
   /**

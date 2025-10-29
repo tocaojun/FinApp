@@ -84,6 +84,8 @@ export class TransactionController {
     try {
       const userId = req.user!.id;
       const transactionId = req.params.id;
+      
+
 
       if (!transactionId) {
         res.status(400).json({
@@ -123,6 +125,8 @@ export class TransactionController {
       const userId = req.user!.id;
       const transactionId = req.params.id;
       const request: UpdateTransactionRequest = req.body;
+
+
 
       if (!transactionId) {
         res.status(400).json({

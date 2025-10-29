@@ -328,6 +328,7 @@ export interface CreateAssetWithDetailsRequest {
 export enum AssetTypeCode {
   STOCK = 'STOCK',
   OPTION = 'OPTION',
+  STOCK_OPTION = 'STOCK_OPTION',
   FUND = 'FUND',
   BOND = 'BOND',
   FUTURES = 'FUTURES',
@@ -393,4 +394,128 @@ export enum TreasuryType {
   SAVINGS = 'savings',
   BOOK_ENTRY = 'book_entry',
   CERTIFICATE = 'certificate',
+}
+
+// ============================================
+// 股票期权详情
+// ============================================
+export interface StockOptionDetails {
+  id: string;
+  assetId: string;
+  
+  // 标的股票信息
+  underlyingStockId?: string;
+  underlyingStockSymbol?: string;
+  underlyingStockName?: string;
+  
+  // 期权基本信息
+  optionType: 'CALL' | 'PUT';
+  strikePrice: number;
+  expirationDate: Date;
+  
+  // 合约信息
+  contractSize?: number;
+  exerciseStyle?: 'AMERICAN' | 'EUROPEAN' | 'BERMUDA';
+  settlementType?: 'PHYSICAL' | 'CASH';
+  
+  // 交易信息
+  multiplier?: number;
+  tradingUnit?: string;
+  minPriceChange?: number;
+  
+  // 保证金和费用
+  marginRequirement?: number;
+  commissionRate?: number;
+  
+  // 希腊字母（Greeks）
+  delta?: number;
+  gamma?: number;
+  theta?: number;
+  vega?: number;
+  rho?: number;
+  
+  // 波动率
+  impliedVolatility?: number;
+  historicalVolatility?: number;
+  
+  // 定价相关
+  premiumCurrency?: string;
+  intrinsicValue?: number;
+  timeValue?: number;
+  
+  // 成本计算
+  costDivisor?: number; // 默认 3.5
+  
+  // 备注
+  notes?: string;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateStockOptionDetailsInput {
+  // 标的股票信息
+  underlyingStockId?: string;
+  underlyingStockSymbol?: string;
+  underlyingStockName?: string;
+  
+  // 期权基本信息
+  optionType: 'CALL' | 'PUT';
+  strikePrice: number;
+  expirationDate: Date | string;
+  
+  // 合约信息
+  contractSize?: number;
+  exerciseStyle?: 'AMERICAN' | 'EUROPEAN' | 'BERMUDA';
+  settlementType?: 'PHYSICAL' | 'CASH';
+  
+  // 交易信息
+  multiplier?: number;
+  tradingUnit?: string;
+  minPriceChange?: number;
+  
+  // 保证金和费用
+  marginRequirement?: number;
+  commissionRate?: number;
+  
+  // 希腊字母
+  delta?: number;
+  gamma?: number;
+  theta?: number;
+  vega?: number;
+  rho?: number;
+  
+  // 波动率
+  impliedVolatility?: number;
+  historicalVolatility?: number;
+  
+  // 定价相关
+  premiumCurrency?: string;
+  intrinsicValue?: number;
+  timeValue?: number;
+  
+  // 成本计算
+  costDivisor?: number;
+  
+  // 备注
+  notes?: string;
+}
+
+// ============================================
+// 期权类型枚举
+// ============================================
+export enum OptionType {
+  CALL = 'CALL',
+  PUT = 'PUT',
+}
+
+export enum ExerciseStyle {
+  AMERICAN = 'AMERICAN',
+  EUROPEAN = 'EUROPEAN',
+  BERMUDA = 'BERMUDA',
+}
+
+export enum SettlementType {
+  PHYSICAL = 'PHYSICAL',
+  CASH = 'CASH',
 }

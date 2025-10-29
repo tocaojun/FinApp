@@ -207,7 +207,7 @@ export class NotificationService extends EventEmitter {
         params.push(userId);
       }
 
-      await databaseService.executeQuery(`
+      await databaseService.executeRawQuery(`
         DELETE FROM notifications ${whereClause}
       `, params);
 
@@ -248,7 +248,7 @@ export class NotificationService extends EventEmitter {
         params.push(type);
       }
 
-      const result = await databaseService.executeQuery(`
+      const result = await databaseService.executeRawQuery(`
         SELECT COUNT(*) as count FROM notifications ${whereClause}
       `, params);
 

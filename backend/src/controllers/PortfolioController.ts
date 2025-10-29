@@ -386,12 +386,12 @@ export class PortfolioController {
         return;
       }
 
-      console.log('收到创建交易账户请求:', req.body); // 调试日志
+
       const data: CreateTradingAccountRequest = req.body;
       const { portfolioId } = data;
       
       if (!portfolioId) {
-        console.log('portfolioId 缺失'); // 调试日志
+
         res.status(400).json({
           success: false,
           message: 'Portfolio ID is required'
@@ -399,7 +399,7 @@ export class PortfolioController {
         return;
       }
       
-      console.log('调用 portfolioService.createTradingAccount, userId:', userId, 'portfolioId:', portfolioId); // 调试日志
+
       const account = await portfolioService.createTradingAccount(userId, portfolioId, data);
       
       res.status(201).json({
