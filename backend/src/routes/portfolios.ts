@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
-import { portfolioController } from '../controllers/PortfolioController';
+import { PortfolioController } from '../controllers/PortfolioController';
+
+const portfolioController = new PortfolioController();
 import { validateRequest } from '../middleware/validateRequest';
 import { requirePermission } from '../middleware/permissionMiddleware';
 

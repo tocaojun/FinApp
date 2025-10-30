@@ -259,7 +259,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           bodyStyle={{ padding: isMobile ? '16px 12px' : '24px' }}
         >
           <Statistic
-            title="总盈亏"
+            title="投资组合总收益"
             value={dashboardData.totalGainLoss}
             precision={2}
             prefix={dashboardData.totalGainLoss >= 0 ? <RiseOutlined /> : <FallOutlined />}

@@ -298,18 +298,29 @@ export class AssetService {
       // 先获取基础资产列表
       const result = await this.searchAssets(criteria);
       
-      // 为每个资产获取详情
-      const assetsWithDetails = await Promise.all(
-        result.assets.map(async (asset) => {
-          try {
-            const fullAsset = await this.getAssetWithDetails(asset.id);
-            return fullAsset || asset;
-          } catch (error) {
-            console.error(`Error fetching details for asset ${asset.id}:`, error);
-            return asset;
-          }
-        })
-      );
+      if (result.assets.length === 0) {
+        return { assets: [], total: 0 };
+      }
+      
+      // 为每个资产获取详情（限制并发数为 5，避免数据库连接耗尽）
+      const assetsWithDetails: any[] = [];
+      const batchSize = 5;
+      
+      for (let i = 0; i < result.assets.length; i += batchSize) {
+        const batch = result.assets.slice(i, i + batchSize);
+        const batchResults = await Promise.all(
+          batch.map(async (asset) => {
+            try {
+              const fullAsset = await this.getAssetDetailsOnly(asset.id);
+              return fullAsset || asset;
+            } catch (error) {
+              console.error(`Error fetching details for asset ${asset.id}:`, error);
+              return asset;
+            }
+          })
+        );
+        assetsWithDetails.push(...batchResults);
+      }
       
       return {
         assets: assetsWithDetails,
@@ -318,6 +329,64 @@ export class AssetService {
     } catch (error) {
       console.error('Error searching assets with details:', error);
       return { assets: [], total: 0 };
+    }
+  }
+
+  // 获取资产详情（不包括价格）
+  private async getAssetDetailsOnly(assetId: string): Promise<AssetWithDetails | null> {
+    try {
+      const query = `
+        SELECT 
+          a.*,
+          at.name as asset_type_name,
+          at.code as asset_type_code,
+          m.name as market_name
+        FROM finapp.assets a
+        LEFT JOIN finapp.asset_types at ON a.asset_type_id = at.id
+        LEFT JOIN finapp.markets m ON a.market_id = m.id
+        WHERE a.id = $1::uuid
+      `;
+      
+      const result = await this.db.executeRawQuery(query, [assetId]);
+      
+      if (!result || result.length === 0) {
+        return null;
+      }
+      
+      const row = result[0];
+      
+      const baseAsset: AssetWithDetails = {
+        id: row.id,
+        symbol: row.symbol,
+        name: row.name,
+        assetTypeId: row.asset_type_id,
+        assetTypeName: row.asset_type_name,
+        assetTypeCode: row.asset_type_code,
+        marketId: row.market_id,
+        marketName: row.market_name,
+        currency: row.currency,
+        isin: row.isin,
+        cusip: row.cusip,
+        description: row.description,
+        riskLevel: row.risk_level,
+        liquidityTag: row.liquidity_tag,
+        isActive: row.is_active,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
+      
+      // 获取类型特定的详情
+      if (row.asset_type_code) {
+        const details = await assetDetailsService.getAssetDetails(assetId, row.asset_type_code);
+        if (details) {
+          baseAsset.details = details;
+        }
+      }
+      
+      return baseAsset;
+    } catch (error) {
+      console.error('Error fetching asset details only:', error);
+      throw error;
     }
   }
 
@@ -949,6 +1018,24 @@ export class AssetService {
       }
       
       const row = result[0];
+      
+      // 获取最新价格（使用 DISTINCT ON 优化查询）
+      let currentPrice: number | undefined;
+      try {
+        const priceQuery = `
+          SELECT DISTINCT ON (asset_id) close_price FROM finapp.asset_prices
+          WHERE asset_id = $1::uuid
+          ORDER BY asset_id, price_date DESC
+          LIMIT 1
+        `;
+        const priceResult = await this.db.executeRawQuery(priceQuery, [assetId]);
+        if (priceResult && priceResult.length > 0) {
+          currentPrice = parseFloat(priceResult[0].close_price);
+        }
+      } catch (error) {
+        console.warn(`Could not fetch price for asset ${assetId}:`, error);
+      }
+      
       const baseAsset: AssetWithDetails = {
         id: row.id,
         symbol: row.symbol,
@@ -965,6 +1052,7 @@ export class AssetService {
         riskLevel: row.risk_level,
         liquidityTag: row.liquidity_tag,
         isActive: row.is_active,
+        currentPrice,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       };

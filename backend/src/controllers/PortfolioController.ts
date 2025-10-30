@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
-import { portfolioService } from '../services/PortfolioService';
+import { PortfolioService } from '../services/PortfolioService';
+
+const portfolioService = new PortfolioService();
 import { AuthenticatedRequest } from '../types/auth';
 import { 
   CreatePortfolioRequest, 

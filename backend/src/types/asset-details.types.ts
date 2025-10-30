@@ -22,6 +22,7 @@ export interface BaseAsset {
   riskLevel?: string;
   liquidityTag?: string;
   isActive: boolean;
+  currentPrice?: number;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -68,6 +68,10 @@ export interface PortfolioSummary {
   totalBalance: number;
   uniqueAssets: number;
   totalPositionValue: number;
+  totalValue: number;  // 市值
+  totalCost: number;   // 总成本
+  totalReturn: number; // 总收益（盈亏）
+  totalReturnPercent: number; // 收益率
   lastUpdated: Date;
 }
 

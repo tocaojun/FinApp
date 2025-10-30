@@ -365,6 +365,60 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
         scroll={{ x: 800 }}
         size="small"
       />
+      
+      {/* 汇总行 */}
+      {filteredHoldings.length > 0 && (
+        <div style={{ marginTop: 16, padding: '12px', backgroundColor: '#fafafa', borderRadius: '4px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+            <div>
+              <div style={{ fontSize: '12px', color: '#999', marginBottom: 4 }}>总成本</div>
+              <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
+                {formatCurrency(
+                  filteredHoldings.reduce((sum, h) => sum + (h.convertedTotalCost || h.totalCost || 0), 0),
+                  'CNY'
+                )}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', color: '#999', marginBottom: 4 }}>总市值</div>
+              <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
+                {formatCurrency(
+                  filteredHoldings.reduce((sum, h) => sum + (h.convertedMarketValue || h.marketValue || 0), 0),
+                  'CNY'
+                )}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', color: '#999', marginBottom: 4 }}>总盈亏</div>
+              <div style={{ 
+                fontSize: '16px', 
+                fontWeight: 'bold',
+                color: filteredHoldings.reduce((sum, h) => sum + (h.convertedUnrealizedPnL || h.unrealizedPnL || 0), 0) >= 0 ? '#52c41a' : '#ff4d4f'
+              }}>
+                {formatCurrency(
+                  filteredHoldings.reduce((sum, h) => sum + (h.convertedUnrealizedPnL || h.unrealizedPnL || 0), 0),
+                  'CNY'
+                )}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', color: '#999', marginBottom: 4 }}>平均收益率</div>
+              <div style={{ 
+                fontSize: '16px', 
+                fontWeight: 'bold',
+                color: filteredHoldings.reduce((sum, h) => sum + (h.convertedUnrealizedPnL || h.unrealizedPnL || 0), 0) >= 0 ? '#52c41a' : '#ff4d4f'
+              }}>
+                {(() => {
+                  const totalCost = filteredHoldings.reduce((sum, h) => sum + (h.convertedTotalCost || h.totalCost || 0), 0);
+                  const totalPnL = filteredHoldings.reduce((sum, h) => sum + (h.convertedUnrealizedPnL || h.unrealizedPnL || 0), 0);
+                  const percent = totalCost > 0 ? (totalPnL / totalCost) * 100 : 0;
+                  return `${percent >= 0 ? '+' : ''}${percent.toFixed(2)}%`;
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 };
