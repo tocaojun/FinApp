@@ -9,6 +9,10 @@ const holdingController = new HoldingController();
 router.use(authenticateToken);
 
 // 持仓管理路由
+// 支持两种格式：
+// 1. GET /api/holdings?portfolioId=xxx (查询参数)
+// 2. GET /api/holdings/portfolio/xxx (路径参数)
+router.get('/', holdingController.getHoldingsByPortfolio);
 router.get('/portfolio/:portfolioId', holdingController.getHoldingsByPortfolio);
 router.get('/portfolio/:portfolioId/summary', holdingController.getPortfolioHoldingSummary);
 router.get('/:id', holdingController.getHoldingById);

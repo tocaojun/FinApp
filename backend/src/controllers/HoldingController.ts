@@ -10,9 +10,13 @@ export class HoldingController {
   }
 
   // 获取投资组合的所有持仓
+  // 支持两种格式：
+  // 1. GET /api/holdings?portfolioId=xxx
+  // 2. GET /api/holdings/portfolio/:portfolioId
   getHoldingsByPortfolio = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const { portfolioId } = req.params;
+      // 从路径参数或查询参数获取 portfolioId
+      const portfolioId = req.params.portfolioId || req.query.portfolioId as string;
       const userId = req.user?.id;
 
       if (!userId) {
@@ -94,7 +98,8 @@ export class HoldingController {
   // 获取投资组合持仓汇总
   getPortfolioHoldingSummary = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const { portfolioId } = req.params;
+      // 从路径参数或查询参数获取 portfolioId
+      const portfolioId = req.params.portfolioId || req.query.portfolioId as string;
       const userId = req.user?.id;
 
       if (!userId) {

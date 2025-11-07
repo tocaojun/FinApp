@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Row, Col, Card, Tabs, Space, Typography, Button, Select, DatePicker, Switch, Spin, message } from 'antd';
+import { Row, Col, Card, Tabs, Space, Typography, Button, Select, DatePicker, Switch, Spin, message, Empty, Alert } from 'antd';
 import { 
   PieChartOutlined, 
   LineChartOutlined, 
@@ -17,6 +17,7 @@ import IRRAnalysisChart from './IRRAnalysisChart';
 import RiskMetricsChart from './RiskMetricsChart';
 import InteractiveChartWrapper from './InteractiveChartWrapper';
 import { getPortfolioSummary, getAllPortfoliosSummary, getPortfolioHoldings, convertHoldingsToChartData, generateLiquidityData } from '../../services/portfolioApi';
+import { apiRequest } from '../../services/api';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -129,16 +130,99 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
   // 加载投资组合数据
   useEffect(() => {
     const loadPortfolioData = async () => {
-      if (!portfolioId) {
-        // 如果没有指定投资组合ID，加载所有投资组合的汇总数据
-        try {
-          setLoading(true);
-          const summary = await getAllPortfoliosSummary();
+      try {
+        setLoading(true);
+        
+        if (!portfolioId) {
+          // 如果没有指定投资组合ID，加载所有投资组合的汇总数据
+          try {
+            // 获取所有投资组合列表
+            const portfolios = await apiRequest<{
+              success: boolean;
+              data: Array<{
+                id: string;
+                name: string;
+                totalValue: number;
+                totalCost: number;
+              }>;
+            }>('/portfolios');
+            
+            const portfoliosList = portfolios.data || [];
+            
+            // 如果有投资组合，获取它们的持仓数据
+            if (portfoliosList.length > 0) {
+              let allHoldings: Holding[] = [];
+              
+              // 并行获取所有投资组合的持仓数据
+              const holdingsPromises = portfoliosList.map(p => 
+                getPortfolioHoldings(p.id).catch(err => {
+                  console.error(`Failed to load holdings for portfolio ${p.id}:`, err);
+                  return [];
+                })
+              );
+              
+              const allHoldingsResults = await Promise.all(holdingsPromises);
+              allHoldings = allHoldingsResults.flat();
+              
+              // 如果有持仓数据，使用它们
+              if (allHoldings.length > 0) {
+                const portfolioData = convertHoldingsToChartData(allHoldings);
+                const totalValue = allHoldings.reduce((sum, h) => sum + h.marketValue, 0);
+                
+                // 计算百分比
+                portfolioData.forEach(item => {
+                  item.percentage = totalValue > 0 ? Math.round((item.value / totalValue) * 100) : 0;
+                });
+
+                // 生成流动性分布数据
+                const liquidityData = generateLiquidityData(allHoldings);
+
+                setChartData({
+                  portfolioData,
+                  returnTrendData: [],
+                  liquidityData,
+                  irrData: {
+                    cashFlows: [],
+                    timeSeriesData: [],
+                    currentIRR: 0,
+                    annualizedReturn: 0,
+                  },
+                  riskMetrics: getEmptyData().riskMetrics,
+                  riskTimeSeriesData: [],
+                });
+              } else {
+                setChartData(getEmptyData());
+              }
+            } else {
+              setChartData(getEmptyData());
+            }
+          } catch (error) {
+            console.error('Failed to load all portfolios summary:', error);
+            setChartData(getEmptyData());
+          }
+        } else {
+          // 加载指定投资组合的数据
+          const [summary, holdings] = await Promise.all([
+            getPortfolioSummary(portfolioId),
+            getPortfolioHoldings(portfolioId)
+          ]);
+
+          // 转换持仓数据为图表数据
+          const portfolioData = convertHoldingsToChartData(holdings);
+          const totalValue = holdings.reduce((sum, h) => sum + h.marketValue, 0);
           
+          // 计算百分比
+          portfolioData.forEach(item => {
+            item.percentage = totalValue > 0 ? Math.round((item.value / totalValue) * 100) : 0;
+          });
+
+          // 生成流动性分布数据
+          const liquidityData = generateLiquidityData(holdings);
+
           setChartData({
-            portfolioData: summary.assetAllocation || [],
+            portfolioData,
             returnTrendData: summary.performanceData || [],
-            liquidityData: summary.liquidityDistribution || [],
+            liquidityData,
             irrData: {
               cashFlows: [],
               timeSeriesData: [],
@@ -148,48 +232,7 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
             riskMetrics: summary.riskMetrics || getEmptyData().riskMetrics,
             riskTimeSeriesData: [],
           });
-        } catch (error) {
-          console.error('Failed to load portfolio summary:', error);
-          message.error('加载投资组合数据失败');
-          setChartData(getEmptyData());
-        } finally {
-          setLoading(false);
         }
-        return;
-      }
-
-      try {
-        setLoading(true);
-        const [summary, holdings] = await Promise.all([
-          getPortfolioSummary(portfolioId),
-          getPortfolioHoldings(portfolioId)
-        ]);
-
-        // 转换持仓数据为图表数据
-        const portfolioData = convertHoldingsToChartData(holdings);
-        const totalValue = holdings.reduce((sum, h) => sum + h.marketValue, 0);
-        
-        // 计算百分比
-        portfolioData.forEach(item => {
-          item.percentage = totalValue > 0 ? Math.round((item.value / totalValue) * 100) : 0;
-        });
-
-        // 生成流动性分布数据
-        const liquidityData = generateLiquidityData(holdings);
-
-        setChartData({
-          portfolioData,
-          returnTrendData: summary.performanceData || [],
-          liquidityData,
-          irrData: {
-            cashFlows: [],
-            timeSeriesData: [],
-            currentIRR: 0,
-            annualizedReturn: 0,
-          },
-          riskMetrics: summary.riskMetrics || getEmptyData().riskMetrics,
-          riskTimeSeriesData: [],
-        });
       } catch (error) {
         console.error('Failed to load portfolio data:', error);
         message.error('加载投资组合数据失败');
@@ -281,6 +324,16 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
       </div>
 
       {controlPanel}
+
+      {!loading && chartData.portfolioData.length === 0 && (
+        <Alert
+          type="info"
+          message="暂无投资组合数据"
+          description="当前没有任何投资组合或持仓数据。请先在投资组合管理中创建投资组合并添加持仓数据，图表将自动显示。"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      )}
 
       <Spin spinning={loading} tip="加载数据中...">
         <Tabs

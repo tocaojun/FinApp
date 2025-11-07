@@ -109,12 +109,61 @@ export const getPortfolioHoldings = async (portfolioId: string): Promise<Holding
 
 // 获取所有投资组合汇总
 export const getAllPortfoliosSummary = async (): Promise<PortfolioSummary> => {
-  const response = await apiRequest<{
-    success: boolean;
-    data: PortfolioSummary;
-  }>('/portfolios/summary');
-  
-  return response.data;
+  try {
+    const response = await apiRequest<{
+      success: boolean;
+      data: any;
+    }>('/portfolios/summary');
+    
+    const data = response.data || {};
+    
+    // 处理后端返回的简化数据，转换为前端期望的完整格式
+    return {
+      totalValue: data.totalValue || 0,
+      totalCost: data.totalValue || 0,
+      totalReturn: data.totalReturn || 0,
+      totalReturnPercent: data.totalReturnPercent || 0,
+      assetAllocation: [],
+      performanceData: [],
+      liquidityDistribution: [],
+      riskMetrics: {
+        volatility: 0,
+        sharpeRatio: 0,
+        maxDrawdown: 0,
+        var95: 0,
+        var99: 0,
+        beta: 0,
+        alpha: 0,
+        informationRatio: 0,
+        calmarRatio: 0,
+        sortinoRatio: 0,
+      },
+    };
+  } catch (error) {
+    console.error('获取投资组合汇总失败:', error);
+    // 返回空数据结构而不是抛出异常
+    return {
+      totalValue: 0,
+      totalCost: 0,
+      totalReturn: 0,
+      totalReturnPercent: 0,
+      assetAllocation: [],
+      performanceData: [],
+      liquidityDistribution: [],
+      riskMetrics: {
+        volatility: 0,
+        sharpeRatio: 0,
+        maxDrawdown: 0,
+        var95: 0,
+        var99: 0,
+        beta: 0,
+        alpha: 0,
+        informationRatio: 0,
+        calmarRatio: 0,
+        sortinoRatio: 0,
+      },
+    };
+  }
 };
 
 // 转换持仓数据为图表数据
