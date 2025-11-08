@@ -23,9 +23,11 @@ import exchangeRatesRouter from './routes/exchangeRates';
 import tagRoutes from './routes/tagRoutes';
 import holdingsRouter from './routes/holdings';
 import priceSyncRouter from './routes/priceSync';
+import wealthRouter from './routes/wealth';
 import { databaseService } from './services/DatabaseService';
 import { CacheService } from './services/CacheService';
 import { exchangeRateUpdateService } from './services/ExchangeRateUpdateService';
+import { wealthMonitoringService } from './jobs/wealthMonitoring';
 import { logger } from './utils/logger';
 
 // 加载环境变量
@@ -159,6 +161,9 @@ class App {
     // 价格同步管理路由（需要认证）
     this.app.use('/api/price-sync', authenticateToken, priceSyncRouter);
 
+    // 财富产品管理路由（需要认证）
+    this.app.use('/api/wealth', authenticateToken, wealthRouter);
+
     // TODO: 添加其他路由
     // this.app.use('/api/reports', authenticateToken, reportsRouter);
 
@@ -240,6 +245,14 @@ class App {
         logger.info('Exchange rate auto update service is disabled');
       }
 
+      // 启动财富产品监控服务
+      if (process.env.ENABLE_WEALTH_MONITORING === 'true') {
+        wealthMonitoringService.start();
+        logger.info('Wealth monitoring service started');
+      } else {
+        logger.info('Wealth monitoring service is disabled');
+      }
+
       logger.info('Application initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize application:', error);
@@ -253,6 +266,12 @@ class App {
       if (process.env.ENABLE_EXCHANGE_RATE_AUTO_UPDATE === 'true') {
         exchangeRateUpdateService.stopAutoUpdate();
         logger.info('Exchange rate auto update service stopped');
+      }
+
+      // 停止财富产品监控服务
+      if (process.env.ENABLE_WEALTH_MONITORING === 'true') {
+        wealthMonitoringService.stop();
+        logger.info('Wealth monitoring service stopped');
       }
       
       await this.dbService.disconnect();
