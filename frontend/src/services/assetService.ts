@@ -8,8 +8,10 @@ export interface Asset {
   assetTypeId: string;
   assetTypeName?: string;
   assetTypeCode?: string;
-  marketId: string;
+  marketId?: string;
   marketName?: string;
+  countryId?: string;
+  countryName?: string;
   currency: string;
   sector?: string;
   industry?: string;
@@ -46,6 +48,15 @@ export interface Market {
   timezone: string;
 }
 
+export interface Country {
+  id: string;
+  code: string;
+  name: string;
+  currency?: string;
+  timezone?: string;
+  isActive?: boolean;
+}
+
 export interface AssetPrice {
   id: string;
   assetId: string;
@@ -65,6 +76,7 @@ export interface AssetSearchParams {
   keyword?: string;
   assetTypeId?: string;
   marketId?: string;
+  countryId?: string;
   currency?: string;
   sector?: string;
   riskLevel?: string;
@@ -80,7 +92,8 @@ export interface AssetCreateRequest {
   symbol: string;
   name: string;
   assetTypeId: string;
-  marketId: string;
+  marketId?: string; // 可选：交易市场（用于股票、基金等）
+  countryId?: string; // 可选：国家（用于银行理财产品等）
   currency: string;
   sector?: string;
   industry?: string;
@@ -154,6 +167,12 @@ export class AssetService {
   // 获取市场列表
   static async getMarkets(): Promise<Market[]> {
     const response = await apiGet<ApiResponse<Market[]>>('/assets/markets');
+    return response.data;
+  }
+
+  // 获取国家列表
+  static async getCountries(): Promise<Country[]> {
+    const response = await apiGet<ApiResponse<Country[]>>('/assets/countries');
     return response.data;
   }
 

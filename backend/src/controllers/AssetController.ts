@@ -405,6 +405,22 @@ export class AssetController {
     }
   };
 
+  getCountries = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const countries = await this.assetService.getCountries();
+      
+      res.json({
+        success: true,
+        data: countries
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get countries'
+      });
+    }
+  };
+
   // 统计信息
   getAssetStatistics = async (req: Request, res: Response): Promise<void> => {
     try {

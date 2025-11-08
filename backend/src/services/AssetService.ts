@@ -52,6 +52,15 @@ interface SimpleMarket {
   timezone: string;
 }
 
+interface SimpleCountry {
+  id: string;
+  code: string;
+  name: string;
+  currency?: string;
+  timezone?: string;
+  isActive?: boolean;
+}
+
 interface AssetStatistics {
   totalAssets: number;
   activeAssets: number;
@@ -256,6 +265,26 @@ export class AssetService {
     }
   }
 
+  async getCountries(): Promise<SimpleCountry[]> {
+    try {
+      const result = await this.db.prisma.$queryRaw`
+        SELECT id, code, name, currency, timezone, is_active FROM countries WHERE is_active = true ORDER BY name
+      ` as any[];
+
+      return result.map((row: any) => ({
+        id: row.id,
+        code: row.code,
+        name: row.name,
+        currency: row.currency,
+        timezone: row.timezone,
+        isActive: row.is_active
+      }));
+    } catch (error) {
+      console.error('Error fetching countries:', error);
+      return [];
+    }
+  }
+
   // 获取资产统计信息
   async getAssetStatistics(): Promise<AssetStatistics> {
     try {
@@ -408,6 +437,10 @@ export class AssetService {
         whereConditions.push(`a.market_id = '${criteria.marketId}'::uuid`);
       }
 
+      if (criteria.countryId) {
+        whereConditions.push(`a.country_id = '${criteria.countryId}'::uuid`);
+      }
+
       if (criteria.currency) {
         whereConditions.push(`a.currency = '${criteria.currency}'`);
       }
@@ -438,10 +471,12 @@ export class AssetService {
           a.*,
           at.name as "assetTypeName",
           at.code as "assetTypeCode",
-          m.name as "marketName"
+          m.name as "marketName",
+          c.name as "countryName"
         FROM assets a
         LEFT JOIN asset_types at ON a.asset_type_id = at.id
         LEFT JOIN markets m ON a.market_id = m.id
+        LEFT JOIN countries c ON a.country_id = c.id
         ${whereClause}
         ORDER BY a.symbol
         LIMIT ${limit} OFFSET ${offset}
@@ -465,6 +500,8 @@ export class AssetService {
           assetTypeCode: row.assetTypeCode,
           marketId: row.market_id,
           marketName: row.marketName,
+          countryId: row.country_id,
+          countryName: row.countryName,
           currency: row.currency,
           sector: row.sector,
           industry: row.industry,

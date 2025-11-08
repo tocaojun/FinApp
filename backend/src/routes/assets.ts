@@ -14,6 +14,7 @@ router.get('/types/:id/usage', requirePermission('asset', 'read'), assetControll
 router.put('/types/:id', requirePermission('asset', 'update'), assetController.updateAssetType);
 router.delete('/types/:id', requirePermission('asset', 'delete'), assetController.deleteAssetType);
 router.get('/markets', assetController.getMarkets);
+router.get('/countries', assetController.getCountries);
 router.get('/statistics', assetController.getAssetStatistics);
 router.get('/search', assetController.searchSuggestions);
 router.get('/export', requirePermission('asset', 'export'), assetController.exportAssets);
