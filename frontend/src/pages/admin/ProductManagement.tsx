@@ -51,6 +51,7 @@ import {
   Asset, 
   AssetType, 
   Market, 
+  Country,
   AssetPrice, 
   AssetCreateRequest, 
   AssetUpdateRequest,
@@ -93,7 +94,7 @@ const ProductManagement: React.FC = () => {
   // 状态管理
   const [assets, setAssets] = useState<Asset[]>([]);
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
-  const [markets, setMarkets] = useState<Market[]>([]);
+  const [countries, setCountries] = useState<Country[]>([]);
   const [statistics, setStatistics] = useState<AssetStatistics | null>(null);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -113,7 +114,7 @@ const ProductManagement: React.FC = () => {
   // 搜索和筛选状态
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedAssetType, setSelectedAssetType] = useState<string>('');
-  const [selectedMarket, setSelectedMarket] = useState<string>('');
+  const [selectedCountry, setSelectedCountry] = useState<string>('');
   const [selectedCurrency, setSelectedCurrency] = useState<string>('');
   const [selectedRiskLevel, setSelectedRiskLevel] = useState<string>('');
   const [selectedLiquidityTag, setSelectedLiquidityTag] = useState<string>('');
@@ -143,7 +144,7 @@ const ProductManagement: React.FC = () => {
       const params = {
         keyword: searchKeyword || undefined,
         assetTypeId: selectedAssetType || undefined,
-        marketId: selectedMarket || undefined,
+        countryId: selectedCountry || undefined,
         currency: selectedCurrency || undefined,
         riskLevel: selectedRiskLevel || undefined,
         liquidityTag: selectedLiquidityTag || undefined,
@@ -177,12 +178,12 @@ const ProductManagement: React.FC = () => {
     }
   };
 
-  const fetchMarkets = async () => {
+  const fetchCountries = async () => {
     try {
-      const markets = await AssetService.getMarkets();
-      setMarkets(markets);
+      const countries = await AssetService.getCountries();
+      setCountries(countries);
     } catch (error) {
-      console.error('Error fetching markets:', error);
+      console.error('Error fetching countries:', error);
     }
   };
 
@@ -450,7 +451,7 @@ const ProductManagement: React.FC = () => {
   const handleReset = () => {
     setSearchKeyword('');
     setSelectedAssetType('');
-    setSelectedMarket('');
+    setSelectedCountry('');
     setSelectedCurrency('');
     setSelectedRiskLevel('');
     setSelectedLiquidityTag('');
@@ -464,7 +465,7 @@ const ProductManagement: React.FC = () => {
       const params = {
         keyword: searchKeyword || undefined,
         assetTypeId: selectedAssetType || undefined,
-        marketId: selectedMarket || undefined,
+        countryId: selectedCountry || undefined,
         currency: selectedCurrency || undefined,
         riskLevel: selectedRiskLevel || undefined,
         liquidityTag: selectedLiquidityTag || undefined,
@@ -535,9 +536,9 @@ const ProductManagement: React.FC = () => {
       render: (text: string) => text || '-',
     },
     {
-      title: '交易市场',
-      dataIndex: 'marketName',
-      key: 'marketName',
+      title: '国家',
+      dataIndex: 'countryName',
+      key: 'countryName',
       width: 120,
       render: (text: string) => text || '-',
     },
@@ -667,7 +668,7 @@ const ProductManagement: React.FC = () => {
   // 组件挂载时获取数据
   useEffect(() => {
     fetchAssetTypes();
-    fetchMarkets();
+    fetchCountries();
     fetchStatistics();
     fetchAssets();
     fetchLiquidityTags();
@@ -767,14 +768,14 @@ const ProductManagement: React.FC = () => {
           </Col>
           <Col span={3}>
             <Select
-              placeholder="交易市场"
+              placeholder="国家"
               allowClear
-              value={selectedMarket}
-              onChange={setSelectedMarket}
+              value={selectedCountry}
+              onChange={setSelectedCountry}
               style={{ width: '100%' }}
             >
-              {markets.map(market => (
-                <Option key={market.id} value={market.id}>{market.name || market.code}</Option>
+              {countries.map(country => (
+                <Option key={country.id} value={country.id}>{country.name || country.code}</Option>
               ))}
             </Select>
           </Col>
@@ -925,13 +926,13 @@ const ProductManagement: React.FC = () => {
             </Col>
             <Col span={12}>
               <Form.Item
-                name="marketId"
-                label="交易市场"
-                rules={[{ required: true, message: '请选择交易市场' }]}
+                name="countryId"
+                label="国家"
+                rules={[{ required: true, message: '请选择国家' }]}
               >
-                <Select placeholder="请选择交易市场">
-                  {markets.map(market => (
-                    <Option key={market.id} value={market.id}>{market.name || market.code}</Option>
+                <Select placeholder="请选择国家">
+                  {countries.map(country => (
+                    <Option key={country.id} value={country.id}>{country.name || country.code}</Option>
                   ))}
                 </Select>
               </Form.Item>
@@ -1066,7 +1067,7 @@ const ProductManagement: React.FC = () => {
                     <p><strong>产品代码:</strong> {selectedAsset.symbol}</p>
                     <p><strong>产品名称:</strong> {selectedAsset.name}</p>
                     <p><strong>产品类型:</strong> {selectedAsset.assetTypeName || '-'}</p>
-                    <p><strong>交易市场:</strong> {selectedAsset.marketName || '-'}</p>
+                    <p><strong>国家:</strong> {selectedAsset.countryName || '-'}</p>
                   </Col>
                   <Col span={12}>
                     <p><strong>货币:</strong> {selectedAsset.currency}</p>
