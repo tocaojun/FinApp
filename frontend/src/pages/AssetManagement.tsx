@@ -346,11 +346,11 @@ const AssetManagement: React.FC = () => {
       render: (text: string) => text || '-',
     },
     {
-      title: '市场/国家',
-      dataIndex: 'marketName',
-      key: 'marketName',
+      title: '国家',
+      dataIndex: 'countryName',
+      key: 'countryName',
       width: 120,
-      render: (text: string, record: Asset) => record.marketName || record.countryName || '-',
+      render: (text: string, record: Asset) => record.countryName || '-',
     },
     {
       title: '货币',
@@ -725,18 +725,6 @@ const AssetManagement: React.FC = () => {
             </Col>
             <Col span={6}>
               <Form.Item
-                name="marketId"
-                label="交易市场"
-              >
-                <Select placeholder="请选择交易市场" allowClear>
-                  {markets.map(market => (
-                    <Option key={market.id} value={market.id}>{market.name || market.code}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item
                 name="countryId"
                 label="国家"
               >
@@ -867,7 +855,7 @@ const AssetManagement: React.FC = () => {
                     <p><strong>资产代码:</strong> {selectedAsset.symbol}</p>
                     <p><strong>资产名称:</strong> {selectedAsset.name}</p>
                     <p><strong>资产类型:</strong> {selectedAsset.assetTypeName || '-'}</p>
-                    <p><strong>交易市场:</strong> {selectedAsset.marketName || '-'}</p>
+                    <p><strong>国家:</strong> {selectedAsset.countryName || '-'}</p>
                   </Col>
                   <Col span={12}>
                     <p><strong>货币:</strong> {selectedAsset.currency}</p>

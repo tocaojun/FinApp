@@ -18,6 +18,8 @@ interface SimpleAsset {
   assetTypeName?: string;
   marketId?: string;
   marketName?: string;
+  countryId?: string;
+  countryName?: string;
   currency: string;
   sector?: string;
   industry?: string;
@@ -525,11 +527,11 @@ export class AssetService {
     try {
       const result = await this.db.prisma.$queryRaw`
         INSERT INTO assets (
-          symbol, name, asset_type_id, market_id, currency, sector, 
+          symbol, name, asset_type_id, market_id, country_id, currency, sector, 
           industry, risk_level, liquidity_tag, description
         ) VALUES (
           ${data.symbol.toUpperCase()}, ${data.name}, ${data.assetTypeId}::uuid, 
-          ${data.marketId || null}::uuid, ${data.currency}, ${data.sector || null},
+          ${data.marketId || null}::uuid, ${data.countryId || null}::uuid, ${data.currency}, ${data.sector || null},
           ${data.industry || null}, ${data.riskLevel || null}, 
           ${data.liquidityTag || null}::uuid, ${data.description || null}
         )
@@ -545,6 +547,8 @@ export class AssetService {
         assetTypeName: row.assetTypeName,
         marketId: row.market_id,
         marketName: row.marketName,
+        countryId: row.country_id,
+        countryName: row.countryName,
         currency: row.currency,
         sector: row.sector,
         industry: row.industry,
@@ -579,6 +583,7 @@ export class AssetService {
           name = COALESCE(${data.name}, name),
           asset_type_id = COALESCE(${data.assetTypeId}::uuid, asset_type_id),
           market_id = COALESCE(${data.marketId}::uuid, market_id),
+          country_id = COALESCE(${data.countryId}::uuid, country_id),
           currency = COALESCE(${data.currency}, currency),
           sector = COALESCE(${data.sector}, sector),
           industry = COALESCE(${data.industry}, industry),
@@ -591,14 +596,32 @@ export class AssetService {
       ` as any[];
 
       const row = result[0];
+      
+      // 获取关联的资产类型、市场、国家名称
+      const relations = await this.db.prisma.$queryRaw`
+        SELECT 
+          at.name as "assetTypeName",
+          m.name as "marketName",
+          c.name as "countryName"
+        FROM assets a
+        LEFT JOIN asset_types at ON a.asset_type_id = at.id
+        LEFT JOIN markets m ON a.market_id = m.id
+        LEFT JOIN countries c ON a.country_id = c.id
+        WHERE a.id = ${id}::uuid
+      ` as any[];
+
+      const relationData = relations[0] || {};
+      
       return {
         id: row.id,
         symbol: row.symbol,
         name: row.name,
         assetTypeId: row.asset_type_id,
-        assetTypeName: row.assetTypeName,
+        assetTypeName: relationData.assetTypeName,
         marketId: row.market_id,
-        marketName: row.marketName,
+        marketName: relationData.marketName,
+        countryId: row.country_id,
+        countryName: relationData.countryName,
         currency: row.currency,
         sector: row.sector,
         industry: row.industry,
@@ -619,10 +642,11 @@ export class AssetService {
   async getAssetById(id: string): Promise<SimpleAsset | null> {
     try {
       const result = await this.db.prisma.$queryRaw`
-        SELECT a.*, at.name as "assetTypeName", m.name as "marketName"
+        SELECT a.*, at.name as "assetTypeName", m.name as "marketName", c.name as "countryName"
         FROM assets a
         LEFT JOIN asset_types at ON a.asset_type_id = at.id
         LEFT JOIN markets m ON a.market_id = m.id
+        LEFT JOIN countries c ON a.country_id = c.id
         WHERE a.id = ${id}::uuid
       ` as any[];
 
@@ -639,6 +663,8 @@ export class AssetService {
         assetTypeName: row.assetTypeName,
         marketId: row.market_id,
         marketName: row.marketName,
+        countryId: row.country_id,
+        countryName: row.countryName,
         currency: row.currency,
         sector: row.sector,
         industry: row.industry,
