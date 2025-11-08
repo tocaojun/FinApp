@@ -4,10 +4,10 @@
 
 ### 数据库服务
 - **PostgreSQL**: 端口 `5432`
-  - 数据库名: `finapp`
-  - 用户名: `postgres`
-  - 密码: `postgres`
-  - 连接字符串: `postgresql://postgres:postgres@localhost:5432/finapp`
+  - 数据库名: `finapp_test`
+  - 用户名: `finapp_user`
+  - 密码: `finapp_password`
+  - 连接字符串: `postgresql://finapp_user:finapp_password@localhost:5432/finapp_test?schema=finapp&client_encoding=utf8`
 
 ### 后端服务
 - **Node.js/Express API**: 端口 `8000`
@@ -35,7 +35,7 @@
 ## 数据库配置
 
 ### PostgreSQL 实例信息
-- **实例名**: `finapp`
+- **实例名**: `finapp_test`
 - **模式**: `finapp`
 - **表数量**: 33个表（已建立完整表结构）
 - **ORM**: Prisma
@@ -66,7 +66,7 @@
 
 1. **启动 PostgreSQL 数据库**
    ```bash
-   brew services start postgresql@15
+   brew services start postgresql@13
    ```
 
 2. **启动后端服务**
@@ -85,17 +85,48 @@
 
 ### 后端环境变量 (.env)
 ```
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/finapp"
-JWT_SECRET="your-jwt-secret-key"
+# 数据库配置
+DATABASE_URL="postgresql://finapp_user:finapp_password@localhost:5432/finapp_test?schema=finapp&client_encoding=utf8"
+
+# JWT 配置
+JWT_SECRET="your-super-secret-jwt-key-change-in-production"
+JWT_EXPIRES_IN="24h"
+JWT_REFRESH_EXPIRES_IN="7d"
+
+# 服务器配置
 PORT=8000
-NODE_ENV=development
+NODE_ENV="development"
+
+# 缓存配置
+CACHE_TTL=3600
+CACHE_MAX_KEYS=1000
+
+# 日志配置
+LOG_LEVEL="info"
+
+# CORS 配置
+CORS_ORIGIN="http://localhost:3000,http://localhost:3001,http://localhost:8080"
+
+# 速率限制配置
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=1000000
+
+# 汇率自动更新配置
+ENABLE_EXCHANGE_RATE_AUTO_UPDATE=true
+EXCHANGE_RATE_UPDATE_SCHEDULE="0 */4 * * *"
+EXCHANGE_RATE_ALERT_THRESHOLD=2.0
 ```
 
 ### 前端环境变量 (.env)
 ```
-VITE_API_BASE_URL=http://localhost:8000
+VITE_API_BASE_URL=http://localhost:8000/api
 VITE_APP_TITLE=FinApp
 ```
+
+## 常用命令
+- **备份PostgreSQL 数据库**: pg_dump -h localhost -U finapp_user -d finapp_test > backup.sql
+- **停止 PostgreSQL 服务**: `brew services stop postgresql@13`
+- **重启 PostgreSQL 服务**: `brew services restart postgresql@13`
 
 ## 系统状态检查
 
@@ -123,6 +154,6 @@ VITE_APP_TITLE=FinApp
 
 ---
 
-**最后更新**: 2025-10-26  
+**最后更新**: 2025-11-07  
 **维护人员**: 开发团队  
 **版本**: v1.0

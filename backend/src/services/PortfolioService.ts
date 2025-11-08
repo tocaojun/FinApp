@@ -75,65 +75,48 @@ export class PortfolioService {
   }
 
   async getPortfoliosByUserId(userId: string): Promise<Portfolio[]> {
-    const holdingsService = new HoldingService();
+    // 获取所有投资组合基本信息
     const query = `
-      SELECT p.*
+      SELECT 
+        p.id, p.user_id, p.name, p.description, p.base_currency, 
+        p.sort_order, p.is_default, p.created_at, p.updated_at
       FROM finapp.portfolios p
       WHERE p.user_id = $1::uuid
       ORDER BY p.sort_order ASC, p.created_at ASC
     `;
 
-    const portfolios = await databaseService.executeRawQuery(query, [userId]);
-    if (!Array.isArray(portfolios)) {
+    const rows = await databaseService.executeRawQuery(query, [userId]);
+    if (!Array.isArray(rows)) {
       return [];
     }
 
-    const portfolioResults: Portfolio[] = [];
-
-    for (const row of portfolios) {
-      const portfolio = this.mapRowToPortfolio(row);
-      const holdings = await holdingsService.getHoldingsByPortfolio(userId, portfolio.id);
-
-      const totalCost = holdings.reduce((sum, holding) => sum + (holding.convertedTotalCost || 0), 0);
-      const totalValue = holdings.reduce((sum, holding) => sum + (holding.convertedMarketValue || 0), 0);
-
-      portfolio.totalCost = totalCost;
-      portfolio.totalValue = totalValue;
-      portfolio.totalGainLoss = totalValue - totalCost;
-      portfolio.totalGainLossPercentage = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
-
-      portfolioResults.push(portfolio);
-    }
-
-    return portfolioResults;
+    // 仅返回基本信息，不计算市值（避免循环调用）
+    const portfolios: Portfolio[] = rows.map(row => this.mapRowToPortfolio(row));
+    
+    return portfolios;
   }
 
   async getPortfolioById(userId: string, portfolioId: string): Promise<Portfolio | null> {
+    // 获取投资组合基本信息（不调用 getPortfolioSummary 以避免循环调用）
     const query = `
-      SELECT *
+      SELECT 
+        p.id, p.user_id, p.name, p.description, p.base_currency, 
+        p.sort_order, p.is_default, p.created_at, p.updated_at
       FROM finapp.portfolios p
       WHERE p.id = $1::uuid AND p.user_id = $2::uuid
     `;
 
-    const result = await databaseService.executeRawQuery(query, [portfolioId, userId]);
-    const rows = Array.isArray(result) ? result : [];
-    if (rows.length === 0) {
+    const rows = await databaseService.executeRawQuery(query, [portfolioId, userId]);
+    const result = Array.isArray(rows) ? rows : [];
+    if (result.length === 0) {
       return null;
     }
 
-    const portfolio = this.mapRowToPortfolio(rows[0]);
-
-    const holdingsService = new HoldingService();
-    const holdings = await holdingsService.getHoldingsByPortfolio(userId, portfolioId);
-
-    const totalCost = holdings.reduce((sum, holding) => sum + (holding.convertedTotalCost || 0), 0);
-    const totalValue = holdings.reduce((sum, holding) => sum + (holding.convertedMarketValue || 0), 0);
-
-    portfolio.totalCost = totalCost;
-    portfolio.totalValue = totalValue;
-    portfolio.totalGainLoss = totalValue - totalCost;
-    portfolio.totalGainLossPercentage = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
-
+    const row = result[0];
+    const portfolio = this.mapRowToPortfolio(row);
+    
+    // 仅返回基本信息，不计算市值
+    // 市值计算在 getPortfolioSummary() 中进行
     return portfolio;
   }
 
@@ -169,7 +152,7 @@ export class PortfolioService {
     };
 
     const query = `
-      UPDATE portfolios 
+      UPDATE finapp.portfolios 
       SET name = $3, description = $4, base_currency = $5, sort_order = $6, is_default = $7, updated_at = $8
       WHERE id = $1::uuid AND user_id = $2::uuid
       RETURNING *
@@ -187,9 +170,9 @@ export class PortfolioService {
 
   async deletePortfolio(userId: string, portfolioId: string): Promise<boolean> {
     // 删除相关的持仓和交易账户
-    await databaseService.executeRawCommand('DELETE FROM positions WHERE portfolio_id = $1::uuid', [portfolioId]);
-    await databaseService.executeRawCommand('DELETE FROM trading_accounts WHERE portfolio_id = $1::uuid', [portfolioId]);
-    await databaseService.executeRawCommand('DELETE FROM portfolios WHERE id = $1::uuid AND user_id = $2::uuid', [portfolioId, userId]);
+    await databaseService.executeRawCommand('DELETE FROM finapp.positions WHERE portfolio_id = $1::uuid', [portfolioId]);
+    await databaseService.executeRawCommand('DELETE FROM finapp.trading_accounts WHERE portfolio_id = $1::uuid', [portfolioId]);
+    await databaseService.executeRawCommand('DELETE FROM finapp.portfolios WHERE id = $1::uuid AND user_id = $2::uuid', [portfolioId, userId]);
     
     return true;
   }
@@ -213,7 +196,23 @@ export class PortfolioService {
   }
 
   async getPortfolioSummary(userId: string, portfolioId: string): Promise<PortfolioSummary | null> {
-    const portfolio = await this.getPortfolioById(userId, portfolioId);
+    // 直接查询投资组合信息，不调用 getPortfolioById() 以避免循环调用
+    const portfolioQuery = `
+      SELECT 
+        p.id, p.user_id, p.name, p.description, p.base_currency, 
+        p.sort_order, p.is_default, p.created_at, p.updated_at
+      FROM finapp.portfolios p
+      WHERE p.id = $1::uuid AND p.user_id = $2::uuid
+    `;
+    
+    const portfolioRows = await databaseService.executeRawQuery(portfolioQuery, [portfolioId, userId]);
+    const portfolioResult = Array.isArray(portfolioRows) ? portfolioRows : [];
+    
+    if (portfolioResult.length === 0) {
+      return null;
+    }
+    
+    const portfolio = this.mapRowToPortfolio(portfolioResult[0]);
     if (!portfolio) {
       return null;
     }

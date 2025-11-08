@@ -168,6 +168,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // 保存到本地存储
       localStorage.setItem('auth_token', tokensData.accessToken);
+      if (tokensData.refreshToken) {
+        localStorage.setItem('refresh_token', tokensData.refreshToken);
+      }
       localStorage.setItem('auth_user', JSON.stringify(userData));
       
       dispatch({

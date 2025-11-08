@@ -75,6 +75,7 @@ router.get('/',
  *       401:
  *         description: 未授权
  */
+// 注意：此路由必须定义在 /:id 路由之前，否则会被 /:id 捕获
 router.get('/summary',
   requirePermission('portfolios', 'read'),
   portfolioController.getAllPortfoliosSummary.bind(portfolioController)

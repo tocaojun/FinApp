@@ -50,6 +50,53 @@ export class PriceSyncController {
     }
   };
 
+  getDataSourceCoverage = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const coverage = await this.priceSyncService.getDataSourceCoverage(id);
+
+      res.json({
+        success: true,
+        data: coverage,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get data source coverage',
+      });
+    }
+  };
+
+  getMarketsByDataSourceAndAssetType = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const dataSourceId = req.params.id as string;
+      const assetTypeCode = req.query.asset_type as string;
+
+      if (!assetTypeCode) {
+        res.status(400).json({
+          success: false,
+          message: 'asset_type query parameter is required',
+        });
+        return;
+      }
+
+      const markets = await this.priceSyncService.getMarketsByDataSourceAndAssetType(
+        dataSourceId,
+        assetTypeCode
+      );
+
+      res.json({
+        success: true,
+        data: markets,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get markets',
+      });
+    }
+  };
+
   createDataSource = async (req: Request, res: Response): Promise<void> => {
     try {
       const dataSource = await this.priceSyncService.createDataSource(req.body);

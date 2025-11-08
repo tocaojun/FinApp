@@ -119,18 +119,25 @@ brew services stop nginx
    - 批量导入功能
    - 交易标签系统
 
-4. **分析计算系统**
+4. **价格数据同步系统** ⭐
+   - 支持多个数据源：Yahoo Finance、EastMoney（东方财富）、Tushare
+   - 自动化定时同步历史价格数据
+   - 支持 1 天至 10+ 年的历史数据回溯
+   - 灵活的同步任务配置
+   - 完整的同步日志和错误追踪
+
+5. **分析计算系统**
    - IRR (内部收益率) 计算
    - 绩效分析
    - 流动性分析
    - 风险指标计算
 
-5. **报表系统**
+6. **报表系统**
    - 季度报表生成
    - 自定义报表
    - 数据导出功能
 
-6. **多平台支持**
+7. **多平台支持**
    - Web 前端 (React + TypeScript)
    - 移动端 APP (React Native)
    - 微信小程序 (Taro)
@@ -201,21 +208,274 @@ npm run test:e2e
 API 文档将在后端服务启动后自动生成，访问地址：
 - Swagger UI: http://localhost:8000/api/docs
 
-## 📚 价格同步文档
+## 📊 支持的数据源
+
+### Yahoo Finance (雅虎财经) ⭐
+- **特点**：覆盖全球主要市场，无需 API 密钥，免费无限制
+- **支持的市场**：NYSE, NASDAQ, HKEX, SSE, SZSE, TSE, LSE, FWB 等
+- **数据类型**：股票、ETF、指数
+- **历史数据**：支持最多 10 年以上回溯
+- **API 地址**：https://query1.finance.yahoo.com/v8/finance/chart/
+
+### EastMoney (东方财富) ⭐
+- **特点**：中国本土数据源，中文界面，专注于中国股票
+- **支持的市场**：SSE (上证)、SZSE (深证)
+- **数据类型**：股票、基金
+- **历史数据**：支持最多 1000 天回溯
+- **API 地址**：http://push2.eastmoney.com/api/qt/stock/kline/get
+
+### Tushare (可选)
+- **特点**：专业金融数据库，数据准确性高
+- **支持的市场**：A 股、香港股、美股
+- **需求**：需要 API Key（付费）
+- **状态**：已集成但默认禁用
+
+## 📚 价格同步使用指南
 
 ### 快速开始
-- **[价格同步快速开始](./QUICK_START_HISTORY_SYNC.md)** ⭐ - 3 步开始使用
-- **[文档索引](./PRICE_SYNC_DOCS_INDEX.md)** - 所有价格同步相关文档
+1. 打开后台管理 → 数据同步
+2. 选择数据源（Yahoo Finance / EastMoney）
+3. 创建同步任务，配置资产和频率
+4. 运行同步任务获取历史价格数据
 
-### 详细指南
-- [长时间历史数据同步指南](./LONG_HISTORY_SYNC_GUIDE.md) - 支持最多 10 年历史数据
-- [历史数据同步快速参考](./HISTORY_SYNC_QUICK_REFERENCE.md) - 速查表和常用命令
+### 数据源管理
+- 新增数据源：点击"新增数据源"按钮
+- 编辑数据源：点击"编辑"修改配置
+- 删除数据源：点击"删除"移除已有数据源
 
-### 技术报告
-- [价格同步数据保存修复报告](./PRICE_SYNC_FIX_COMPLETE.md) - 数据保存问题修复
-- [美团和京东价格同步修复报告](./MEITUAN_JD_SYNC_FIX_REPORT.md) - 港股 Symbol 格式修复 🆕
-- [历史数据回溯限制移除报告](./HISTORY_SYNC_LIMIT_REMOVAL.md) - 365 天限制移除
-- [本次会话修复总结](./SESSION_SUMMARY.md) - 完整修复过程
+### 同步任务配置
+- **手动同步**：立即运行一次同步
+- **定时同步**：设置 Cron 表达式定时运行
+- **间隔同步**：设置间隔分钟数自动运行
+
+### 快速测试数据源
+
+#### 测试 Yahoo Finance
+```bash
+# 1. 打开后台 → 数据同步 → 数据源
+# 2. Yahoo Finance 应该已经启用
+# 3. 创建同步任务：选择 Yahoo Finance，选择资产类型（STOCK），选择市场（NYSE）
+# 4. 创建同步任务后，点击"立即运行"测试
+```
+
+#### 测试 EastMoney
+```bash
+# 1. 打开后台 → 数据同步 → 数据源
+# 2. 点击"编辑" EastMoney，启用该数据源
+# 3. 创建同步任务：选择 EastMoney，选择资产类型（STOCK），选择市场（SSE 或 SZSE）
+# 4. 创建同步任务后，点击"立即运行"测试
+```
+
+#### API 测试
+```bash
+# 获取所有数据源
+curl -X GET http://localhost/api/price-sync/data-sources
+
+# 获取数据源覆盖范围（支持的资产类型和市场）
+curl -X GET http://localhost/api/price-sync/data-sources/{dataSourceId}/coverage
+
+# 创建新数据源
+curl -X POST http://localhost/api/price-sync/data-sources \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "新数据源",
+    "provider": "yahoo_finance",
+    "api_endpoint": "https://query1.finance.yahoo.com/v8/finance/chart/",
+    "is_active": true,
+    "config": {}
+  }'
+```
+
+## 📋 数据源 JSON 配置指南
+
+在"数据同步"→"数据源"中添加或编辑数据源时，需要填写 JSON 格式的配置。以下是详细说明：
+
+### 配置字段说明
+
+#### 基础字段
+- **名称 (name)**: 数据源的显示名称，例如 "Yahoo Finance"
+- **提供商 (provider)**: 选择对应的数据源提供商
+- **API 端点 (api_endpoint)**: 数据源的 API 基础 URL
+- **启用 (is_active)**: 是否启用该数据源（对号=启用）
+
+#### JSON 配置字段
+
+| 字段 | 类型 | 描述 | 示例 |
+|------|------|------|------|
+| `supports_batch` | boolean | 是否支持批量请求 | `false` |
+| `max_days_per_request` | number | 单次请求最多回溯天数 | `365` |
+| `max_symbols_per_request` | number | 单次请求最多支持的股票数 | `100` |
+| `supports_products` | array | 支持的产品类型 | `["STOCK", "ETF"]` |
+| `supports_markets` | array | 支持的市场代码 | `["NYSE", "NASDAQ"]` |
+| `requires_api_key` | boolean | 是否需要 API Key | `false` |
+| `rate_limit_per_minute` | number | 每分钟请求限制 | `60` |
+| `rate_limit_per_day` | number | 每天请求限制 | `5000` |
+| `timeout_seconds` | number | 请求超时时间(秒) | `30` |
+| `default_interval` | string | 默认 K 线周期 | `"1d"` |
+
+### 常用配置示例
+
+#### 1️⃣ Yahoo Finance 配置
+```json
+{
+  "supports_batch": false,
+  "max_days_per_request": 365,
+  "supports_products": ["STOCK", "ETF", "INDEX"],
+  "supports_markets": ["NYSE", "NASDAQ", "HKEX", "SSE", "SZSE", "TSE", "LSE", "FWB"],
+  "rate_limit_per_minute": 60,
+  "timeout_seconds": 30,
+  "default_interval": "1d"
+}
+```
+
+#### 2️⃣ EastMoney (东方财富) 配置
+```json
+{
+  "supports_batch": false,
+  "max_days_per_request": 1000,
+  "supports_products": ["STOCK", "FUND"],
+  "supports_markets": ["SSE", "SZSE"],
+  "rate_limit_per_minute": 100,
+  "timeout_seconds": 30,
+  "default_interval": "1d"
+}
+```
+
+#### 3️⃣ Tushare 配置
+```json
+{
+  "supports_batch": true,
+  "max_symbols_per_request": 100,
+  "supports_products": ["STOCK", "FUND", "FUTURE", "OPTION"],
+  "supports_markets": ["SSE", "SZSE", "HKEX", "NASDAQ", "NYSE"],
+  "requires_api_key": true,
+  "rate_limit_per_minute": 200,
+  "rate_limit_per_day": 5000,
+  "timeout_seconds": 30,
+  "default_interval": "1d"
+}
+```
+
+#### 4️⃣ 最小化配置（空配置）
+```json
+{}
+```
+
+### 填写步骤
+
+1. **打开数据源页面**
+   - 点击"后台管理"→"数据同步"→"数据源"
+
+2. **新增数据源**
+   - 点击"新增数据源"按钮
+
+3. **填写基础字段**
+   - 名称: 输入数据源名称
+   - 提供商: 从下拉列表选择
+   - API 端点: 输入 API 的基础 URL
+
+4. **填写 JSON 配置**
+   - 在"配置（JSON 格式）"文本框中输入 JSON
+   - 使用上面的示例配置
+   - JSON 必须是有效格式，否则会报错
+
+5. **启用数据源**
+   - 勾选"启用此数据源"复选框
+
+6. **保存**
+   - 点击"确定"按钮保存
+
+### JSON 格式验证
+
+⚠️ **常见错误**
+
+❌ 错误示例 1（缺少引号）
+```json
+{
+  supports_batch: false,
+  max_days_per_request: 365
+}
+```
+
+✅ 正确示例 1
+```json
+{
+  "supports_batch": false,
+  "max_days_per_request": 365
+}
+```
+
+❌ 错误示例 2（数组中字符串缺少引号）
+```json
+{
+  "supports_markets": [NYSE, NASDAQ]
+}
+```
+
+✅ 正确示例 2
+```json
+{
+  "supports_markets": ["NYSE", "NASDAQ"]
+}
+```
+
+❌ 错误示例 3（末尾有逗号）
+```json
+{
+  "supports_batch": false,
+  "max_days_per_request": 365,
+}
+```
+
+✅ 正确示例 3
+```json
+{
+  "supports_batch": false,
+  "max_days_per_request": 365
+}
+```
+
+### 产品类型列表
+
+- `STOCK` - 股票
+- `ETF` - 交易所交易基金
+- `FUND` - 基金
+- `BOND` - 债券
+- `OPTION` - 期权
+- `FUTURE` - 期货
+- `INDEX` - 指数
+- `CRYPTO` - 加密货币
+
+### 市场代码列表
+
+- `NYSE` - 美国纽约证券交易所
+- `NASDAQ` - 美国纳斯达克交易所
+- `HKEX` - 香港联合交易所
+- `SSE` - 上海证券交易所
+- `SZSE` - 深圳证券交易所
+- `TSE` - 日本东京证券交易所
+- `LSE` - 伦敦证券交易所
+- `FWB` - 法兰克福证券交易所
+
+### 在线 JSON 验证工具
+
+如果不确定 JSON 格式是否正确，可以使用以下工具验证：
+- https://jsonlint.com/ - 在线 JSON 验证工具
+- https://www.json.cn/ - 中文 JSON 验证工具
+
+### 常见问题
+
+**Q: 可以只填写部分字段吗？**  
+A: 可以。所有字段都是可选的。如果不填写配置，可以使用空对象 `{}`
+
+**Q: 字段顺序重要吗？**  
+A: 不重要。JSON 中字段的顺序不影响功能
+
+**Q: 如何编辑已有的数据源配置？**  
+A: 点击数据源列表中的"编辑"按钮，修改配置后保存
+
+**Q: JSON 配置保存后在哪里可以查看？**  
+A: 在数据源列表中点击"编辑"可以查看已保存的配置
 
 ## 🔍 故障排查
 
@@ -247,6 +507,36 @@ API 文档将在后端服务启动后自动生成，访问地址：
    # 重启 Mock API
    ./scripts/stop-all-services.sh
    ./scripts/start-all-services.sh
+   ```
+
+4. **数据源添加时出现 JSONB 类型错误**
+   
+   **错误信息**：
+   ```
+   ERROR: column "config" is of type jsonb but expression is of type text
+   HINT: You will need to rewrite or cast the expression
+   ```
+   
+   **原因**：数据库字段类型不匹配，需要将字符串转换为 JSONB 类型
+   
+   **解决方法**：✅ 已修复
+   - 在 `backend/src/services/PriceSyncService.ts` 中已添加 `::jsonb` 类型转换
+   - 创建数据源时自动将 JSON 字符串转换为 JSONB 类型
+   - 更新数据源时也进行了相同的转换处理
+   
+   **手动测试**：
+   ```bash
+   # 验证修复是否正确
+   curl -X POST http://localhost:8000/api/price-sync/data-sources \
+     -H "Authorization: Bearer YOUR_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "name": "Test Source",
+       "provider": "yahoo_finance",
+       "api_endpoint": "https://example.com",
+       "config": {"supports_batch": false, "max_days": 365},
+       "is_active": true
+     }'
    ```
 
 ### 日志查看

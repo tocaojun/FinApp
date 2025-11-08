@@ -145,7 +145,7 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
                 totalValue: number;
                 totalCost: number;
               }>;
-            }>('/portfolios');
+            }>('/portfolios', { method: 'GET' });
             
             const portfoliosList = portfolios.data || [];
             
@@ -153,9 +153,14 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
             if (portfoliosList.length > 0) {
               let allHoldings: Holding[] = [];
               
-              // 并行获取所有投资组合的持仓数据
+              // 并行获取所有投资组合的持仓数据，增加超时保护
               const holdingsPromises = portfoliosList.map(p => 
-                getPortfolioHoldings(p.id).catch(err => {
+                Promise.race([
+                  getPortfolioHoldings(p.id),
+                  new Promise<Holding[]>((_, reject) => 
+                    setTimeout(() => reject(new Error('Request timeout')), 10000)
+                  )
+                ]).catch(err => {
                   console.error(`Failed to load holdings for portfolio ${p.id}:`, err);
                   return [];
                 })

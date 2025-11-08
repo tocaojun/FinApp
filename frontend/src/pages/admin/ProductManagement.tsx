@@ -906,26 +906,6 @@ const ProductManagement: React.FC = () => {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
-                name="symbol"
-                label="产品代码"
-                rules={[{ required: true, message: '请输入产品代码' }]}
-              >
-                <Input placeholder="请输入产品代码" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="name"
-                label="产品名称"
-                rules={[{ required: true, message: '请输入产品名称' }]}
-              >
-                <Input placeholder="请输入产品名称" />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
                 name="assetTypeId"
                 label="产品类型"
                 rules={[{ required: true, message: '请选择产品类型' }]}
@@ -954,6 +934,26 @@ const ProductManagement: React.FC = () => {
                     <Option key={market.id} value={market.id}>{market.name || market.code}</Option>
                   ))}
                 </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="symbol"
+                label="产品代码"
+                rules={[{ required: true, message: '请输入产品代码' }]}
+              >
+                <Input placeholder="请输入产品代码" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="name"
+                label="产品名称"
+                rules={[{ required: true, message: '请输入产品名称' }]}
+              >
+                <Input placeholder="请输入产品名称" />
               </Form.Item>
             </Col>
           </Row>

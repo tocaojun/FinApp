@@ -99,69 +99,99 @@ const SettingsPage: React.FC = () => {
   const [preferencesForm] = Form.useForm();
   const [passwordForm] = Form.useForm();
 
-  // 模拟数据加载
+  // 从 API 加载用户数据
   useEffect(() => {
-    const mockUserProfile: UserProfile = {
-      id: '1',
-      username: 'john_doe',
-      email: 'john.doe@example.com',
-      fullName: '张三',
-      phone: '+86 138 0013 8000',
-      avatar: '',
-      bio: '专业投资者，专注于价值投资和资产配置',
-      timezone: 'Asia/Shanghai',
-      language: 'zh-CN',
-      createdAt: '2023-01-15',
-      lastLoginAt: '2024-09-18 20:30:00'
-    };
+    const fetchUserProfile = async () => {
+      try {
+        setLoading(true);
+        // 从 localStorage 获取 token
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          throw new Error('未登录');
+        }
 
-    const mockPreferences: SystemPreferences = {
-      theme: 'light',
-      currency: 'CNY',
-      dateFormat: 'YYYY-MM-DD',
-      numberFormat: 'zh-CN',
-      autoSave: true,
-      autoBackup: true,
-      notifications: {
-        email: true,
-        push: true,
-        sms: false
-      },
-      privacy: {
-        showProfile: true,
-        showActivity: false,
-        allowAnalytics: true
+        // 获取用户个人资料
+        const response = await fetch('http://localhost:8000/api/auth/profile', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('获取用户信息失败');
+        }
+
+        const data = await response.json();
+        const user = data.data?.user;
+
+        if (user) {
+          const userProfile: UserProfile = {
+            id: user.id,
+            username: user.username || user.email.split('@')[0],
+            email: user.email,
+            fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+            phone: user.phone || '',
+            avatar: user.avatarUrl || '',
+            bio: user.bio || '',
+            timezone: user.timezone || 'Asia/Shanghai',
+            language: user.language || 'zh-CN',
+            createdAt: user.createdAt ? new Date(user.createdAt).toLocaleDateString('zh-CN') : '',
+            lastLoginAt: user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString('zh-CN') : '未登录'
+          };
+
+          setUserProfile(userProfile);
+          profileForm.setFieldsValue(userProfile);
+        }
+      } catch (error) {
+        console.error('加载用户信息错误:', error);
+        message.error('加载用户信息失败，请刷新重试');
+      } finally {
+        setLoading(false);
       }
     };
 
-    const mockSecurity: SecuritySettings = {
+    // 加载偏好设置（从 localStorage 或默认值）
+    const preferences: SystemPreferences = {
+      theme: (localStorage.getItem('theme') as any) || 'light',
+      currency: localStorage.getItem('currency') || 'CNY',
+      dateFormat: localStorage.getItem('dateFormat') || 'YYYY-MM-DD',
+      numberFormat: localStorage.getItem('numberFormat') || 'zh-CN',
+      autoSave: localStorage.getItem('autoSave') !== 'false',
+      autoBackup: localStorage.getItem('autoBackup') !== 'false',
+      notifications: {
+        email: localStorage.getItem('notifications.email') !== 'false',
+        push: localStorage.getItem('notifications.push') !== 'false',
+        sms: localStorage.getItem('notifications.sms') === 'true'
+      },
+      privacy: {
+        showProfile: localStorage.getItem('privacy.showProfile') !== 'false',
+        showActivity: localStorage.getItem('privacy.showActivity') === 'true',
+        allowAnalytics: localStorage.getItem('privacy.allowAnalytics') !== 'false'
+      }
+    };
+    setPreferences(preferences);
+    preferencesForm.setFieldsValue(preferences);
+
+    // 加载安全设置（默认值）
+    const security: SecuritySettings = {
       twoFactorEnabled: false,
       loginNotifications: true,
       sessionTimeout: 30,
-      passwordLastChanged: '2024-08-15',
+      passwordLastChanged: new Date().toLocaleDateString('zh-CN'),
       trustedDevices: [
         {
           id: '1',
           name: 'MacBook Pro',
-          lastUsed: '2024-09-18 20:30:00',
-          location: '上海, 中国'
-        },
-        {
-          id: '2',
-          name: 'iPhone 15',
-          lastUsed: '2024-09-17 15:20:00',
+          lastUsed: new Date().toLocaleString('zh-CN'),
           location: '上海, 中国'
         }
       ]
     };
+    setSecurity(security);
 
-    setUserProfile(mockUserProfile);
-    setPreferences(mockPreferences);
-    setSecurity(mockSecurity);
-
-    // 设置表单初始值
-    profileForm.setFieldsValue(mockUserProfile);
-    preferencesForm.setFieldsValue(mockPreferences);
+    fetchUserProfile();
   }, [profileForm, preferencesForm]);
 
   // 头像上传配置
@@ -192,11 +222,36 @@ const SettingsPage: React.FC = () => {
   const handleSaveProfile = async (values: any) => {
     setLoading(true);
     try {
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('未登录');
+      }
+
+      const response = await fetch('http://localhost:8000/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          firstName: values.fullName?.split(' ')[0] || '',
+          lastName: values.fullName?.split(' ')[1] || '',
+          phone: values.phone,
+          timezone: values.timezone,
+          language: values.language,
+          bio: values.bio
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('保存失败');
+      }
+
+      const data = await response.json();
       setUserProfile({ ...userProfile!, ...values });
       message.success('个人信息保存成功');
     } catch (error) {
+      console.error('保存错误:', error);
       message.error('保存失败，请重试');
     } finally {
       setLoading(false);
@@ -207,10 +262,24 @@ const SettingsPage: React.FC = () => {
   const handleSavePreferences = async (values: any) => {
     setLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // 将偏好设置保存到 localStorage
+      localStorage.setItem('theme', values.theme);
+      localStorage.setItem('currency', values.currency);
+      localStorage.setItem('dateFormat', values.dateFormat);
+      localStorage.setItem('numberFormat', values.numberFormat);
+      localStorage.setItem('autoSave', values.autoSave);
+      localStorage.setItem('autoBackup', values.autoBackup);
+      localStorage.setItem('notifications.email', values.notifications?.email);
+      localStorage.setItem('notifications.push', values.notifications?.push);
+      localStorage.setItem('notifications.sms', values.notifications?.sms);
+      localStorage.setItem('privacy.showProfile', values.privacy?.showProfile);
+      localStorage.setItem('privacy.showActivity', values.privacy?.showActivity);
+      localStorage.setItem('privacy.allowAnalytics', values.privacy?.allowAnalytics);
+
       setPreferences({ ...preferences!, ...values });
       message.success('系统偏好保存成功');
     } catch (error) {
+      console.error('保存错误:', error);
       message.error('保存失败，请重试');
     } finally {
       setLoading(false);
@@ -221,12 +290,34 @@ const SettingsPage: React.FC = () => {
   const handleChangePassword = async (values: any) => {
     setLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('未登录');
+      }
+
+      const response = await fetch('http://localhost:8000/api/auth/change-password', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          currentPassword: values.currentPassword,
+          newPassword: values.newPassword
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || '密码修改失败');
+      }
+
       message.success('密码修改成功');
       setPasswordModalVisible(false);
       passwordForm.resetFields();
-    } catch (error) {
-      message.error('密码修改失败，请重试');
+    } catch (error: any) {
+      console.error('密码修改错误:', error);
+      message.error(error.message || '密码修改失败，请重试');
     } finally {
       setLoading(false);
     }

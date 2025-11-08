@@ -176,6 +176,7 @@ export class AuthService {
     } finally {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('auth_user');
+      localStorage.removeItem('refresh_token');
     }
   }
 

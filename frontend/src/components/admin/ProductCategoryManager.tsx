@@ -179,6 +179,7 @@ const ProductCategoryManager: React.FC<ProductCategoryManagerProps> = ({
           'FUND': 'orange',
           'ETF': 'purple',
           'OPTION': 'red',
+          'STOCK_OPTION': 'lime',
           'FUTURE': 'magenta',
           'COMMODITY': 'gold',
           'CURRENCY': 'cyan',
@@ -339,6 +340,7 @@ const ProductCategoryManager: React.FC<ProductCategoryManagerProps> = ({
               <Option value="FUND">基金类 (FUND)</Option>
               <Option value="ETF">ETF类 (ETF)</Option>
               <Option value="OPTION">期权类 (OPTION)</Option>
+              <Option value="STOCK_OPTION">股票期权 (STOCK_OPTION)</Option>
               <Option value="FUTURE">期货类 (FUTURE)</Option>
               <Option value="COMMODITY">商品类 (COMMODITY)</Option>
               <Option value="CURRENCY">货币类 (CURRENCY)</Option>

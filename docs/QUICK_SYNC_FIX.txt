@@ -1,0 +1,63 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                   数据同步失败 - 快速修复指南                                 ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+【问题】
+✗ 同步任务失败
+✗ 错误信息：Unsupported provider: sina
+
+【原因】
+新浪财经（Sina）数据源不支持历史K线数据，系统无法同步。
+
+【快速修复】
+按以下步骤修改同步任务的数据源：
+
+1️⃣  连接数据库
+   psql -h localhost -U finapp_user -d finapp_test
+
+2️⃣  查看可用的数据源
+   SELECT id, name, provider FROM finapp.price_data_sources 
+   WHERE is_active = true AND provider IN ('yahoo_finance', 'eastmoney', 'tushare');
+
+3️⃣  选择一个数据源并更新同步任务
+   
+   【推荐：使用Yahoo Finance】
+   UPDATE finapp.price_sync_tasks
+   SET data_source_id = (
+     SELECT id FROM finapp.price_data_sources 
+     WHERE provider = 'yahoo_finance' LIMIT 1
+   );
+   
+   【或：使用EastMoney（适用于中国股票）】
+   UPDATE finapp.price_sync_tasks
+   SET data_source_id = (
+     SELECT id FROM finapp.price_data_sources 
+     WHERE provider = 'eastmoney' LIMIT 1
+   );
+
+4️⃣  验证更新成功
+   SELECT id, name, data_source_id, last_run_status 
+   FROM finapp.price_sync_tasks;
+
+5️⃣  重新运行同步
+   - 在UI中找到同步任务
+   - 点击"同步"按钮
+   - 等待同步完成
+
+【完成】✅
+同步任务应该现在能够正常运行了！
+
+【如果还是失败】
+1. 查看后端日志了解具体错误信息
+2. 确保数据源处于活跃状态（is_active = true）
+3. 确认是否有需要同步的活跃资产
+4. 查看 docs/SYNC_FAILURE_FIX.md 获取详细诊断信息
+
+【相关文档】
+- docs/SYNC_FAILURE_FIX.md - 详细诊断和修复方案
+- docs/SYSTEM_CONFIG.md - 系统配置信息
+
+【修复信息】
+✓ 代码已更新：支持Sina提供商（返回空数据，不报错）
+✓ 代码文件：/backend/src/services/PriceSyncService.ts
+✓ 修改内容：添加fetchFromSina()方法

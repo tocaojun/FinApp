@@ -98,6 +98,11 @@ class App {
   }
 
   private initializeRoutes(): void {
+    // 超简单的 ping 路由 - 在所有中间件之前
+    this.app.get('/ping', (req, res) => {
+      res.json({ status: 'pong', timestamp: new Date().toISOString() });
+    });
+
     // 根路由 - 应用主页
     this.app.get('/', (req, res) => {
       res.json({

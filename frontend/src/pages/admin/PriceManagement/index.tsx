@@ -3,13 +3,11 @@ import { Tabs, Card } from 'antd';
 import { 
   EditOutlined, 
   TableOutlined, 
-  UploadOutlined,
-  ApiOutlined 
+  UploadOutlined
 } from '@ant-design/icons';
 import SingleAssetMultiDate from './QuickEntry/SingleAssetMultiDate';
 import MultiAssetSingleDate from './QuickEntry/MultiAssetSingleDate';
 import BatchImport from './BatchImport';
-import ApiSync from './ApiSync';
 
 const PriceManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState('single-multi');
@@ -49,17 +47,6 @@ const PriceManagement: React.FC = () => {
           key="batch-import"
         >
           <BatchImport />
-        </Tabs.TabPane>
-        <Tabs.TabPane 
-          tab={
-            <span>
-              <ApiOutlined />
-              API自动同步
-            </span>
-          } 
-          key="api-sync"
-        >
-          <ApiSync />
         </Tabs.TabPane>
       </Tabs>
     </Card>

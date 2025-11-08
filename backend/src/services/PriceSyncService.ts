@@ -71,14 +71,150 @@ export class PriceSyncService {
     return result[0] || null;
   }
 
+  /**
+   * 获取数据源支持的产品类型和市场覆盖范围
+   * 返回产品类型和对应的市场关联关系（级联过滤）
+   */
+  async getDataSourceCoverage(dataSourceId: string): Promise<{
+    id: string;
+    name: string;
+    provider: string;
+    productTypes: Array<{
+      code: string;
+      name: string;
+    }>;
+    marketsByProduct: Record<string, Array<{
+      code: string;
+      name: string;
+    }>>;
+  }> {
+    // 获取数据源基本信息和配置
+    const dataSource = await this.getDataSource(dataSourceId);
+    if (!dataSource) {
+      throw new Error('Data source not found');
+    }
+
+    // 解析配置中的支持产品类型
+    const productTypes = Array.isArray(dataSource.config?.supports_products)
+      ? dataSource.config.supports_products
+      : [];
+
+    // 获取支持的市场信息
+    const marketCodes = Array.isArray(dataSource.config?.supports_markets)
+      ? dataSource.config.supports_markets
+      : [];
+
+    // 查询市场的详细信息
+    let markets: Array<{ code: string; name: string }> = [];
+    if (marketCodes.length > 0) {
+      try {
+        const marketResults = await this.db.prisma.$queryRaw`
+          SELECT code, name
+          FROM finapp.markets
+          WHERE code = ANY(${marketCodes}::text[])
+          ORDER BY code
+        ` as Array<{ code: string; name: string }>;
+        markets = marketResults;
+      } catch (error) {
+        console.error('Failed to query markets:', error);
+        // 如果查询失败，返回市场代码作为名称
+        markets = marketCodes.map(code => ({ code, name: code }));
+      }
+    }
+
+    // 获取产品类型的详细信息
+    let productTypeDetails: Array<{ code: string; name: string }> = [];
+    if (productTypes.length > 0) {
+      try {
+        const typeResults = await this.db.prisma.$queryRaw`
+          SELECT id, code, name
+          FROM finapp.asset_types
+          WHERE code = ANY(${productTypes}::text[])
+          ORDER BY code
+        ` as Array<{ code: string; name: string }>;
+        productTypeDetails = typeResults;
+      } catch (error) {
+        console.error('Failed to query asset types:', error);
+        // 如果查询失败，返回代码作为名称
+        productTypeDetails = productTypes.map(code => ({ code, name: code }));
+      }
+    }
+
+    // 构建 marketsByProduct 映射
+    // 当前实现中，每个产品类型都支持该数据源支持的所有市场
+    // 可以通过扩展配置来支持更细粒度的控制
+    const marketsByProduct: Record<string, Array<{ code: string; name: string }>> = {};
+    productTypes.forEach(productCode => {
+      marketsByProduct[productCode] = markets;
+    });
+
+    // 如果配置中有更细粒度的产品-市场映射，则使用它
+    if (dataSource.config?.product_market_mapping) {
+      const mapping = dataSource.config.product_market_mapping;
+      Object.entries(mapping).forEach(([productCode, marketCodes]: [string, any]) => {
+        if (Array.isArray(marketCodes)) {
+          marketsByProduct[productCode] = markets.filter(m =>
+            (marketCodes as string[]).includes(m.code)
+          );
+        }
+      });
+    }
+
+    return {
+      id: dataSource.id,
+      name: dataSource.name,
+      provider: dataSource.provider,
+      productTypes: productTypeDetails,
+      marketsByProduct,
+    };
+  }
+
+  /**
+   * 获取指定数据源和产品类型组合支持的市场
+   * 用于级联过滤中的第三级过滤
+   */
+  async getMarketsByDataSourceAndAssetType(
+    dataSourceId: string,
+    assetTypeCode: string
+  ): Promise<Array<{ id: string; code: string; name: string }>> {
+    // 获取数据源覆盖范围
+    const coverage = await this.getDataSourceCoverage(dataSourceId);
+
+    // 获取该产品类型对应的市场
+    const marketCodes = coverage.marketsByProduct[assetTypeCode] || [];
+
+    // 补充完整的市场信息（包括 id）
+    if (marketCodes.length > 0) {
+      try {
+        const results = await this.db.prisma.$queryRaw`
+          SELECT id, code, name
+          FROM finapp.markets
+          WHERE code = ANY(${marketCodes.map(m => m.code)}::text[])
+          ORDER BY code
+        ` as Array<{ id: string; code: string; name: string }>;
+        return results;
+      } catch (error) {
+        console.error('Failed to query markets:', error);
+        return marketCodes.map((m, idx) => ({
+          id: `${assetTypeCode}-${idx}`,
+          code: m.code,
+          name: m.name,
+        }));
+      }
+    }
+
+    return [];
+  }
+
   async createDataSource(data: any): Promise<DataSource> {
+    const configJson = JSON.stringify(data.config || {});
     const result = await this.db.prisma.$queryRaw`
       INSERT INTO finapp.price_data_sources (
         name, provider, api_endpoint, api_key_encrypted, config, 
         rate_limit, timeout_seconds, is_active
       ) VALUES (
         ${data.name}, ${data.provider}, ${data.api_endpoint || null},
-        ${data.api_key || null}, ${JSON.stringify(data.config || {})},
+        ${data.api_key || null}, ${configJson}::jsonb,
         ${data.rate_limit || 60}, ${data.timeout_seconds || 30}, 
         ${data.is_active !== false}
       )
@@ -109,7 +245,7 @@ export class PriceSyncService {
       values.push(data.api_key);
     }
     if (data.config !== undefined) {
-      updates.push(`config = $${paramIndex++}`);
+      updates.push(`config = $${paramIndex++}::jsonb`);
       values.push(JSON.stringify(data.config));
     }
     if (data.is_active !== undefined) {
@@ -163,6 +299,26 @@ export class PriceSyncService {
       ? `ARRAY[${data.asset_ids.map((id: string) => `'${id}'::uuid`).join(',')}]`
       : 'NULL';
 
+    // 处理 asset_type_id：如果是代码（字符串且不是UUID格式），则查询获取UUID
+    let assetTypeId = data.asset_type_id || null;
+    if (assetTypeId && typeof assetTypeId === 'string' && !assetTypeId.includes('-')) {
+      // 这是一个资产类型代码，需要转换为UUID
+      const typeResult = await this.db.prisma.$queryRaw`
+        SELECT id FROM finapp.asset_types WHERE code = ${assetTypeId}
+      ` as any[];
+      assetTypeId = typeResult && typeResult.length > 0 ? typeResult[0].id : null;
+    }
+
+    // 处理 market_id：如果是代码（字符串且不是UUID格式），则查询获取UUID
+    let marketId = data.market_id || null;
+    if (marketId && typeof marketId === 'string' && !marketId.includes('-')) {
+      // 这是一个市场代码，需要转换为UUID
+      const marketResult = await this.db.prisma.$queryRaw`
+        SELECT id FROM finapp.markets WHERE code = ${marketId}
+      ` as any[];
+      marketId = marketResult && marketResult.length > 0 ? marketResult[0].id : null;
+    }
+
     const result = await this.db.prisma.$queryRawUnsafe(`
       INSERT INTO finapp.price_sync_tasks (
         name, description, data_source_id, asset_type_id, market_id, 
@@ -178,8 +334,8 @@ export class PriceSyncService {
       data.name,
       data.description || null,
       data.data_source_id,
-      data.asset_type_id || null,
-      data.market_id || null,
+      assetTypeId,
+      marketId,
       data.schedule_type || 'manual',
       data.cron_expression || null,
       data.interval_minutes || null,
@@ -215,12 +371,30 @@ export class PriceSyncService {
       values.push(data.data_source_id);
     }
     if (data.asset_type_id !== undefined) {
+      // 处理 asset_type_id：如果是代码（字符串且不是UUID格式），则查询获取UUID
+      let assetTypeId = data.asset_type_id;
+      if (assetTypeId && typeof assetTypeId === 'string' && !assetTypeId.includes('-')) {
+        // 这是一个资产类型代码，需要转换为UUID
+        const typeResult = await this.db.prisma.$queryRaw`
+          SELECT id FROM finapp.asset_types WHERE code = ${assetTypeId}
+        ` as any[];
+        assetTypeId = typeResult && typeResult.length > 0 ? typeResult[0].id : null;
+      }
       updates.push(`asset_type_id = $${paramIndex++}::uuid`);
-      values.push(data.asset_type_id);
+      values.push(assetTypeId);
     }
     if (data.market_id !== undefined) {
+      // 处理 market_id：如果是代码（字符串且不是UUID格式），则查询获取UUID
+      let marketId = data.market_id;
+      if (marketId && typeof marketId === 'string' && !marketId.includes('-')) {
+        // 这是一个市场代码，需要转换为UUID
+        const marketResult = await this.db.prisma.$queryRaw`
+          SELECT id FROM finapp.markets WHERE code = ${marketId}
+        ` as any[];
+        marketId = marketResult && marketResult.length > 0 ? marketResult[0].id : null;
+      }
       updates.push(`market_id = $${paramIndex++}::uuid`);
-      values.push(data.market_id);
+      values.push(marketId);
     }
     if (data.asset_ids !== undefined) {
       if (Array.isArray(data.asset_ids) && data.asset_ids.length > 0) {
@@ -538,6 +712,8 @@ export class PriceSyncService {
         return await this.fetchFromEastMoney(asset, daysBack);
       case 'tushare':
         return await this.fetchFromTushare(dataSource, asset, daysBack);
+      case 'sina':
+        return await this.fetchFromSina(asset, daysBack);
       default:
         throw new Error(`Unsupported provider: ${dataSource.provider}`);
     }
@@ -762,6 +938,13 @@ export class PriceSyncService {
       console.error(`Error fetching from Tushare for ${asset.symbol}:`, error);
       throw error;
     }
+  }
+
+  private async fetchFromSina(asset: any, daysBack: number): Promise<any[]> {
+    // 新浪财经数据源 - 由于Sina本身不提供历史数据API，我们使用Yahoo Finance作为替代方案
+    // 这样可以获取中国股票的历史价格数据
+    console.log(`[Sina] Using Yahoo Finance as fallback for ${asset.symbol} to get historical data`);
+    return await this.fetchFromYahooFinance(asset, daysBack);
   }
 
   private async savePriceData(

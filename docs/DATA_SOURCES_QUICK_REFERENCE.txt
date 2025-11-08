@@ -1,0 +1,306 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                                                                                 ║
+║           FinApp 数据同步数据源快速参考卡 (Quick Reference)                     ║
+║                                                                                 ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+
+📊 数据源总览 (Data Sources Overview)
+═══════════════════════════════════════════════════════════════════════════════
+
+已激活数据源 (7 个):
+  ✅ 新浪财经 (sina) - 5个市场, 4种产品 [中文友好]
+  ✅ Alpha Vantage - 2个市场, 4种产品 [美股标准]
+  ✅ Polygon.io - 3个市场, 5种产品 [功能最全]
+  ✅ FRED - 1个市场, 2种产品 [债券必选]
+  ✅ IEX Cloud - 2个市场, 3种产品 [基本面数据]
+  ✅ Tiingo - 4个市场, 4种产品 [国际覆盖]
+  ✅ Tushare - 4个市场, 5种产品 [A股数据]
+
+待激活数据源 (2 个):
+  ❌ 天天基金 (ttjj) - 2个市场, 2种产品 [基金必选]
+  ❌ Binance API - 1个市场, 1种产品 [加密交易]
+
+
+🎯 按投资类型快速选择 (Investment Type Selection)
+═══════════════════════════════════════════════════════════════════════════════
+
+【美股投资】
+  数据源: Alpha Vantage ⭐⭐⭐⭐
+  补充: IEX Cloud (财务数据) / Polygon.io (期权)
+  市场: NYSE, NASDAQ
+  产品: STOCK, ETF, OPTION
+
+【A股投资】
+  数据源: 新浪财经 ⭐⭐⭐⭐
+  补充: Tushare (财务数据) / 天天基金 (基金数据)
+  市场: SSE, SZSE
+  产品: STOCK, FUND, ETF
+
+【债券投资】
+  数据源: FRED ⭐⭐⭐⭐⭐
+  补充: IEX Cloud (企业债)
+  市场: USA
+  产品: BOND, TREASURY
+
+【全球投资】
+  数据源: Tiingo ⭐⭐⭐⭐
+  补充: 新浪财经 (A股) / Alpha Vantage (美股)
+  市场: NYSE, NASDAQ, HKEX, CRYPTO
+  产品: STOCK, ETF, CRYPTO
+
+【加密投资】
+  数据源: Binance API ⭐⭐⭐⭐
+  补充: Polygon.io / Tiingo
+  市场: CRYPTO
+  产品: CRYPTO
+
+
+📈 按产品类型快速查找 (Product Type Selection)
+═══════════════════════════════════════════════════════════════════════════════
+
+STOCK (股票)
+  → 新浪财经, Alpha Vantage, IEX Cloud, Polygon.io, Tiingo, Tushare
+  推荐: 新浪财经 (全球) / Alpha Vantage (美股)
+
+FUND (基金)
+  → 天天基金, 新浪财经, Tiingo, Tushare
+  推荐: 天天基金 (中国基金必选)
+
+ETF
+  → Alpha Vantage, Polygon.io, IEX Cloud, Tiingo, 新浪财经, 东方财富
+  推荐: Alpha Vantage / Tiingo
+
+BOND (债券)
+  → FRED, IEX Cloud, 新浪财经
+  推荐: FRED (美债) / IEX Cloud (企业债)
+
+CRYPTO (加密)
+  → Polygon.io, Tiingo, Binance API
+  推荐: Binance API (币安) / Polygon.io (多交易所)
+
+OPTION (期权)
+  → Polygon.io
+  推荐: Polygon.io (仅有选择)
+
+FOREX (外汇)
+  → Alpha Vantage, Polygon.io
+  推荐: Polygon.io
+
+TREASURY (美债)
+  → FRED
+  推荐: FRED (联邦储备官方数据)
+
+WARRANT (权证)
+  → 新浪财经
+  推荐: 新浪财经 (仅有选择)
+
+
+🌍 按市场快速查找 (Market Selection)
+═══════════════════════════════════════════════════════════════════════════════
+
+NYSE (纽约证券交易所)
+  数据源数: 6 ✅
+  推荐: Alpha Vantage > IEX Cloud > Polygon.io
+
+NASDAQ (纳斯达克)
+  数据源数: 6 ✅
+  推荐: Alpha Vantage > IEX Cloud > Polygon.io
+
+SSE (上海证券交易所)
+  数据源数: 3 ✅
+  推荐: 新浪财经 > Tushare > 天天基金
+
+SZSE (深圳证券交易所)
+  数据源数: 3 ✅
+  推荐: 新浪财经 > Tushare > 天天基金
+
+HKEX (香港交易所)
+  数据源数: 2 ✅
+  推荐: 新浪财经 > Tiingo
+
+CRYPTO (加密市场)
+  数据源数: 3 ✅
+  推荐: Binance API > Polygon.io > Tiingo
+
+USA (美国债券)
+  数据源数: 1 ✅
+  推荐: FRED (仅有选择)
+
+TSE (东京证券交易所)
+  数据源数: 1 ✅
+  推荐: Tiingo (仅有选择)
+
+LSE (伦敦证券交易所)
+  数据源数: 1 ✅
+  推荐: Tiingo (仅有选择)
+
+FWB (法兰克福证券交易所)
+  数据源数: 1 ✅
+  推荐: Tiingo (仅有选择)
+
+
+⚙️ API密钥配置 (API Key Configuration)
+═══════════════════════════════════════════════════════════════════════════════
+
+立即需要配置的 (必需):
+  □ Alpha Vantage    → https://www.alphavantage.co
+  □ FRED             → https://fred.stlouisfed.org/docs/api
+  □ Polygon.io       → https://polygon.io
+  □ IEX Cloud        → https://iexcloud.io
+  □ Tiingo           → https://www.tiingo.com
+  □ Tushare          → https://tushare.pro
+
+可选配置的:
+  □ 天天基金 (需付费) → 官方API门户
+  □ Binance API      → https://binance-docs.github.io
+
+无需配置的 (完全免费):
+  ✓ 新浪财经         → 无需API密钥
+
+
+🚀 常用操作速查 (Common Operations)
+═══════════════════════════════════════════════════════════════════════════════
+
+查看产品覆盖统计:
+  SQL: SELECT * FROM v_product_type_source_count;
+  
+查看市场覆盖统计:
+  SQL: SELECT * FROM v_market_source_count;
+  
+查看数据源配置:
+  SQL: SELECT * FROM v_data_source_config;
+  
+查看激活的数据源:
+  SQL: SELECT * FROM v_data_source_comparison WHERE status LIKE '%激活%';
+  
+创建新的同步任务:
+  1. 系统管理 → 数据同步 → 新建任务
+  2. 选择数据源 (已激活)
+  3. 选择市场 + 产品类型
+  4. 设置同步频率
+  5. 保存
+
+
+📋 同步任务模板 (Sync Task Templates)
+═══════════════════════════════════════════════════════════════════════════════
+
+【模板1】美股日常同步
+  名称: US Stock Daily Sync
+  数据源: Alpha Vantage
+  市场: NYSE, NASDAQ
+  产品: STOCK, ETF
+  频率: 每日美股收盘后 (北京时间21:30)
+  同步回溯: 1天
+
+【模板2】A股实时同步
+  名称: A-Share Real-time Sync
+  数据源: 新浪财经
+  市场: SSE, SZSE
+  产品: STOCK, FUND, ETF
+  频率: 每15分钟
+  同步回溯: 1天
+
+【模板3】债券周期同步
+  名称: Bond Weekly Sync
+  数据源: FRED
+  市场: USA
+  产品: BOND, TREASURY
+  频率: 每周一 09:00
+  同步回溯: 7天
+
+【模板4】加密24小时同步
+  名称: Crypto 24/7 Sync
+  数据源: Binance API
+  市场: CRYPTO
+  产品: CRYPTO
+  频率: 每小时
+  同步回溯: 1天
+
+
+⚡ 性能和限制 (Performance & Limits)
+═══════════════════════════════════════════════════════════════════════════════
+
+API请求限制 (按分钟):
+  Alpha Vantage     5 ⚠️  (免费版限制最严)
+  FRED              120 ✅
+  Polygon.io        300 ✅
+  IEX Cloud         100 ✅
+  Tiingo            400 ✅
+  新浪财经          200 ✅
+  Tushare           200 ✅
+  Binance API       1200 ✅ (最宽松)
+
+超时设置:
+  Alpha Vantage     30秒
+  FRED              30秒
+  Polygon.io        30秒
+  IEX Cloud         30秒
+  Tiingo            30秒
+  新浪财经          15秒 (最快)
+  Tushare           30秒
+  Binance API       15秒 (最快)
+
+
+💾 数据库视图 (Database Views)
+═══════════════════════════════════════════════════════════════════════════════
+
+v_data_source_product_coverage
+  └─ 查看数据源和产品的对应关系
+
+v_data_source_market_coverage
+  └─ 查看数据源和市场的对应关系
+
+v_product_type_source_count
+  └─ 查看产品类型的覆盖统计
+
+v_market_source_count
+  └─ 查看市场的覆盖统计
+
+v_data_source_config
+  └─ 查看数据源的完整配置
+
+v_data_source_comparison
+  └─ 数据源对比表
+
+
+🔍 故障排查 (Troubleshooting)
+═══════════════════════════════════════════════════════════════════════════════
+
+问题: 同步任务失败
+解决:
+  1. 检查 API 密钥是否正确配置
+  2. 验证网络连接
+  3. 检查 API 速率限制是否超出
+  4. 查看数据库中的错误日志:
+     SELECT * FROM finapp.price_sync_logs WHERE status = 'failed';
+
+问题: 市场/产品选项为空
+解决:
+  1. 确保选择的数据源已激活
+  2. 检查数据源的 config 字段是否完整
+  3. 刷新浏览器缓存
+
+问题: 数据更新缓慢
+解决:
+  1. 检查同步频率设置
+  2. 减少单个任务的资产数量
+  3. 使用多个任务分担负载
+
+
+📞 联系与支持 (Support)
+═══════════════════════════════════════════════════════════════════════════════
+
+更多信息: 
+  详见 /docs/DATA_SOURCES_COVERAGE_MAP.md (完整配置指南)
+  详见 /docs/DATA_SOURCES_SETUP_SUMMARY.md (激活指南)
+
+SQL脚本位置:
+  /scripts/add-data-sources.sql (添加数据源)
+  /scripts/create-coverage-views.sql (创建视图)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+最后更新: 2025-11-07
+数据源版本: v1.0
+═══════════════════════════════════════════════════════════════════════════════

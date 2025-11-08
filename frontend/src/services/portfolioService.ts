@@ -14,7 +14,35 @@ export class PortfolioService {
   static async getPortfolios(): Promise<Portfolio[]> {
     try {
       const response = await apiGet<{success: boolean, message: string, data: Portfolio[]}>('/portfolios');
-      return response.data || [];
+      const portfolios = response.data || [];
+      
+      // 为每个投资组合获取汇总数据（包含市值和收益信息）
+      const portfoliosWithSummary = await Promise.all(
+        portfolios.map(async (portfolio) => {
+          try {
+            const summary = await this.getPortfolioSummaryById(portfolio.id);
+            return {
+              ...portfolio,
+              totalValue: summary.totalValue || 0,
+              totalCost: summary.totalCost || 0,
+              totalGainLoss: summary.totalReturn || 0,
+              totalGainLossPercentage: summary.totalReturnPercent || 0
+            };
+          } catch (error) {
+            // 如果获取汇总失败，返回基本信息并设置默认值
+            console.warn(`Failed to get summary for portfolio ${portfolio.id}:`, error);
+            return {
+              ...portfolio,
+              totalValue: 0,
+              totalCost: 0,
+              totalGainLoss: 0,
+              totalGainLossPercentage: 0
+            };
+          }
+        })
+      );
+      
+      return portfoliosWithSummary;
     } catch (error) {
       console.error('获取投资组合失败:', error);
       throw error;

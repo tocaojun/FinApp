@@ -20,6 +20,7 @@ import SystemLogs from './pages/admin/SystemLogs';
 import ProductManagement from './pages/admin/ProductManagement';
 import ExchangeRateManagement from './pages/admin/ExchangeRateManagement';
 import TagManagement from './pages/admin/TagManagement';
+import DataSync from './pages/admin/DataSync';
 import PriceManagement from './pages/admin/PriceManagement';
 import PermissionDemo from './pages/PermissionDemo';
 import SimpleTest from './pages/SimpleTest';
@@ -57,6 +58,7 @@ const AppLayoutWrapper: React.FC = () => {
         <Route path="/admin/products" element={<ProductManagement />} />
         <Route path="/admin/exchange-rates" element={<ExchangeRateManagement />} />
         <Route path="/admin/tags" element={<TagManagement />} />
+        <Route path="/admin/data-sync" element={<DataSync />} />
         <Route path="/admin/price-management" element={<PriceManagement />} />
       </Routes>
     </AppLayout>

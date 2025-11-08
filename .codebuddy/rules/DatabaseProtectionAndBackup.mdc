@@ -1,0 +1,323 @@
+---
+description: 
+alwaysApply: true
+enabled: true
+updatedAt: 2025-11-07T13:43:07.612Z
+provider: 
+---
+
+# 数据库保护和备份规范
+
+## 核心原则
+数据库是系统的核心资产，严格保护数据完整性和可恢复性。开发过程中谨慎对待任何数据库修改操作。
+
+## 严格禁止事项
+
+### ❌ 禁止删除/重建数据库
+**严格禁止以下操作：**
+
+1. **删除整个数据库**
+   ```sql
+   -- ❌ 禁止执行
+   DROP DATABASE finapp_test;
+   DROP DATABASE finapp;
+   ```
+
+2. **重建数据库**
+   ```bash
+   # ❌ 禁止执行
+   dropdb finapp_test
+   createdb finapp_test
+   
+   # ❌ 禁止执行
+   npm run prisma migrate reset
+   ```
+
+3. **删除完整数据表**
+   ```sql
+   -- ❌ 禁止执行
+   DROP TABLE IF EXISTS finapp.users;
+   DROP TABLE IF EXISTS finapp.transactions;
+   -- 等任何数据表的完整删除
+   ```
+
+### ❌ 禁止删除数据表中的记录
+**严格禁止以下操作：**
+
+1. **直接删除表中所有记录**
+   ```sql
+   -- ❌ 禁止执行
+   DELETE FROM finapp.users;
+   DELETE FROM finapp.transactions;
+   DELETE FROM finapp.portfolios;
+   -- 等任何表的批量数据删除
+   ```
+
+2. **未明确条件的删除**
+   ```sql
+   -- ❌ 禁止执行
+   DELETE FROM finapp.exchange_rates WHERE 1=1;
+   DELETE FROM finapp.users WHERE is_active = true;
+   -- 模糊的 WHERE 条件可能导致意外删除
+   ```
+
+3. **级联删除关键数据**
+   ```sql
+   -- ❌ 禁止执行
+   -- 删除用户会级联删除其投资组合
+   DELETE FROM finapp.users WHERE email = 'user@example.com';
+   ```
+
+## 必须执行的备份规范
+
+### 📋 备份前检查清单
+
+在对数据库进行任何修改之前，**必须**遵循以下步骤：
+
+- [ ] **第一步**：停止应用程序或进入维护模式
+- [ ] **第二步**：执行完整备份（见下方备份方法）
+- [ ] **第三步**：备份文件成功保存到安全位置
+- [ ] **第四步**：记录备份信息（时间、内容、备份文件位置）
+- [ ] **第五步**：备份文件通过完整性验证
+- [ ] **第六步**：才能执行数据库修改操作
+
+### 备份方法
+
+#### 方法 1：完整数据库备份（推荐）
+
+```bash
+#!/bin/bash
+# 创建带时间戳的备份文件
+BACKUP_DIR="/Users/caojun/code/FinApp/backups"
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+BACKUP_FILE="$BACKUP_DIR/finapp_test_backup_${TIMESTAMP}.sql"
+
+# 创建备份目录（如果不存在）
+mkdir -p "$BACKUP_DIR"
+
+# 执行完整备份
+pg_dump -h localhost -U finapp_user -d finapp_test > "$BACKUP_FILE"
+
+# 压缩备份文件
+gzip "$BACKUP_FILE"
+
+echo "✅ 数据库备份完成"
+echo "📁 备份位置: ${BACKUP_FILE}.gz"
+echo "📊 备份大小: $(du -h ${BACKUP_FILE}.gz | cut -f1)"
+echo "⏰ 备份时间: $(date)"
+```
+
+#### 方法 2：特定表的备份
+
+```bash
+#!/bin/bash
+# 只备份特定表
+TABLE_NAME=$1
+BACKUP_DIR="/Users/caojun/code/FinApp/backups"
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+BACKUP_FILE="$BACKUP_DIR/${TABLE_NAME}_backup_${TIMESTAMP}.sql"
+
+mkdir -p "$BACKUP_DIR"
+
+pg_dump -h localhost -U finapp_user -d finapp_test -t "finapp.${TABLE_NAME}" > "$BACKUP_FILE"
+
+gzip "$BACKUP_FILE"
+
+echo "✅ 表备份完成: $TABLE_NAME"
+echo "📁 备份位置: ${BACKUP_FILE}.gz"
+```
+
+#### 方法 3：导出表数据为 CSV（用于数据验证）
+
+```bash
+#!/bin/bash
+# 导出表数据为 CSV 格式
+TABLE_NAME=$1
+BACKUP_DIR="/Users/caojun/code/FinApp/backups"
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+BACKUP_FILE="$BACKUP_DIR/${TABLE_NAME}_data_${TIMESTAMP}.csv"
+
+mkdir -p "$BACKUP_DIR"
+
+psql -h localhost -U finapp_user -d finapp_test \
+  -c "COPY finapp.${TABLE_NAME} TO STDOUT WITH CSV HEADER" > "$BACKUP_FILE"
+
+echo "✅ 数据导出完成: $TABLE_NAME"
+echo "📁 导出位置: $BACKUP_FILE"
+```
+
+### 备份计划
+
+| 操作类型 | 备份频率 | 备份方法 |
+|---------|--------|--------|
+| 日常开发 | 每天 1 次 | 完整数据库备份 |
+| 表结构修改 | 修改前 | 完整备份 + 表备份 |
+| 数据修改 | 修改前 | 完整备份 + CSV 导出 |
+| 批量删除操作 | 删除前 | 完整备份 + 表备份 + CSV 导出 |
+| 迁移操作 | 迁移前后 | 完整备份 |
+
+## 数据库修改操作规范
+
+### 修改前必须通知开发团队
+
+在进行任何数据库修改前：
+
+1. **在 Slack/钉钉 中通知团队**
+   - 修改类型（数据、结构、权限等）
+   - 修改范围（哪个表，哪些字段）
+   - 预计影响范围
+   - 备份时间和位置
+   - 预计完成时间
+
+2. **获得至少一人的确认**
+   - 不得独自进行重要的数据库修改
+   - 至少需要一个代码审查员确认
+
+3. **记录修改信息**
+   ```
+   修改时间: 2025-11-07 10:30
+   修改者: [你的名字]
+   修改内容: 更新 exchange_rates 表的汇率数据
+   备份文件: /backups/finapp_test_backup_20251107_103000.sql.gz
+   修改前记录数: 1500
+   修改后记录数: 1500
+   影响范围: 仅 exchange_rates 表
+   回滚方案: 使用备份文件恢复
+   ```
+
+## 恢复程序
+
+### 数据库恢复步骤（如果出现问题）
+
+```bash
+#!/bin/bash
+# 恢复数据库步骤
+
+BACKUP_FILE=$1  # 备份文件路径
+
+if [ -z "$BACKUP_FILE" ]; then
+  echo "❌ 请指定备份文件"
+  echo "使用方法: bash restore_database.sh /path/to/backup.sql.gz"
+  exit 1
+fi
+
+echo "⚠️  警告：这将覆盖当前数据库！"
+echo "备份文件: $BACKUP_FILE"
+read -p "确认恢复？(y/n): " confirm
+
+if [ "$confirm" != "y" ]; then
+  echo "❌ 恢复已取消"
+  exit 1
+fi
+
+echo "🔄 开始恢复数据库..."
+
+# 如果是 gzip 压缩的备份
+if [[ "$BACKUP_FILE" == *.gz ]]; then
+  gunzip -c "$BACKUP_FILE" | psql -h localhost -U finapp_user -d finapp_test
+else
+  psql -h localhost -U finapp_user -d finapp_test < "$BACKUP_FILE"
+fi
+
+if [ $? -eq 0 ]; then
+  echo "✅ 数据库恢复成功！"
+  echo "⏰ 恢复时间: $(date)"
+else
+  echo "❌ 数据库恢复失败！请检查备份文件"
+  exit 1
+fi
+```
+
+## 允许的操作
+
+### ✅ 允许执行的操作
+
+1. **创建新表**
+   ```sql
+   CREATE TABLE IF NOT EXISTS finapp.new_table (...)
+   ```
+
+2. **添加新列**
+   ```sql
+   ALTER TABLE finapp.users ADD COLUMN new_column VARCHAR(255);
+   ```
+
+3. **修改列定义（非破坏性）**
+   ```sql
+   -- 允许：扩展 VARCHAR 字段长度
+   ALTER TABLE finapp.users ALTER COLUMN email TYPE VARCHAR(500);
+   ```
+
+4. **创建索引**
+   ```sql
+   CREATE INDEX idx_users_email ON finapp.users(email);
+   ```
+
+5. **修改特定行的数据（必须有明确条件）**
+   ```sql
+   -- 允许：更新特定ID的用户
+   UPDATE finapp.users SET email = 'new@example.com' WHERE id = '123e4567-e89b-12d3-a456-426614174000';
+   ```
+
+6. **使用事务进行数据修改**
+   ```sql
+   BEGIN;
+   UPDATE finapp.exchange_rates SET rate = 6.5 WHERE code = 'USD';
+   -- 检查数据
+   SELECT COUNT(*) FROM finapp.exchange_rates WHERE code = 'USD';
+   COMMIT;  -- 或 ROLLBACK; 如果有问题
+   ```
+
+## 监控和审计
+
+### 数据库变更日志
+
+创建备份日志文件（`database_changes.log`）：
+
+```
+=== 数据库修改记录 ===
+
+[2025-11-07 10:30:00] 修改者: 张三
+  操作: 更新汇率数据
+  表: finapp.exchange_rates
+  条件: code = 'USD'
+  备份: finapp_test_backup_20251107_103000.sql.gz
+  状态: 成功 ✅
+
+[2025-11-07 11:45:00] 修改者: 李四
+  操作: 修复用户邮箱
+  表: finapp.users
+  条件: id = 'abc-def-123'
+  备份: finapp_test_backup_20251107_114500.sql.gz
+  状态: 成功 ✅
+```
+
+## 违反规则的后果
+
+### 处理办法
+
+1. **第一次违规**: 口头警告 + 必须完整解释改进方案
+2. **第二次违规**: 书面警告 + 制定详细的数据保护计划
+3. **第三次违规**: 暂停数据库操作权限 + 强制参加培训
+4. **造成数据丢失**: 严重处罚 + 全面审计
+
+## 快速参考
+
+### 关键数据库信息
+- **数据库名**: `finapp_test`
+- **Schema**: `finapp`
+- **备份目录**: `/Users/caojun/code/FinApp/backups`
+- **表数量**: 33 个
+- **关键表**: users, transactions, portfolios, products, exchange_rates
+
+### 紧急联系方式
+- **数据库管理员**: [待填写]
+- **技术负责人**: [待填写]
+- **应急恢复**: [待填写]
+
+---
+
+**规则创建日期**: 2025-11-07  
+**适用范围**: 开发、测试、生产环境的所有数据库操作  
+**优先级**: 🔴 **严格执行**  
+**版本**: v1.0

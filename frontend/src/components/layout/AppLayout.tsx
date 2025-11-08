@@ -19,7 +19,8 @@ import {
   ControlOutlined,
   TagOutlined,
   ShopOutlined,
-  DollarOutlined
+  DollarOutlined,
+  SyncOutlined
 } from '@ant-design/icons';
 
 import Breadcrumb from './Breadcrumb';
@@ -214,6 +215,13 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           key: '/admin/exchange-rates',
           icon: <DollarOutlined />,
           label: '汇率管理'
+        });
+
+        // 添加数据同步
+        adminChildren.push({
+          key: '/admin/data-sync',
+          icon: <SyncOutlined />,
+          label: '数据同步'
         });
 
         // 添加价格管理中心

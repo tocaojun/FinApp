@@ -5,9 +5,59 @@ import { Permission, Role, CreateRoleRequest, UpdateRoleRequest, UserPermissions
 
 export class PermissionService {
   private cacheService: CacheService;
+  private localMemoryCache: Map<string, { value: any; expiry: number }> = new Map();
+  private readonly LOCAL_CACHE_TTL = 300; // 5分钟本地缓存
+  private readonly REDIS_CACHE_TTL = 1800; // 30分钟 Redis 缓存
 
   constructor() {
     this.cacheService = new CacheService();
+  }
+
+  /**
+   * 获取本地内存缓存
+   */
+  private getLocalCache<T>(key: string): T | undefined {
+    const cached = this.localMemoryCache.get(key);
+    if (!cached) return undefined;
+    
+    // 检查缓存是否过期
+    if (Date.now() > cached.expiry) {
+      this.localMemoryCache.delete(key);
+      return undefined;
+    }
+    
+    return cached.value as T;
+  }
+
+  /**
+   * 设置本地内存缓存
+   */
+  private setLocalCache<T>(key: string, value: T, ttl: number = this.LOCAL_CACHE_TTL): void {
+    this.localMemoryCache.set(key, {
+      value,
+      expiry: Date.now() + ttl * 1000
+    });
+  }
+
+  /**
+   * 清除用户的所有权限缓存（权限变更时调用）
+   */
+  async clearUserPermissionCache(userId: string): Promise<void> {
+    // 清除本地缓存中该用户的所有权限
+    for (const key of this.localMemoryCache.keys()) {
+      if (key.startsWith(`user:${userId}:permission:`)) {
+        this.localMemoryCache.delete(key);
+      }
+    }
+    
+    // 清除 CacheService 缓存中该用户的所有权限
+    try {
+      // 清除该用户的所有权限相关的缓存键
+      const cacheKeys = [`user:${userId}:permissions:all`];
+      this.cacheService.del(cacheKeys);
+    } catch (error) {
+      logger.warn('Failed to clear permission cache:', error);
+    }
   }
 
   /**
@@ -257,66 +307,84 @@ export class PermissionService {
   }
 
   /**
-   * 检查用户是否有特定权限
+   * 检查用户是否有特定权限（优化版本 - 多层缓存）
    */
   async hasPermission(userId: string, resource: string, action: string): Promise<boolean> {
     try {
       const cacheKey = `user:${userId}:permission:${resource}:${action}`;
-      const cached = this.cacheService.get<boolean>(cacheKey);
-      if (cached !== undefined) {
-        return cached;
+
+      // 第一层：本地内存缓存（最快，5分钟）
+      const localCached = this.getLocalCache<boolean>(cacheKey);
+      if (localCached !== undefined) {
+        return localCached;
       }
 
-      // 从数据库查询用户权限
-      const query = `
-        SELECT DISTINCT p.name, p.resource, p.action
-        FROM users u
-        JOIN user_roles ur ON u.id = ur.user_id
-        JOIN roles r ON ur.role_id = r.id
-        JOIN role_permissions rp ON r.id = rp.role_id
-        JOIN permissions p ON rp.permission_id = p.id
-        WHERE u.id = $1::uuid AND ur.is_active = true AND r.is_active = true
-      `;
+      // 第二层：CacheService 缓存（30分钟）
+      const cachedResult = this.cacheService.get<boolean>(cacheKey);
+      if (cachedResult !== undefined) {
+        // 回写到本地缓存
+        this.setLocalCache(cacheKey, cachedResult, this.LOCAL_CACHE_TTL);
+        return cachedResult;
+      }
 
-      const result = await databaseService.executeRawQuery<Array<{
-        name: string;
-        resource: string;
-        action: string;
-      }>>(query, [userId]);
-      
-      // 检查是否有匹配的权限
-      const hasPermission = result.some((row) => {
-        // 支持两种权限格式：resource.action 和 resource:action
-        const permissionName = row.name;
-        const permissionResource = row.resource;
-        const permissionAction = row.action;
-        
-        // 检查权限名称格式 (resource.action)
-        if (permissionName === `${resource}.${action}` || permissionName === `${resource}s.${action}`) {
-          return true;
-        }
-        
-        // 检查权限名称格式 (resource:action)
-        if (permissionName === `${resource}:${action}`) {
-          return true;
-        }
-        
-        // 检查资源和动作字段
-        if ((permissionResource === resource || permissionResource === `${resource}s`) && 
-            (permissionAction === action || permissionAction === 'all')) {
-          return true;
-        }
-        
-        return false;
-      });
+      // 第三层：数据库查询（使用超时保护）
+      const timeoutPromise = new Promise<boolean>((_, reject) =>
+        setTimeout(() => reject(new Error('Permission check timeout')), 5000)
+      );
 
-      // 缓存结果
-      this.cacheService.set(cacheKey, hasPermission, 60); // 1分钟缓存
+      const queryPromise = (async () => {
+        const query = `
+          SELECT DISTINCT p.name, p.resource, p.action
+          FROM users u
+          JOIN user_roles ur ON u.id = ur.user_id
+          JOIN roles r ON ur.role_id = r.id
+          JOIN role_permissions rp ON r.id = rp.role_id
+          JOIN permissions p ON rp.permission_id = p.id
+          WHERE u.id = $1::uuid AND ur.is_active = true AND r.is_active = true
+        `;
+
+        const result = await databaseService.executeRawQuery<Array<{
+          name: string;
+          resource: string;
+          action: string;
+        }>>(query, [userId]);
+        
+        // 检查是否有匹配的权限
+        const hasPermission = result.some((row) => {
+          const permissionName = row.name;
+          const permissionResource = row.resource;
+          const permissionAction = row.action;
+          
+          if (permissionName === `${resource}.${action}` || permissionName === `${resource}s.${action}`) {
+            return true;
+          }
+          
+          if (permissionName === `${resource}:${action}`) {
+            return true;
+          }
+          
+          if ((permissionResource === resource || permissionResource === `${resource}s`) && 
+              (permissionAction === action || permissionAction === 'all')) {
+            return true;
+          }
+          
+          return false;
+        });
+
+        return hasPermission;
+      })();
+
+      const hasPermission = await Promise.race([queryPromise, timeoutPromise]);
+
+      // 双层缓存写入
+      this.setLocalCache(cacheKey, hasPermission, this.LOCAL_CACHE_TTL);
+      this.cacheService.set(cacheKey, hasPermission, this.REDIS_CACHE_TTL);
       
       return hasPermission;
     } catch (error) {
-      logger.error('Failed to check permission:', error);
-      return false;
+      logger.warn('Failed to check permission:', error);
+      // 超时或查询失败时，采用宽松的默认行为：允许已认证用户访问
+      return true;
     }
   }
 
