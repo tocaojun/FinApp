@@ -44,7 +44,7 @@ export interface AssetFilterParams {
   // 基础筛选
   keyword?: string;
   assetTypeIds?: string[];
-  marketIds?: string[];
+  countryIds?: string[];
   currencies?: string[];
   sectors?: string[];
   industries?: string[];
@@ -139,13 +139,16 @@ const AdvancedAssetFilter: React.FC<AdvancedAssetFilterProps> = ({
     { id: 'commodity', name: '商品' }
   ];
 
-  const markets = [
-    { id: 'nasdaq', name: '纳斯达克', country: '美国' },
-    { id: 'nyse', name: '纽约证券交易所', country: '美国' },
-    { id: 'sse', name: '上海证券交易所', country: '中国' },
-    { id: 'szse', name: '深圳证券交易所', country: '中国' },
-    { id: 'hkex', name: '香港交易所', country: '香港' },
-    { id: 'lse', name: '伦敦证券交易所', country: '英国' }
+  const countries = [
+    { id: 'us', name: '美国', code: 'US' },
+    { id: 'cn', name: '中国', code: 'CN' },
+    { id: 'hk', name: '香港', code: 'HK' },
+    { id: 'gb', name: '英国', code: 'GB' },
+    { id: 'de', name: '德国', code: 'DE' },
+    { id: 'fr', name: '法国', code: 'FR' },
+    { id: 'jp', name: '日本', code: 'JP' },
+    { id: 'sg', name: '新加坡', code: 'SG' },
+    { id: 'hk', name: '全球', code: 'GLOBAL' }
   ];
 
   const sectors = [
@@ -302,16 +305,16 @@ const AdvancedAssetFilter: React.FC<AdvancedAssetFilterProps> = ({
                 </Form.Item>
               </Col>
               <Col span={6}>
-                <Form.Item name="marketIds" label="交易市场">
+                <Form.Item name="countryIds" label="国家/地区">
                   <Select
                     mode="multiple"
-                    placeholder="选择交易市场"
+                    placeholder="选择国家/地区"
                     allowClear
                     optionFilterProp="children"
                   >
-                    {markets.map(market => (
-                      <Option key={market.id} value={market.id}>
-                        {market.name} ({market.country})
+                    {countries.map(country => (
+                      <Option key={country.id} value={country.id}>
+                        {country.name} ({country.code})
                       </Option>
                     ))}
                   </Select>

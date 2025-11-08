@@ -1,0 +1,50 @@
+{
+  "name": "FRED",
+  "provider": "fred",
+  "api_endpoint": "https://api.stlouisfed.org/fred/",
+  "is_active": true,
+  "config": {
+    "supports_batch": true,
+    "max_concurrent_requests": 3,
+    "max_symbols_per_request": 10,
+    "supports_products": [
+      "ECONOMIC_INDICATOR"
+    ],
+    "supports_countries": [
+      "US"
+    ],
+    "rate_limit_per_minute": 120,
+    "timeout_seconds": 20,
+    "requires_api_key": true,
+    "api_key_env_var": "FRED_API_KEY",
+    "data_intervals": [
+      "daily",
+      "weekly",
+      "monthly",
+      "quarterly",
+      "annual"
+    ],
+    "default_interval": "monthly",
+    "common_series": {
+      "GDP": "A191RL1Q225SBEA",
+      "UNEMPLOYMENT": "UNRATE",
+      "CPI": "CPIAUCSL",
+      "T10Y2Y": "T10Y2Y",
+      "TREASURY_YIELD_3M": "DGS3MO",
+      "TREASURY_YIELD_1Y": "DGS1",
+      "TREASURY_YIELD_2Y": "DGS2",
+      "TREASURY_YIELD_5Y": "DGS5",
+      "TREASURY_YIELD_10Y": "DGS10",
+      "TREASURY_YIELD_30Y": "DGS30",
+      "INFLATION_EXPECTATION": "T5YIFR",
+      "MORTGAGE_30Y": "MORTGAGE30US"
+    },
+    "features": {
+      "historical": true,
+      "real_time": false,
+      "batch_query": true,
+      "observations": true
+    },
+    "notes": "美国联邦储备经济数据库。需要API Key（免费注册）。提供各类经济指标，支持批量查询最多10个series。"
+  }
+}

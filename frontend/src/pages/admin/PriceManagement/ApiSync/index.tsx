@@ -67,7 +67,7 @@ interface Asset {
   symbol: string;
   name: string;
   asset_type_id: string;
-  market_id?: string;
+  country_id?: string;
 }
 
 interface SyncTask {
@@ -78,7 +78,7 @@ interface SyncTask {
   data_source_name?: string;
   provider?: string;
   asset_type_id?: string;
-  market_id?: string;
+  country_id?: string;
   asset_ids?: string[];
   schedule_type: 'manual' | 'cron' | 'interval';
   cron_expression?: string;
@@ -111,7 +111,6 @@ const ApiSync: React.FC = () => {
   const [syncTasks, setSyncTasks] = useState<SyncTask[]>([]);
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
-  const [markets, setMarkets] = useState<Market[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(false);
   const [taskModalVisible, setTaskModalVisible] = useState(false);
@@ -128,7 +127,6 @@ const ApiSync: React.FC = () => {
           loadSyncTasks(),
           loadSyncLogs(),
           loadAssetTypes(),
-          loadMarkets(),
           loadAssets(),
         ]);
       }
@@ -224,22 +222,7 @@ const ApiSync: React.FC = () => {
     }
   };
 
-  const loadMarkets = async () => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await axios.get('/api/assets/markets', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (response.data.success) {
-        setMarkets(response.data.data);
-      }
-    } catch (error: any) {
-      console.error('Failed to load markets:', error);
-      message.error('加载市场列表失败: ' + (error.response?.data?.error?.message || error.message));
-    }
-  };
+
 
   const loadAssets = async () => {
     try {
@@ -708,7 +691,7 @@ const ApiSync: React.FC = () => {
             label={
               <span>
                 同步资产范围&nbsp;
-                <Tooltip title="至少选择一项：资产类型、市场或具体资产。如果都不选择，将同步所有活跃资产。">
+                <Tooltip title="至少选择一项：资产类型、国家或具体资产。如果都不选择，将同步所有活跃资产。">
                   <InfoCircleOutlined />
                 </Tooltip>
               </span>
@@ -727,8 +710,8 @@ const ApiSync: React.FC = () => {
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item name="market_id" noStyle>
-                  <Select placeholder="选择市场（可选）" allowClear>
+                <Form.Item name="country_id" noStyle>
+                  <Select placeholder="选择国家/地区（可选）" allowClear>
                     {markets.map(market => (
                       <Option key={market.id} value={market.id}>
                         {market.name} ({market.code})

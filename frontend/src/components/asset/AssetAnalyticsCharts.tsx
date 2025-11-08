@@ -65,7 +65,7 @@ interface Asset {
   symbol: string;
   name: string;
   assetTypeName: string;
-  marketName: string;
+  countryName: string;
   currency: string;
   riskLevel: string;
   liquidityTag: string;

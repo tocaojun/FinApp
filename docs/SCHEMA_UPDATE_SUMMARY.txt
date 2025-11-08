@@ -1,0 +1,62 @@
+# Prisma Schema 更新总结
+
+## 数据库变化
+- 添加了新的 `countries` 表到数据库
+- `assets` 表添加了 `country_id` 外键字段
+- 建立了 `assets` 和 `countries` 表之间的关系
+
+## schema.prisma 更新内容
+
+### 1. 新增 Country 模型
+```prisma
+model Country {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String    @unique @db.VarChar(3)
+  name      String    @db.VarChar(100)
+  currency  String?   @db.VarChar(3)
+  timezone  String?   @db.VarChar(50)
+  isActive  Boolean?  @default(true) @map("is_active")
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  assets    Asset[]
+
+  @@index([isActive], map: "idx_countries_is_active")
+  @@index([code], map: "idx_countries_code")
+  @@map("countries")
+}
+```
+
+### 2. Asset 模型更新
+- 添加 `country_id` 字段 (optional, UUID)
+- 添加与 Country 模型的关系:
+  ```prisma
+  country Country? @relation(fields: [country_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  ```
+- 关系删除行为: `SetNull` - 删除国家时，资产的 country_id 设置为 null
+
+## 字段命名规范
+- 模型名: PascalCase (`Country`)
+- 字段名: camelCase (`isActive`, `createdAt`, `updatedAt`)
+- 数据库列名: snake_case (通过 @map 映射: `"is_active"`, `"created_at"`, `"updated_at"`)
+- 表名: snake_case (通过 @@map 映射: `"countries"`)
+
+## 索引
+为 Country 模型添加了以下索引:
+- `idx_countries_is_active` - 用于过滤活跃的国家
+- `idx_countries_code` - 用于快速查找国家代码
+
+## 操作步骤
+1. 运行 `npx prisma db pull` - 从数据库中提取最新的 schema
+2. 手动优化模型名称和字段映射以遵循最佳实践
+3. 运行 `npx prisma validate` - 验证 schema 有效性
+4. 运行 `npx prisma generate` - 生成 Prisma Client
+
+## 验证
+✅ Schema 验证成功
+✅ Prisma Client 生成成功
+✅ 所有模型关系正确配置
+
+## 后续操作
+- 无需运行迁移 - schema.prisma 只是与现有数据库同步
+- 后端服务代码已正确更新以使用 country 字段
+- 前端已更新以显示国家而不是市场信息

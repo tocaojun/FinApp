@@ -13,8 +13,8 @@ export interface BaseAsset {
   assetTypeId: string;
   assetTypeName?: string;
   assetTypeCode?: string;
-  marketId?: string;
-  marketName?: string;
+  countryId?: string | null;
+  countryName?: string;
   currency: string;
   isin?: string;
   cusip?: string;
@@ -311,7 +311,7 @@ export interface CreateAssetWithDetailsRequest {
   symbol: string;
   name: string;
   assetTypeCode: string;
-  marketId?: string;
+  countryId?: string | null;
   currency: string;
   isin?: string;
   cusip?: string;

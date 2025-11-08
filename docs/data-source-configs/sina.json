@@ -1,0 +1,47 @@
+{
+  "name": "新浪财经",
+  "provider": "sina",
+  "api_endpoint": "http://hq.sinajs.cn/",
+  "is_active": true,
+  "config": {
+    "supports_batch": true,
+    "max_concurrent_requests": 5,
+    "max_symbols_per_request": 10,
+    "supports_products": [
+      "STOCK",
+      "FUND",
+      "FUTURES",
+      "FOREX"
+    ],
+    "supports_countries": [
+      "CN"
+    ],
+    "rate_limit_per_minute": 150,
+    "timeout_seconds": 10,
+    "data_types": [
+      "realtime",
+      "historical"
+    ],
+    "realtime_fields": [
+      "price",
+      "bid",
+      "ask",
+      "volume",
+      "turnover"
+    ],
+    "requires_api_key": false,
+    "symbol_mapping": {
+      "stock_sh": "sh",
+      "stock_sz": "sz",
+      "fund": "xf",
+      "futures_cfe": "CF",
+      "forex": "USDCNY"
+    },
+    "features": {
+      "realtime": true,
+      "batch_query": true,
+      "bid_ask": true
+    },
+    "notes": "提供实时行情数据，支持批量查询。仅提供当天数据，不提供历史K线。"
+  }
+}

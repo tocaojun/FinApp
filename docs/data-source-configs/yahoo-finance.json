@@ -1,0 +1,41 @@
+{
+  "name": "Yahoo Finance",
+  "provider": "yahoo_finance",
+  "api_endpoint": "https://query1.finance.yahoo.com/v8/finance/chart/",
+  "is_active": true,
+  "config": {
+    "supports_batch": false,
+    "max_concurrent_requests": 5,
+    "max_symbols_per_request": 1,
+    "supports_products": [
+      "STOCK",
+      "ETF",
+      "FUND"
+    ],
+    "supports_countries": [
+      "US",
+      "HK",
+      "CN"
+    ],
+    "rate_limit_per_minute": 60,
+    "timeout_seconds": 30,
+    "data_intervals": [
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "60m",
+      "1d",
+      "1wk",
+      "1mo"
+    ],
+    "default_interval": "1d",
+    "requires_api_key": false,
+    "features": {
+      "realtime": true,
+      "historical": true,
+      "dividend_splits": true
+    },
+    "notes": "提供美股、港股、A股基本K线数据。无需API Key，数据实时。"
+  }
+}

@@ -9,7 +9,6 @@ const priceSyncController = new PriceSyncController();
 router.get('/data-sources', priceSyncController.getDataSources);
 router.get('/data-sources/:id', priceSyncController.getDataSource);
 router.get('/data-sources/:id/coverage', priceSyncController.getDataSourceCoverage);
-router.get('/data-sources/:id/markets', priceSyncController.getMarketsByDataSourceAndAssetType);
 router.post('/data-sources', requirePermission('price', 'admin'), priceSyncController.createDataSource);
 router.put('/data-sources/:id', requirePermission('price', 'admin'), priceSyncController.updateDataSource);
 router.delete('/data-sources/:id', requirePermission('price', 'admin'), priceSyncController.deleteDataSource);

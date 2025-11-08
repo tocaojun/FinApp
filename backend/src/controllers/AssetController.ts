@@ -227,7 +227,7 @@ export class AssetController {
       const criteria: AssetSearchCriteria = {
         keyword: req.query.keyword as string,
         assetTypeId: req.query.assetTypeId as string,
-        marketId: req.query.marketId as string,
+        countryId: req.query.countryId as string,
         currency: req.query.currency as string,
         sector: req.query.sector as string,
         riskLevel: req.query.riskLevel as string,
@@ -389,21 +389,7 @@ export class AssetController {
     }
   };
 
-  getMarkets = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const markets = await this.assetService.getMarkets();
-      
-      res.json({
-        success: true,
-        data: markets
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to get markets'
-      });
-    }
-  };
+
 
   getCountries = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -489,7 +475,7 @@ export class AssetController {
       const criteria: AssetSearchCriteria = {
         keyword: req.query.keyword as string,
         assetTypeId: req.query.assetTypeId as string,
-        marketId: req.query.marketId as string,
+        countryId: req.query.countryId as string,
         currency: req.query.currency as string,
         sector: req.query.sector as string,
         riskLevel: req.query.riskLevel as string,
@@ -507,9 +493,9 @@ export class AssetController {
       res.setHeader('Content-Disposition', 'attachment; filename=assets.csv');
       
       // 生成CSV内容
-      const csvHeader = 'Symbol,Name,Asset Type,Market,Currency,Sector,Risk Level,Liquidity Tag,Is Active,Created At\n';
+      const csvHeader = 'Symbol,Name,Asset Type,Country,Currency,Sector,Risk Level,Liquidity Tag,Is Active,Created At\n';
       const csvRows = result.assets.map(asset => 
-        `"${asset.symbol}","${asset.name}","${asset.assetTypeId}","${asset.marketId}","${asset.currency}","${asset.sector || ''}","${asset.riskLevel}","${asset.liquidityTag}","${asset.isActive}","${asset.createdAt}"`
+        `"${asset.symbol}","${asset.name}","${asset.assetTypeId}","${asset.countryId}","${asset.currency}","${asset.sector || ''}","${asset.riskLevel}","${asset.liquidityTag}","${asset.isActive}","${asset.createdAt}"`
       ).join('\n');
       
       res.send(csvHeader + csvRows);
@@ -586,7 +572,7 @@ export class AssetController {
         symbol: asset.symbol,
         name: asset.name,
         assetType: asset.assetTypeId,
-        market: asset.marketId,
+        country: asset.countryId,
         currency: asset.currency
       }));
       

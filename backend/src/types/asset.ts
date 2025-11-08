@@ -3,14 +3,12 @@ export interface Asset {
   symbol: string;
   name: string;
   assetTypeId: string;
-  marketId: string;
+  countryId?: string | null; // 支持 NULL 用于全球资产
   currency: string;
   isin?: string;
   description?: string;
   sector?: string;
   industry?: string;
-  country?: string;
-  exchange?: string;
   isActive: boolean;
   listingDate?: Date;
   delistingDate?: Date;
@@ -74,7 +72,7 @@ export interface AssetPrice {
 export interface AssetSearchCriteria {
   keyword?: string;
   assetTypeId?: string;
-  marketId?: string;
+  countryId?: string;
   currency?: string;
   sector?: string;
   riskLevel?: string;
@@ -90,14 +88,12 @@ export interface AssetCreateRequest {
   symbol: string;
   name: string;
   assetTypeId: string;
-  marketId: string;
+  countryId?: string | null; // 支持 NULL 用于全球资产
   currency: string;
   isin?: string;
   description?: string;
   sector?: string;
   industry?: string;
-  country?: string;
-  exchange?: string;
   listingDate?: string;
   dividendFrequency?: string;
   riskLevel: string;
@@ -144,7 +140,7 @@ export interface AssetStatistics {
   totalAssets: number;
   activeAssets: number;
   assetsByType: Record<string, number>;
-  assetsByMarket: Record<string, number>;
+  assetsByCountry: Record<string, number>;
   assetsByCurrency: Record<string, number>;
   recentlyAdded: number;
   priceUpdateStatus: {

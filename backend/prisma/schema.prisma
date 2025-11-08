@@ -107,7 +107,6 @@ model Asset {
   symbol                                                                String                  @db.VarChar(50)
   name                                                                  String                  @db.VarChar(200)
   assetTypeId                                                           String                  @map("asset_type_id") @db.Uuid
-  marketId                                                              String?                 @map("market_id") @db.Uuid
   currency                                                              String                  @db.VarChar(3)
   isin                                                                  String?                 @db.VarChar(12)
   cusip                                                                 String?                 @db.VarChar(9)
@@ -127,9 +126,10 @@ model Asset {
   created_by                                                            String?                 @db.Uuid
   updated_by                                                            String?                 @db.Uuid
   liquidity_tag                                                         String?                 @db.Uuid
+  country_id                                                            String?                 @map("country_id") @db.Uuid
   assetPrices                                                           AssetPrice[]
   assetType                                                             AssetType               @relation(fields: [assetTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  market                                                                Market?                 @relation(fields: [marketId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  country                                                               Country?                @relation(fields: [country_id], references: [id], onUpdate: NoAction)
   liquidity_tags                                                        LiquidityTag?           @relation(fields: [liquidity_tag], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_assets_liquidity_tag")
   bond_details                                                          bond_details?
   cash_flows                                                            CashFlow[]
@@ -146,18 +146,16 @@ model Asset {
   treasury_details                                                      treasury_details?
   wealth_product_details                                                wealth_product_details?
 
-  @@unique([symbol, marketId])
+  @@unique([country_id, symbol], map: "assets_country_id_symbol_unique")
   @@index([isActive], map: "idx_assets_active")
   @@index([assetTypeId], map: "idx_assets_asset_type")
   @@index([assetTypeId], map: "idx_assets_asset_type_id")
   @@index([createdAt], map: "idx_assets_created_at")
   @@index([currency], map: "idx_assets_currency")
   @@index([isActive], map: "idx_assets_is_active")
-  @@index([marketId], map: "idx_assets_market")
-  @@index([marketId], map: "idx_assets_market_id")
+  @@index([country_id], map: "idx_assets_country_id")
   @@index([sector], map: "idx_assets_sector")
   @@index([symbol], map: "idx_assets_symbol")
-  @@index([symbol, marketId], map: "idx_assets_symbol_market")
   @@map("assets")
 }
 
@@ -242,19 +240,21 @@ model Transaction {
 }
 
 model AssetType {
-  id               String             @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
-  code             String             @unique @db.VarChar(20)
-  name             String             @db.VarChar(100)
-  category         String             @db.VarChar(50)
-  description      String?
-  isActive         Boolean?           @default(true) @map("is_active")
-  createdAt        DateTime?          @default(now()) @map("created_at") @db.Timestamptz(6)
-  assets           Asset[]
-  price_sync_tasks price_sync_tasks[]
+  id                String             @id @default(dbgenerated("public.uuid_generate_v4()")) @db.Uuid
+  code              String             @unique @db.VarChar(20)
+  name              String             @db.VarChar(100)
+  category          String             @db.VarChar(50)
+  description       String?
+  locationDimension String?            @default("market") @map("location_dimension") @db.VarChar(20) // market|country|global
+  isActive          Boolean?           @default(true) @map("is_active")
+  createdAt         DateTime?          @default(now()) @map("created_at") @db.Timestamptz(6)
+  assets            Asset[]
+  price_sync_tasks  price_sync_tasks[]
 
   @@index([category], map: "idx_asset_types_category")
   @@index([code], map: "idx_asset_types_code")
   @@index([isActive], map: "idx_asset_types_is_active")
+  @@index([locationDimension], map: "idx_asset_types_location_dimension")
   @@map("asset_types")
 }
 
@@ -270,7 +270,6 @@ model Market {
   isActive         Boolean?           @default(true) @map("is_active")
   createdAt        DateTime?          @default(now()) @map("created_at") @db.Timestamptz(6)
   updated_at       DateTime?          @default(now()) @db.Timestamptz(6)
-  assets           Asset[]
   price_sync_tasks price_sync_tasks[]
 
   @@index([code], map: "idx_markets_code")
@@ -691,22 +690,22 @@ model tag_categories {
 }
 
 model tags {
-  id             Int              @id @default(autoincrement())
-  name           String           @db.VarChar(100)
-  description    String?
-  color          String?          @default("#1890ff") @db.VarChar(7)
-  icon           String?          @db.VarChar(50)
-  user_id        String           @db.Uuid
-  category_id    Int?
-  is_system      Boolean?         @default(false)
-  is_active      Boolean?         @default(true)
-  usage_count    Int?             @default(0)
-  created_at                 DateTime?                    @default(now()) @db.Timestamp(6)
-  updated_at                 DateTime?                    @default(now()) @db.Timestamp(6)
-  portfolio_tags             portfolio_tags[]
-  transaction_tag_mappings   transaction_tag_mappings[]
-  tag_categories             tag_categories?              @relation(fields: [category_id], references: [id], onUpdate: NoAction)
-  users                      User                         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                       Int                        @id @default(autoincrement())
+  name                     String                     @db.VarChar(100)
+  description              String?
+  color                    String?                    @default("#1890ff") @db.VarChar(7)
+  icon                     String?                    @db.VarChar(50)
+  user_id                  String                     @db.Uuid
+  category_id              Int?
+  is_system                Boolean?                   @default(false)
+  is_active                Boolean?                   @default(true)
+  usage_count              Int?                       @default(0)
+  created_at               DateTime?                  @default(now()) @db.Timestamp(6)
+  updated_at               DateTime?                  @default(now()) @db.Timestamp(6)
+  portfolio_tags           portfolio_tags[]
+  tag_categories           tag_categories?            @relation(fields: [category_id], references: [id], onUpdate: NoAction)
+  users                    User                       @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  transaction_tag_mappings transaction_tag_mappings[]
 
   @@unique([user_id, name])
 }
@@ -723,7 +722,6 @@ model transaction_tag_mappings {
   @@index([transaction_id], map: "idx_transaction_tag_mappings_transaction_id")
   @@index([tag_id], map: "idx_transaction_tag_mappings_tag_id")
 }
-
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -802,7 +800,6 @@ model price_sync_tasks {
   description        String?
   data_source_id     String             @db.Uuid
   asset_type_id      String?            @db.Uuid
-  market_id          String?            @db.Uuid
   asset_ids          String[]           @db.Uuid
   schedule_type      String             @default("manual") @db.VarChar(20)
   cron_expression    String?            @db.VarChar(100)
@@ -821,7 +818,8 @@ model price_sync_tasks {
   price_sync_logs    price_sync_logs[]
   asset_types        AssetType?         @relation(fields: [asset_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   price_data_sources price_data_sources @relation(fields: [data_source_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  markets            Market?            @relation(fields: [market_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  Market             Market?            @relation(fields: [marketId], references: [id])
+  marketId           String?            @db.Uuid
 
   @@index([is_active], map: "idx_price_sync_tasks_active")
   @@index([data_source_id], map: "idx_price_sync_tasks_data_source")
@@ -1032,4 +1030,20 @@ model wealth_product_details {
   @@index([asset_id], map: "idx_wealth_details_asset")
   @@index([risk_level], map: "idx_wealth_details_risk")
   @@index([product_type], map: "idx_wealth_details_type")
+}
+
+model Country {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String    @unique @db.VarChar(3)
+  name      String    @db.VarChar(100)
+  currency  String?   @db.VarChar(3)
+  timezone  String?   @db.VarChar(50)
+  isActive  Boolean?  @default(true) @map("is_active")
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  assets    Asset[]
+
+  @@index([isActive], map: "idx_countries_is_active")
+  @@index([code], map: "idx_countries_code")
+  @@map("countries")
 }

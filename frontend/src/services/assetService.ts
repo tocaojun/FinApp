@@ -8,9 +8,7 @@ export interface Asset {
   assetTypeId: string;
   assetTypeName?: string;
   assetTypeCode?: string;
-  marketId?: string;
-  marketName?: string;
-  countryId?: string;
+  countryId?: string | null;
   countryName?: string;
   currency: string;
   sector?: string;
@@ -39,14 +37,7 @@ export interface AssetType {
   description?: string;
 }
 
-export interface Market {
-  id: string;
-  code: string;
-  name: string;
-  country: string;
-  currency: string;
-  timezone: string;
-}
+// @deprecated 市场维度已移除，改用国家维度
 
 export interface Country {
   id: string;
@@ -75,7 +66,6 @@ export interface AssetPrice {
 export interface AssetSearchParams {
   keyword?: string;
   assetTypeId?: string;
-  marketId?: string;
   countryId?: string;
   currency?: string;
   sector?: string;
@@ -92,8 +82,7 @@ export interface AssetCreateRequest {
   symbol: string;
   name: string;
   assetTypeId: string;
-  marketId?: string; // 可选：交易市场（用于股票、基金等）
-  countryId?: string; // 可选：国家（用于银行理财产品等）
+  countryId?: string | null; // 可选：国家（支持NULL用于全球资产如加密货币）
   currency: string;
   sector?: string;
   industry?: string;
@@ -129,8 +118,14 @@ export interface PriceUpdateRequest extends Partial<Omit<PriceCreateRequest, 'as
 export interface AssetStatistics {
   totalAssets: number;
   activeAssets: number;
+  totalCountries: number;
+  totalTypes: number;
+  sectorsCount: number;
+}
+
+export interface AssetStatisticsDetails {
   assetsByType: Record<string, number>;
-  assetsByMarket: Record<string, number>;
+  assetsByCountry: Record<string, number>;
   assetsByCurrency: Record<string, number>;
   assetsWithPrices: number;
   latestPriceUpdates: number;
@@ -161,12 +156,6 @@ export class AssetService {
   // 获取资产类型列表
   static async getAssetTypes(): Promise<AssetType[]> {
     const response = await apiGet<ApiResponse<AssetType[]>>('/assets/types');
-    return response.data;
-  }
-
-  // 获取市场列表
-  static async getMarkets(): Promise<Market[]> {
-    const response = await apiGet<ApiResponse<Market[]>>('/assets/markets');
     return response.data;
   }
 

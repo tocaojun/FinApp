@@ -1,0 +1,44 @@
+{
+  "name": "东方财富",
+  "provider": "eastmoney",
+  "api_endpoint": "http://push2.eastmoney.com/api/qt/stock/kline/get",
+  "is_active": true,
+  "config": {
+    "supports_batch": false,
+    "max_concurrent_requests": 10,
+    "max_symbols_per_request": 1,
+    "supports_products": [
+      "STOCK",
+      "FUND"
+    ],
+    "supports_countries": [
+      "CN"
+    ],
+    "rate_limit_per_minute": 100,
+    "timeout_seconds": 15,
+    "data_intervals": [
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "60m",
+      "1d",
+      "1wk",
+      "1mo"
+    ],
+    "default_interval": "1d",
+    "requires_api_key": false,
+    "symbol_prefix": {
+      "stock_sh": "sh",
+      "stock_sz": "sz",
+      "fund": ""
+    },
+    "features": {
+      "realtime": true,
+      "historical": true,
+      "level2_quote": true,
+      "fund_data": true
+    },
+    "notes": "提供A股、基金实时数据，数据最为及时。股票需要前缀：上证(sh)、深证(sz)。"
+  }
+}

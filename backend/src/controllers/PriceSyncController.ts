@@ -67,36 +67,6 @@ export class PriceSyncController {
     }
   };
 
-  getMarketsByDataSourceAndAssetType = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const dataSourceId = req.params.id as string;
-      const assetTypeCode = req.query.asset_type as string;
-
-      if (!assetTypeCode) {
-        res.status(400).json({
-          success: false,
-          message: 'asset_type query parameter is required',
-        });
-        return;
-      }
-
-      const markets = await this.priceSyncService.getMarketsByDataSourceAndAssetType(
-        dataSourceId,
-        assetTypeCode
-      );
-
-      res.json({
-        success: true,
-        data: markets,
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to get markets',
-      });
-    }
-  };
-
   createDataSource = async (req: Request, res: Response): Promise<void> => {
     try {
       const dataSource = await this.priceSyncService.createDataSource(req.body);
@@ -207,6 +177,7 @@ export class PriceSyncController {
   updateSyncTask = async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;
+      console.log(`[PriceSyncController] Updating task ${id} with data:`, JSON.stringify(req.body, null, 2));
       const task = await this.priceSyncService.updateSyncTask(id, req.body);
       res.json({
         success: true,
@@ -214,9 +185,12 @@ export class PriceSyncController {
         message: 'Sync task updated successfully',
       });
     } catch (error) {
+      console.error(`[PriceSyncController] Error updating task:`, error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update sync task';
       res.status(500).json({
         success: false,
-        message: error instanceof Error ? error.message : 'Failed to update sync task',
+        message: errorMessage,
+        detail: error instanceof Error ? error.stack : undefined,
       });
     }
   };

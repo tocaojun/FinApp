@@ -735,7 +735,7 @@ const ProductManagement: React.FC = () => {
           <Card>
             <Statistic
               title="交易市场"
-              value={Object.keys(statistics?.assetsByMarket || {}).length}
+              value={Object.keys(statistics?.assetsByCountry || {}).length}
               prefix={<RiseOutlined />}
             />
           </Card>

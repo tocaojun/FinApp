@@ -68,7 +68,7 @@ interface Asset {
   symbol: string;
   name: string;
   asset_type_id: string;
-  country_id?: string;
+  market_id?: string;
 }
 
 interface SyncTask {
@@ -79,7 +79,7 @@ interface SyncTask {
   data_source_name?: string;
   provider?: string;
   asset_type_id?: string;
-  country_id?: string;
+  market_id?: string;
   asset_ids?: string[];
   schedule_type: 'manual' | 'cron' | 'interval';
   cron_expression?: string;
@@ -112,6 +112,7 @@ const DataSync: React.FC = () => {
   const [syncTasks, setSyncTasks] = useState<SyncTask[]>([]);
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
+  const [markets, setMarkets] = useState<Market[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(false);
   const [taskModalVisible, setTaskModalVisible] = useState(false);
@@ -119,6 +120,7 @@ const DataSync: React.FC = () => {
   const [form] = Form.useForm();
   const [dataSourceForm] = Form.useForm();
   const [filteredAssetTypes, setFilteredAssetTypes] = useState<AssetType[]>([]);
+  const [filteredMarkets, setFilteredMarkets] = useState<Market[]>([]);
   const [dataSourceModalVisible, setDataSourceModalVisible] = useState(false);
   const [editingDataSource, setEditingDataSource] = useState<DataSource | null>(null);
 
@@ -138,6 +140,7 @@ const DataSync: React.FC = () => {
             // 第二阶段：加载次要数据（支持数据）
             await Promise.all([
               loadAssetTypes(),
+              loadMarkets(),
             ]);
           }
           
@@ -238,7 +241,37 @@ const DataSync: React.FC = () => {
     }
   };
 
-
+  const loadMarkets = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await axios.get('/api/assets/markets', {
+        timeout: 8000,
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.data && response.data.data) {
+        const marketData = Array.isArray(response.data.data) ? response.data.data : [];
+        setMarkets(marketData);
+      } else if (response.data && response.data.data === undefined) {
+        // 处理直接返回数组的情况（某些API设计）
+        setMarkets(Array.isArray(response.data) ? response.data : []);
+      }
+    } catch (error) {
+      console.error('加载市场数据失败，使用默认值:', error);
+      // 使用默认市场数据作为备选
+      setMarkets([
+        { id: 'd1f012ef-ff87-447e-9061-43b77382c43c', code: 'SSE', name: '上海证券交易所' },
+        { id: '93b2ea2a-17ee-41c5-9603-e82aee44417f', code: 'SZSE', name: '深圳证券交易所' },
+        { id: 'b32e2b9c-e3d4-4e41-b7bb-81e9c35db53c', code: 'HKEX', name: '香港交易所' },
+        { id: 'bf6232a9-40e3-4788-98e8-f18ee0ec2fb6', code: 'NYSE', name: '纽约证券交易所' },
+        { id: 'b9e633ae-50b0-467d-bf96-351b9eab0a0c', code: 'NASDAQ', name: '纳斯达克' },
+        { id: 'b4359415-0cbc-4786-97a9-2ffbf5df7188', code: 'LSE', name: '伦敦证券交易所' },
+        { id: '93e69f74-5df6-47ef-9ac2-639072dcf1cf', code: 'TSE', name: '东京证券交易所' },
+        { id: '06954cbd-28dd-444c-9137-85bf6a15ecf2', code: 'FWB', name: '法兰克福证券交易所' },
+      ]);
+    }
+  };
 
   const loadAssets = async () => {
     try {
@@ -341,8 +374,8 @@ const DataSync: React.FC = () => {
       name: task.name,
       description: task.description,
       data_source_id: task.data_source_id,
-      asset_type_id: task.asset_type_id,
-      country_id: task.country_id,
+      asset_type_id: task.asset_type_id ? (Array.isArray(task.asset_type_id) ? task.asset_type_id : [task.asset_type_id]) : undefined,
+      market_id: task.market_id ? (Array.isArray(task.market_id) ? task.market_id : [task.market_id]) : undefined,
       asset_ids: task.asset_ids,
       schedule_type: task.schedule_type,
       cron_expression: task.cron_expression,
@@ -377,8 +410,6 @@ const DataSync: React.FC = () => {
       if (editingTask) {
         delete dataToSend.asset_ids;
       }
-
-      console.log('[SaveTask] Sending data:', dataToSend);
 
       await priceSyncApiClient({
         method,
@@ -923,7 +954,7 @@ const DataSync: React.FC = () => {
               onChange={(value) => {
                 // 清空之前的选择
                 form.setFieldValue('asset_type_id', undefined);
-                form.setFieldValue('country_id', undefined);
+                form.setFieldValue('market_id', undefined);
                 // 加载该数据源的覆盖范围
                 loadDataSourceCoverage(value);
               }}
@@ -942,19 +973,20 @@ const DataSync: React.FC = () => {
                 tooltip="根据选定的数据源自动过滤可用的资产类型"
               >
                 <Select
+                  mode="multiple"
                   placeholder={
                     form.getFieldValue('data_source_id')
                       ? filteredAssetTypes.length === 0
                       ? '该数据源不支持资产类型选择'
-                      : '可选：选择一个资产类型'
+                      : '可选：选择一个或多个资产类型'
                       : '请先选择数据源'
                   }
                   allowClear
                   disabled={filteredAssetTypes.length === 0 && form.getFieldValue('data_source_id')}
-                  optionLabelProp="label"
+                  maxTagCount="responsive"
                   onChange={(value) => {
                     // 清空国家选择
-                    form.setFieldValue('country_id', undefined);
+                    form.setFieldValue('market_id', undefined);
                   }}
                 >
                   {filteredAssetTypes.map(type => (
@@ -972,15 +1004,16 @@ const DataSync: React.FC = () => {
             <Col span={12}>
               <Form.Item
                 label="国家"
-                name="country_id"
+                name="market_id"
                 tooltip="根据选定的数据源自动过滤可用的国家"
               >
                 <Select
+                  mode="multiple"
                   placeholder={
                     form.getFieldValue('data_source_id')
                       ? filteredMarkets.length === 0
                       ? '该数据源不支持国家选择'
-                      : '可选：选择一个国家'
+                      : '可选：选择一个或多个国家'
                       : '请先选择数据源'
                   }
                   allowClear
@@ -988,7 +1021,7 @@ const DataSync: React.FC = () => {
                     filteredMarkets.length === 0 &&
                     form.getFieldValue('data_source_id')
                   }
-                  optionLabelProp="label"
+                  maxTagCount="responsive"
                 >
                   {filteredMarkets.map(market => (
                     <Option 

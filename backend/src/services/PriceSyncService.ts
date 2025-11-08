@@ -19,7 +19,7 @@ interface SyncTask {
   name: string;
   data_source_id: string;
   asset_type_id?: string;
-  market_id?: string;
+  country_id?: string;
   asset_ids?: string[];
   schedule_type: 'manual' | 'cron' | 'interval';
   cron_expression?: string;
@@ -80,31 +80,231 @@ export class PriceSyncService {
     name: string;
     provider: string;
     productTypes: Array<{
+      id: string;
       code: string;
       name: string;
     }>;
-    marketsByProduct: Record<string, Array<{
+    countriesByProduct: Record<string, Array<{
+      id: string;
       code: string;
       name: string;
     }>>;
   }> {
+    console.log(`[Coverage] Getting coverage for data source: ${dataSourceId}`);
+    
     // 获取数据源基本信息和配置
     const dataSource = await this.getDataSource(dataSourceId);
     if (!dataSource) {
+      console.error(`[Coverage] Data source not found: ${dataSourceId}`);
       throw new Error('Data source not found');
     }
+
+    console.log(`[Coverage] Found data source:`, { name: dataSource.name, config: dataSource.config });
 
     // 解析配置中的支持产品类型
     const productTypes = Array.isArray(dataSource.config?.supports_products)
       ? dataSource.config.supports_products
       : [];
 
-    // 获取支持的市场信息
+    // 获取支持的国家信息（优先使用 supports_countries，如果没有则尝试 supports_markets）
+    let countryCodes = Array.isArray(dataSource.config?.supports_countries)
+      ? dataSource.config.supports_countries
+      : [];
+    
+    console.log(`[Coverage] Parsed config:`, { productTypes, countryCodes });
+
+    // 如果没有配置国家，尝试从市场配置转换
+    if (countryCodes.length === 0) {
+      const marketCodes = Array.isArray(dataSource.config?.supports_markets)
+        ? dataSource.config.supports_markets
+        : [];
+      // 可以在这里添加市场到国家的映射逻辑
+    }
+
+    // 查询国家的详细信息
+    let countries: Array<{ id: string; code: string; name: string }> = [];
+    if (countryCodes.length > 0) {
+      try {
+        const countryResults = await this.db.prisma.$queryRawUnsafe(`
+          SELECT id, code, name
+          FROM finapp.countries
+          WHERE code = ANY($1::text[])
+          ORDER BY code
+        `, countryCodes) as Array<{ id: string; code: string; name: string }>;
+        countries = countryResults;
+      } catch (error) {
+        console.error('Failed to query countries:', error);
+        // 如果查询失败，返回国家代码作为名称
+        countries = countryCodes.map((code, idx) => ({ 
+          id: `tmp-country-${idx}`, 
+          code, 
+          name: code 
+        }));
+      }
+    }
+
+    // 获取产品类型的详细信息
+    let productTypeDetails: Array<{ id: string; code: string; name: string }> = [];
+    if (productTypes.length > 0) {
+      try {
+        const typeResults = await this.db.prisma.$queryRawUnsafe(`
+          SELECT id, code, name
+          FROM finapp.asset_types
+          WHERE code = ANY($1::text[])
+          ORDER BY code
+        `, productTypes) as Array<{ id: string; code: string; name: string }>;
+        productTypeDetails = typeResults;
+      } catch (error) {
+        console.error('Failed to query asset types:', error);
+        // 如果查询失败，返回代码作为名称（生成临时ID）
+        productTypeDetails = productTypes.map((code, idx) => ({ id: `tmp-type-${idx}`, code, name: code }));
+      }
+    }
+
+    // 构建 countriesByProduct 映射
+    // 当前实现中，每个产品类型都支持该数据源支持的所有国家
+    // 可以通过扩展配置来支持更细粒度的控制
+    const countriesByProduct: Record<string, Array<{ id: string; code: string; name: string }>> = {};
+    
+    if (productTypes.length > 0) {
+      productTypes.forEach(productCode => {
+        countriesByProduct[productCode] = countries;
+      });
+
+      // 如果配置中有更细粒度的产品-国家映射，则使用它
+      if (dataSource.config?.product_country_mapping) {
+        const mapping = dataSource.config.product_country_mapping;
+        Object.entries(mapping).forEach(([productCode, countryCodes]: [string, any]) => {
+          if (Array.isArray(countryCodes)) {
+            countriesByProduct[productCode] = countries.filter(c =>
+              (countryCodes as string[]).includes(c.code)
+            );
+          }
+        });
+      }
+    } else {
+      // 如果没有产品类型，仍然需要返回国家列表供前端使用
+      // 使用空的 productTypes，但在 countriesByProduct 中存储所有国家
+      // 前端会自动处理这种情况
+      if (countries.length > 0) {
+        countriesByProduct['_all'] = countries;
+      }
+    }
+
+    console.log(`[Coverage] DataSource: ${dataSource.name}, ProductTypes: ${productTypes.join(',') || 'none'}, Countries: ${countries.map(c => c.code).join(',')}`);
+
+    return {
+      id: dataSource.id,
+      name: dataSource.name,
+      provider: dataSource.provider,
+      productTypes: productTypeDetails,
+      countriesByProduct,
+    };
+  }
+
+  /**
+   * 获取指定数据源和产品类型组合支持的市场
+   * 用于级联过滤中的第三级过滤
+   * @deprecated 市场维度已移除，改用国家维度。使用 getCountriesByDataSourceAndAssetType 替代
+   */
+  async getMarketsByDataSourceAndAssetType(
+    dataSourceId: string,
+    assetTypeCode: string
+  ): Promise<Array<{ id: string; code: string; name: string }>> {
+    console.warn('getMarketsByDataSourceAndAssetType is deprecated. Use getCountriesByDataSourceAndAssetType instead.');
+    return [];
+  }
+
+  /**
+   * 获取指定数据源和产品类型组合支持的国家
+   * 用于国家维度的资产（国债、理财、基金等）
+   */
+  async getCountriesByDataSourceAndAssetType(
+    dataSourceId: string,
+    assetTypeCode: string
+  ): Promise<Array<{ id: string; code: string; name: string }>> {
+    // 获取数据源基本信息和配置
+    const dataSource = await this.getDataSource(dataSourceId);
+    if (!dataSource) {
+      throw new Error('Data source not found');
+    }
+
+    // 获取支持的国家列表
+    const countryCodes = Array.isArray(dataSource.config?.supports_countries)
+      ? dataSource.config.supports_countries
+      : [];
+
+    if (countryCodes.length === 0) {
+      return [];
+    }
+
+    // 查询国家的详细信息
+    try {
+      const results = await this.db.prisma.$queryRaw`
+        SELECT id, code, name
+        FROM finapp.countries
+        WHERE code = ANY(${countryCodes}::text[])
+        ORDER BY code
+      ` as Array<{ id: string; code: string; name: string }>;
+      return results;
+    } catch (error) {
+      console.error('Failed to query countries:', error);
+      return countryCodes.map((code, idx) => ({
+        id: `${assetTypeCode}-country-${idx}`,
+        code,
+        name: code,
+      }));
+    }
+  }
+
+  /**
+   * 获取资产类型的位置维度信息
+   * 判断该资产类型是绑定市场、国家还是全球
+   */
+  async getAssetTypeLocationDimension(assetTypeCode: string): Promise<'market' | 'country' | 'global'> {
+    try {
+      const result = await this.db.prisma.$queryRaw`
+        SELECT location_dimension
+        FROM finapp.asset_types
+        WHERE code = ${assetTypeCode}
+      ` as Array<{ location_dimension: string }>;
+      
+      if (result && result.length > 0) {
+        return (result[0].location_dimension || 'market') as 'market' | 'country' | 'global';
+      }
+      return 'market'; // 默认为市场维度
+    } catch (error) {
+      console.error('Failed to query asset type location dimension:', error);
+      return 'market';
+    }
+  }
+
+  /**
+   * 获取数据源的完整覆盖范围信息（支持市场和国家维度）
+   */
+  async getDataSourceFullCoverage(dataSourceId: string): Promise<{
+    id: string;
+    name: string;
+    provider: string;
+    supportedMarkets: Array<{ code: string; name: string }>;
+    supportedCountries: Array<{ code: string; name: string }>;
+    productTypesCoverage: Array<{
+      code: string;
+      name: string;
+      locationDimension: string;
+      coverage: Array<{ code: string; name: string }>;
+    }>;
+  }> {
+    const dataSource = await this.getDataSource(dataSourceId);
+    if (!dataSource) {
+      throw new Error('Data source not found');
+    }
+
+    // 获取市场列表
     const marketCodes = Array.isArray(dataSource.config?.supports_markets)
       ? dataSource.config.supports_markets
       : [];
-
-    // 查询市场的详细信息
+    
     let markets: Array<{ code: string; name: string }> = [];
     if (marketCodes.length > 0) {
       try {
@@ -117,93 +317,89 @@ export class PriceSyncService {
         markets = marketResults;
       } catch (error) {
         console.error('Failed to query markets:', error);
-        // 如果查询失败，返回市场代码作为名称
         markets = marketCodes.map(code => ({ code, name: code }));
       }
     }
 
-    // 获取产品类型的详细信息
-    let productTypeDetails: Array<{ code: string; name: string }> = [];
-    if (productTypes.length > 0) {
+    // 获取国家列表
+    const countryCodes = Array.isArray(dataSource.config?.supports_countries)
+      ? dataSource.config.supports_countries
+      : [];
+    
+    let countries: Array<{ code: string; name: string }> = [];
+    if (countryCodes.length > 0) {
       try {
-        const typeResults = await this.db.prisma.$queryRaw`
-          SELECT id, code, name
-          FROM finapp.asset_types
-          WHERE code = ANY(${productTypes}::text[])
+        const countryResults = await this.db.prisma.$queryRaw`
+          SELECT code, name
+          FROM finapp.countries
+          WHERE code = ANY(${countryCodes}::text[])
           ORDER BY code
         ` as Array<{ code: string; name: string }>;
-        productTypeDetails = typeResults;
+        countries = countryResults;
       } catch (error) {
-        console.error('Failed to query asset types:', error);
-        // 如果查询失败，返回代码作为名称
-        productTypeDetails = productTypes.map(code => ({ code, name: code }));
+        console.error('Failed to query countries:', error);
+        countries = countryCodes.map(code => ({ code, name: code }));
       }
     }
 
-    // 构建 marketsByProduct 映射
-    // 当前实现中，每个产品类型都支持该数据源支持的所有市场
-    // 可以通过扩展配置来支持更细粒度的控制
-    const marketsByProduct: Record<string, Array<{ code: string; name: string }>> = {};
-    productTypes.forEach(productCode => {
-      marketsByProduct[productCode] = markets;
-    });
+    // 获取产品类型及其覆盖范围
+    const productTypes = Array.isArray(dataSource.config?.supports_products)
+      ? dataSource.config.supports_products
+      : [];
+    
+    const productTypesCoverage: Array<{
+      code: string;
+      name: string;
+      locationDimension: string;
+      coverage: Array<{ code: string; name: string }>;
+    }> = [];
 
-    // 如果配置中有更细粒度的产品-市场映射，则使用它
-    if (dataSource.config?.product_market_mapping) {
-      const mapping = dataSource.config.product_market_mapping;
-      Object.entries(mapping).forEach(([productCode, marketCodes]: [string, any]) => {
-        if (Array.isArray(marketCodes)) {
-          marketsByProduct[productCode] = markets.filter(m =>
-            (marketCodes as string[]).includes(m.code)
-          );
+    if (productTypes.length > 0) {
+      try {
+        const typeResults = await this.db.prisma.$queryRaw`
+          SELECT code, name, location_dimension
+          FROM finapp.asset_types
+          WHERE code = ANY(${productTypes}::text[])
+          ORDER BY code
+        ` as Array<{ code: string; name: string; location_dimension: string }>;
+
+        for (const type of typeResults) {
+          let coverage: Array<{ code: string; name: string }> = [];
+          if (type.location_dimension === 'market') {
+            coverage = markets;
+          } else if (type.location_dimension === 'country') {
+            coverage = countries;
+          }
+          // 如果是 global，coverage 保持为空数组
+
+          productTypesCoverage.push({
+            code: type.code,
+            name: type.name,
+            locationDimension: type.location_dimension,
+            coverage,
+          });
         }
-      });
+      } catch (error) {
+        console.error('Failed to query asset types:', error);
+        productTypes.forEach((code, idx) => {
+          productTypesCoverage.push({
+            code,
+            name: code,
+            locationDimension: 'market',
+            coverage: markets,
+          });
+        });
+      }
     }
 
     return {
       id: dataSource.id,
       name: dataSource.name,
       provider: dataSource.provider,
-      productTypes: productTypeDetails,
-      marketsByProduct,
+      supportedMarkets: markets,
+      supportedCountries: countries,
+      productTypesCoverage,
     };
-  }
-
-  /**
-   * 获取指定数据源和产品类型组合支持的市场
-   * 用于级联过滤中的第三级过滤
-   */
-  async getMarketsByDataSourceAndAssetType(
-    dataSourceId: string,
-    assetTypeCode: string
-  ): Promise<Array<{ id: string; code: string; name: string }>> {
-    // 获取数据源覆盖范围
-    const coverage = await this.getDataSourceCoverage(dataSourceId);
-
-    // 获取该产品类型对应的市场
-    const marketCodes = coverage.marketsByProduct[assetTypeCode] || [];
-
-    // 补充完整的市场信息（包括 id）
-    if (marketCodes.length > 0) {
-      try {
-        const results = await this.db.prisma.$queryRaw`
-          SELECT id, code, name
-          FROM finapp.markets
-          WHERE code = ANY(${marketCodes.map(m => m.code)}::text[])
-          ORDER BY code
-        ` as Array<{ id: string; code: string; name: string }>;
-        return results;
-      } catch (error) {
-        console.error('Failed to query markets:', error);
-        return marketCodes.map((m, idx) => ({
-          id: `${assetTypeCode}-${idx}`,
-          code: m.code,
-          name: m.name,
-        }));
-      }
-    }
-
-    return [];
   }
 
   async createDataSource(data: any): Promise<DataSource> {
@@ -294,12 +490,16 @@ export class PriceSyncService {
   }
 
   async createSyncTask(data: any): Promise<SyncTask> {
-    // 处理asset_ids数组
-    const assetIdsArray = data.asset_ids && Array.isArray(data.asset_ids) && data.asset_ids.length > 0
-      ? `ARRAY[${data.asset_ids.map((id: string) => `'${id}'::uuid`).join(',')}]`
-      : 'NULL';
+    // 处理 asset_ids 数组：过滤并验证
+    let assetIds: string[] | null = null;
+    if (data.asset_ids && Array.isArray(data.asset_ids) && data.asset_ids.length > 0) {
+      const validIds = data.asset_ids.filter((id: string) => id && id.trim());
+      if (validIds.length > 0) {
+        assetIds = validIds.map(id => id.trim());
+      }
+    }
 
-    // 处理 asset_type_id：如果是代码（字符串且不是UUID格式），则查询获取UUID
+    // 处理 asset_type_id：确保是单个UUID值
     let assetTypeId = data.asset_type_id || null;
     if (assetTypeId && typeof assetTypeId === 'string' && !assetTypeId.includes('-')) {
       // 这是一个资产类型代码，需要转换为UUID
@@ -309,25 +509,36 @@ export class PriceSyncService {
       assetTypeId = typeResult && typeResult.length > 0 ? typeResult[0].id : null;
     }
 
-    // 处理 market_id：如果是代码（字符串且不是UUID格式），则查询获取UUID
-    let marketId = data.market_id || null;
-    if (marketId && typeof marketId === 'string' && !marketId.includes('-')) {
-      // 这是一个市场代码，需要转换为UUID
-      const marketResult = await this.db.prisma.$queryRaw`
-        SELECT id FROM finapp.markets WHERE code = ${marketId}
-      ` as any[];
-      marketId = marketResult && marketResult.length > 0 ? marketResult[0].id : null;
+    // 处理 country_id：确保是单个UUID值
+    let countryId = data.country_id || null;
+    if (countryId && typeof countryId === 'string') {
+      if (!countryId.includes('-')) {
+        // 这是一个国家代码，需要转换为UUID
+        const countryResult = await this.db.prisma.$queryRaw`
+          SELECT id FROM finapp.countries WHERE code = ${countryId}
+        ` as any[];
+        countryId = countryResult && countryResult.length > 0 ? countryResult[0].id : null;
+      } else {
+        // 这是一个UUID格式，验证它是否存在于countries表中
+        const countryCheck = await this.db.prisma.$queryRaw`
+          SELECT id FROM finapp.countries WHERE id = ${countryId}::uuid
+        ` as any[];
+        if (!countryCheck || countryCheck.length === 0) {
+          console.warn(`[CreateSyncTask] Country UUID not found: ${countryId}`);
+          countryId = null;
+        }
+      }
     }
 
     const result = await this.db.prisma.$queryRawUnsafe(`
       INSERT INTO finapp.price_sync_tasks (
-        name, description, data_source_id, asset_type_id, market_id, 
+        name, description, data_source_id, asset_type_id, country_id, 
         asset_ids, schedule_type, cron_expression, interval_minutes,
         sync_days_back, overwrite_existing, is_active
       ) VALUES (
         $1, $2, $3::uuid, $4::uuid, $5::uuid,
-        ${assetIdsArray}, $6, $7, $8,
-        $9, $10, $11
+        $6::uuid[], $7, $8, $9,
+        $10, $11, $12
       )
       RETURNING *
     `,
@@ -335,7 +546,8 @@ export class PriceSyncService {
       data.description || null,
       data.data_source_id,
       assetTypeId,
-      marketId,
+      countryId,
+      assetIds,
       data.schedule_type || 'manual',
       data.cron_expression || null,
       data.interval_minutes || null,
@@ -354,6 +566,65 @@ export class PriceSyncService {
   }
 
   async updateSyncTask(id: string, data: any): Promise<SyncTask> {
+    console.log(`[UpdateSyncTask] Input data:`, {
+      asset_type_id: data.asset_type_id,
+      country_id: data.country_id,
+    });
+
+    // 处理 asset_type_id：确保是单个UUID值
+    let assetTypeId: any = data.asset_type_id;
+    if (assetTypeId && typeof assetTypeId === 'string' && !assetTypeId.includes('-')) {
+      // 这是一个资产类型代码，需要转换为UUID
+      const typeResult = await this.db.prisma.$queryRaw`
+        SELECT id FROM finapp.asset_types WHERE code = ${assetTypeId}
+      ` as any[];
+      assetTypeId = typeResult && typeResult.length > 0 ? typeResult[0].id : null;
+    }
+
+    // 处理 country_id：确保是单个UUID值
+    let countryId: any = data.country_id;
+    if (countryId && typeof countryId === 'string') {
+      if (!countryId.includes('-')) {
+        // 这是一个国家代码，需要转换为UUID
+        const countryResult = await this.db.prisma.$queryRaw`
+          SELECT id FROM finapp.countries WHERE code = ${countryId}
+        ` as any[];
+        countryId = countryResult && countryResult.length > 0 ? countryResult[0].id : null;
+      } else {
+        // 这是一个UUID格式，验证它是否存在于countries表中
+        const countryCheck = await this.db.prisma.$queryRaw`
+          SELECT id FROM finapp.countries WHERE id = ${countryId}::uuid
+        ` as any[];
+        if (!countryCheck || countryCheck.length === 0) {
+          console.warn(`[UpdateSyncTask] Country UUID not found: ${countryId}`);
+          countryId = null;
+        }
+      }
+    }
+
+    console.log(`[UpdateSyncTask] Processed IDs:`, {
+      assetTypeId,
+      countryId,
+    });
+
+    // 处理 asset_ids 数组
+    let assetIds: any = null;
+    if (data.asset_ids && Array.isArray(data.asset_ids) && data.asset_ids.length > 0) {
+      const validIds = data.asset_ids.filter((id: string) => id && String(id).trim());
+      if (validIds.length > 0) {
+        assetIds = validIds.map(id => String(id).trim());
+      }
+    }
+
+    console.log(`[UpdateSyncTask] Processing update for task ${id}:`, {
+      name: data.name,
+      data_source_id: data.data_source_id,
+      asset_type_id: assetTypeId,
+      country_id: countryId,
+      asset_ids: assetIds,
+    });
+
+    // 构建动态更新语句，只包含提供的字段
     const updates: string[] = [];
     const values: any[] = [];
     let paramIndex = 1;
@@ -370,35 +641,23 @@ export class PriceSyncService {
       updates.push(`data_source_id = $${paramIndex++}::uuid`);
       values.push(data.data_source_id);
     }
-    if (data.asset_type_id !== undefined) {
-      // 处理 asset_type_id：如果是代码（字符串且不是UUID格式），则查询获取UUID
-      let assetTypeId = data.asset_type_id;
-      if (assetTypeId && typeof assetTypeId === 'string' && !assetTypeId.includes('-')) {
-        // 这是一个资产类型代码，需要转换为UUID
-        const typeResult = await this.db.prisma.$queryRaw`
-          SELECT id FROM finapp.asset_types WHERE code = ${assetTypeId}
-        ` as any[];
-        assetTypeId = typeResult && typeResult.length > 0 ? typeResult[0].id : null;
-      }
+    if (assetTypeId !== undefined) {
       updates.push(`asset_type_id = $${paramIndex++}::uuid`);
       values.push(assetTypeId);
     }
-    if (data.market_id !== undefined) {
-      // 处理 market_id：如果是代码（字符串且不是UUID格式），则查询获取UUID
-      let marketId = data.market_id;
-      if (marketId && typeof marketId === 'string' && !marketId.includes('-')) {
-        // 这是一个市场代码，需要转换为UUID
-        const marketResult = await this.db.prisma.$queryRaw`
-          SELECT id FROM finapp.markets WHERE code = ${marketId}
-        ` as any[];
-        marketId = marketResult && marketResult.length > 0 ? marketResult[0].id : null;
+    if (countryId !== undefined) {
+      // 只有当countryId是有效的UUID或null时才更新
+      if (countryId === null || (typeof countryId === 'string' && countryId.includes('-'))) {
+        updates.push(`country_id = $${paramIndex++}::uuid`);
+        values.push(countryId);
+      } else if (countryId) {
+        console.warn(`[UpdateSyncTask] Skipping invalid country_id: ${countryId}`);
       }
-      updates.push(`market_id = $${paramIndex++}::uuid`);
-      values.push(marketId);
     }
-    if (data.asset_ids !== undefined) {
-      if (Array.isArray(data.asset_ids) && data.asset_ids.length > 0) {
-        updates.push(`asset_ids = ARRAY[${data.asset_ids.map((id: string) => `'${id}'::uuid`).join(',')}]`);
+    if (assetIds !== undefined) {
+      if (assetIds && assetIds.length > 0) {
+        updates.push(`asset_ids = $${paramIndex++}::uuid[]`);
+        values.push(assetIds);
       } else {
         updates.push(`asset_ids = NULL`);
       }
@@ -428,11 +687,16 @@ export class PriceSyncService {
       values.push(data.is_active);
     }
 
+    if (updates.length === 0) {
+      // 没有要更新的字段，直接返回现有任务
+      return this.getSyncTask(id);
+    }
+
     values.push(id);
     const result = await this.db.prisma.$queryRawUnsafe(`
       UPDATE finapp.price_sync_tasks 
       SET ${updates.join(', ')}
-      WHERE id = $${paramIndex}::uuid
+      WHERE id = $${paramIndex++}::uuid
       RETURNING *
     `, ...values) as SyncTask[];
 
@@ -677,8 +941,8 @@ export class PriceSyncService {
     if (task.asset_type_id) {
       whereConditions.push(`asset_type_id = '${task.asset_type_id}'`);
     }
-    if (task.market_id) {
-      whereConditions.push(`market_id = '${task.market_id}'`);
+    if (task.country_id) {
+      whereConditions.push(`country_id = '${task.country_id}'`);
     }
     if (task.asset_ids && task.asset_ids.length > 0) {
       const ids = task.asset_ids.map(id => `'${id}'`).join(',');
@@ -690,7 +954,7 @@ export class PriceSyncService {
       : '';
 
     const assets = await this.db.prisma.$queryRawUnsafe(`
-      SELECT id, symbol, name, asset_type_id, market_id, currency
+      SELECT id, symbol, name, asset_type_id, country_id, currency
       FROM finapp.assets
       ${whereClause}
       ORDER BY symbol
@@ -728,22 +992,24 @@ export class PriceSyncService {
     const period1 = Math.floor(startDate.getTime() / 1000);
     const period2 = Math.floor(endDate.getTime() / 1000);
 
-    // 根据市场添加后缀
+    // 根据国家维度确定 Yahoo Finance 的后缀
     let yahooSymbol = asset.symbol;
     
-    // 获取市场信息
-    if (asset.market_id) {
-      const marketResult = await this.db.prisma.$queryRaw`
-        SELECT code FROM finapp.markets WHERE id = ${asset.market_id}::uuid
+    // 获取国家信息
+    if (asset.country_id) {
+      const countryResult = await this.db.prisma.$queryRaw`
+        SELECT code FROM finapp.countries WHERE id = ${asset.country_id}::uuid
       ` as any[];
       
-      if (marketResult.length > 0) {
-        const marketCode = marketResult[0].code;
+      if (countryResult.length > 0) {
+        const countryCode = countryResult[0].code;
         
-        // 根据市场代码添加后缀
-        switch (marketCode) {
-          case 'HKEX':
-            // 港股：处理前导零
+        // 根据国家代码添加 Yahoo Finance 后缀
+        // 注意：同一个国家可能有多个交易所，这里使用国家代码作为基础
+        // 具体的交易所应该由资产的 symbol 中的前缀或后缀指示
+        switch (countryCode) {
+          case 'HK':
+            // 香港：处理前导零
             // 规则：如果是5位数字且以0开头，去掉第一个0
             // 00700 -> 0700, 03690 -> 3690, 09618 -> 9618
             let hkSymbol = asset.symbol;
@@ -752,22 +1018,30 @@ export class PriceSyncService {
             }
             yahooSymbol = `${hkSymbol}.HK`;
             break;
-          case 'SSE':
-            yahooSymbol = `${asset.symbol}.SS`;
+          case 'CN':
+            // 中国：需要根据具体交易所判断
+            // 通常 symbol 格式为 \"600000\" (上交所) 或 \"000001\" (深交所)
+            if (asset.symbol.startsWith('6')) {
+              yahooSymbol = `${asset.symbol}.SS`; // 上海交易所
+            } else if (asset.symbol.startsWith('0') || asset.symbol.startsWith('3')) {
+              yahooSymbol = `${asset.symbol}.SZ`; // 深圳交易所
+            } else {
+              yahooSymbol = asset.symbol;
+            }
             break;
-          case 'SZSE':
-            yahooSymbol = `${asset.symbol}.SZ`;
+          case 'JP':
+            yahooSymbol = `${asset.symbol}.T`; // 东京交易所
             break;
-          case 'TSE':
-            yahooSymbol = `${asset.symbol}.T`;
+          case 'GB':
+            yahooSymbol = `${asset.symbol}.L`; // 伦敦交易所
             break;
-          case 'LSE':
-            yahooSymbol = `${asset.symbol}.L`;
+          case 'DE':
+            yahooSymbol = `${asset.symbol}.F`; // 法兰克福交易所
             break;
-          case 'FWB':
-            yahooSymbol = `${asset.symbol}.F`;
+          case 'US':
+            // 美国：NYSE 和 NASDAQ 通常不需要后缀
+            yahooSymbol = asset.symbol;
             break;
-          // NYSE 和 NASDAQ 通常不需要后缀
           default:
             yahooSymbol = asset.symbol;
         }
