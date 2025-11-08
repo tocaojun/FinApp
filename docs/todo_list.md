@@ -441,12 +441,13 @@ GET    /api/assets/:id/prices/export
   - assets 表 (资产基础信息存储)
   - asset_prices 表 (价格历史数据存储)
   - 完整的约束和索引优化
-- 前端资产管理界面 (AssetManagement.tsx)
+- 前端产品管理界面 (ProductManagement.tsx)
   - 资产列表和搜索功能
   - 资产添加和编辑表单
   - 价格管理和历史查看
   - 统计面板和数据可视化
   - 批量导入导出界面
+  - *备注: 原 AssetManagement.tsx 已废弃并删除*
 - 系统集成完成
   - 认证和权限控制
   - API 路由配置
@@ -701,7 +702,7 @@ DELETE /api/reports/:id
 - JWT 认证状态管理
 - 响应式布局组件
 - 登录模态框组件 (LoginModal.tsx)
-- 资产管理页面 (AssetManagement.tsx)
+- 产品管理页面 (ProductManagement.tsx)
 - 交易管理页面 (TransactionManagement.tsx)
 - 完整的 TypeScript 类型定义
 - 开发环境热更新配置

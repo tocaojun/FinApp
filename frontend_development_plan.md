@@ -161,8 +161,9 @@
   - index.ts ✅
 ```
 
-#### Day 3-4: 资产管理界面优化 (AssetManagement.tsx) ✅ **已完成**
+#### Day 3-4: 资产管理界面优化 (ProductManagement.tsx) ✅ **已完成**
 **目标**: 完善资产管理功能
+**说明**: 原 AssetManagement.tsx 已废弃，功能已迁移到 ProductManagement.tsx
 
 **功能清单**:
 - [x] 资产搜索优化 (自动完成、搜索建议) ✅

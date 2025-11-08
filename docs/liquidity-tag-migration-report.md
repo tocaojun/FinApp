@@ -48,12 +48,7 @@ liquidity_tag  | count
 已完成以下文件的修改（在之前的任务中）：
 
 #### 修改的文件：
-1. **`frontend/src/pages/AssetManagement.tsx`**
-   - 筛选区域下拉框：使用数据库标签
-   - 表格显示：使用 `tag.color` 和 `tag.name`
-   - 详情显示：显示标签名称
-
-2. **`frontend/src/pages/admin/ProductManagement.tsx`**
+1. **`frontend/src/pages/admin/ProductManagement.tsx`** (原 AssetManagement.tsx 已废弃)
    - 表格显示：使用数据库标签
    - 详情显示：显示标签名称
    - 编辑表单：使用数据库标签（UUID 作为 value）
