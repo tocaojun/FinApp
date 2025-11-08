@@ -119,6 +119,7 @@ const DataSync: React.FC = () => {
   const [form] = Form.useForm();
   const [dataSourceForm] = Form.useForm();
   const [filteredAssetTypes, setFilteredAssetTypes] = useState<AssetType[]>([]);
+  const [filteredMarkets, setFilteredMarkets] = useState<Market[]>([]);
   const [dataSourceModalVisible, setDataSourceModalVisible] = useState(false);
   const [editingDataSource, setEditingDataSource] = useState<DataSource | null>(null);
 
@@ -128,25 +129,47 @@ const DataSync: React.FC = () => {
     const loadData = async () => {
       if (isMounted) {
         try {
-          // 第一阶段：加载关键数据（数据源和任务）
+          // 第一阶段：加载关键数据（数据源和任务）- 必须成功
           await Promise.all([
             loadDataSources(),
             loadSyncTasks(),
           ]);
           
+          // 第二阶段：加载次要数据（支持数据）- 超时不阻塞
           if (isMounted) {
-            // 第二阶段：加载次要数据（支持数据）
-            await Promise.all([
+            Promise.race([
               loadAssetTypes(),
-            ]);
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+            ]).catch(error => {
+              console.warn('加载资产类型超时，使用默认值:', error);
+              // 使用默认值
+              setAssetTypes([
+                { id: '1', code: 'STOCK', name: '股票' },
+                { id: '2', code: 'BOND', name: '债券' },
+                { id: '3', code: 'FUND', name: '基金' },
+                { id: '4', code: 'ETF', name: 'ETF' },
+              ]);
+            });
           }
           
+          // 第三阶段：加载日志和资产（通常最耗时）- 异步非阻塞
           if (isMounted) {
-            // 第三阶段：加载日志和资产（通常最耗时）
-            await Promise.all([
+            // 这些调用不会阻塞页面显示
+            Promise.race([
               loadSyncLogs(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+            ]).catch(error => {
+              console.warn('加载同步日志超时:', error);
+              setSyncLogs([]);
+            });
+            
+            Promise.race([
               loadAssets(),
-            ]);
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+            ]).catch(error => {
+              console.warn('加载资产列表超时:', error);
+              setAssets([]);
+            });
           }
         } catch (error) {
           console.error('数据加载过程中出错:', error);
@@ -163,7 +186,15 @@ const DataSync: React.FC = () => {
 
   const loadDataSources = async () => {
     try {
-      const response = await priceSyncApiClient.get('/data-sources');
+      // 设置5秒超时
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await priceSyncApiClient.get('/data-sources', {
+        signal: controller.signal as any
+      });
+      clearTimeout(timeoutId);
+      
       if (response.data && response.data.data) {
         const sourceData = Array.isArray(response.data.data) ? response.data.data : [];
         setDataSources(sourceData);
@@ -183,7 +214,15 @@ const DataSync: React.FC = () => {
 
   const loadSyncTasks = async () => {
     try {
-      const response = await priceSyncApiClient.get('/tasks');
+      // 设置5秒超时
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await priceSyncApiClient.get('/tasks', {
+        signal: controller.signal as any
+      });
+      clearTimeout(timeoutId);
+      
       if (response.data && response.data.data) {
         const taskData = Array.isArray(response.data.data) ? response.data.data : [];
         setSyncTasks(taskData);
@@ -198,7 +237,15 @@ const DataSync: React.FC = () => {
 
   const loadSyncLogs = async () => {
     try {
-      const response = await priceSyncApiClient.get('/logs?limit=20');
+      // 设置5秒超时
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await priceSyncApiClient.get('/logs?limit=20', {
+        signal: controller.signal as any
+      });
+      clearTimeout(timeoutId);
+      
       if (response.data && response.data.data) {
         const logData = Array.isArray(response.data.data) ? response.data.data : [];
         setSyncLogs(logData);
@@ -243,7 +290,8 @@ const DataSync: React.FC = () => {
   const loadAssets = async () => {
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await axios.get('/api/assets', {
+      // 只加载前500个资产，避免加载过多数据导致卡顿
+      const response = await axios.get('/api/assets?limit=500&page=1', {
         timeout: 8000,
         headers: {
           'Authorization': `Bearer ${token}`
@@ -251,12 +299,14 @@ const DataSync: React.FC = () => {
       });
       if (response.data && response.data.data) {
         const assetData = Array.isArray(response.data.data) ? response.data.data : [];
-        setAssets(assetData);
+        setAssets(assetData.slice(0, 500));
       } else if (response.data && response.data.data === undefined) {
-        setAssets(Array.isArray(response.data) ? response.data : []);
+        const assetData = Array.isArray(response.data) ? response.data : [];
+        setAssets(assetData.slice(0, 500));
       }
     } catch (error) {
       console.error('加载资产数据失败:', error);
+      // 加载失败时设置空数组而不是中断加载流程
       setAssets([]);
     }
   };
