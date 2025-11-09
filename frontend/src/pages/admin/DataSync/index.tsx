@@ -1123,7 +1123,7 @@ const DataSync: React.FC = () => {
                 name="sync_days_back"
                 rules={[{ required: true }]}
               >
-                <InputNumber min={0} max={365} />
+                <InputNumber min={0} max={3650} />
               </Form.Item>
             </Col>
             <Col span={12}>

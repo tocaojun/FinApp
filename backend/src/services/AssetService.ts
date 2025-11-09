@@ -1121,6 +1121,7 @@ export class AssetService {
           data.symbol.toUpperCase(),
           data.name,
           assetTypeId,
+          data.countryId || null,
           data.currency,
           data.isin || null,
           data.cusip || null,
