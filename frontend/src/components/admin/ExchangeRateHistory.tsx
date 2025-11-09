@@ -157,10 +157,14 @@ const ExchangeRateHistory: React.FC<ExchangeRateHistoryProps> = ({
 
   // 图表配置
   const chartConfig = {
-    data: historyData.map(item => ({
-      date: item.rateDate,
-      rate: item.rate
-    })),
+    // 确保数据按时间从早到晚排序，X轴显示年-月
+    data: [...historyData]
+      .sort((a, b) => new Date(a.rateDate).getTime() - new Date(b.rateDate).getTime())
+      .map((item) => ({
+        date: dayjs(item.rateDate).format('YYYY-MM-DD'),
+        displayDate: dayjs(item.rateDate).format('YYYY-MM'),
+        rate: item.rate
+      })),
     xField: 'date',
     yField: 'rate',
     smooth: true,
@@ -175,8 +179,16 @@ const ExchangeRateHistory: React.FC<ExchangeRateHistoryProps> = ({
       })
     },
     xAxis: {
-      type: 'time',
-      tickCount: 5
+      type: 'cat',
+      label: {
+        formatter: (value: string) => {
+          // 将完整日期格式化为年-月显示
+          return dayjs(value).format('YYYY-MM');
+        },
+        autoHide: false,
+        autoRotate: false,
+        tickCount: 6
+      }
     },
     yAxis: {
       label: {

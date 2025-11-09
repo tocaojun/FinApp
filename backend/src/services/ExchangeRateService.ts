@@ -99,7 +99,7 @@ export class ExchangeRateService {
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
       
       // 获取总数
-      const countQuery = `SELECT COUNT(*) as count FROM exchange_rates ${whereClause}`;
+      const countQuery = `SELECT COUNT(*) as count FROM finapp.exchange_rates ${whereClause}`;
       const countResult = await this.db.prisma.$queryRawUnsafe(countQuery, ...params) as any[];
       const total = parseInt(countResult[0].count);
 
@@ -113,7 +113,7 @@ export class ExchangeRateService {
                         sortBy;
       
       const dataQuery = `
-        SELECT * FROM exchange_rates 
+        SELECT * FROM finapp.exchange_rates 
         ${whereClause}
         ORDER BY ${sortColumn} ${sortOrder}
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -148,7 +148,7 @@ export class ExchangeRateService {
         : data.rateDate;
       
       const result = await this.db.prisma.$queryRaw`
-        INSERT INTO exchange_rates (
+        INSERT INTO finapp.exchange_rates (
           from_currency, to_currency, rate_date, rate, data_source
         ) VALUES (
           ${data.fromCurrency.toUpperCase()}, ${data.toCurrency.toUpperCase()}, 
@@ -182,7 +182,7 @@ export class ExchangeRateService {
   async updateExchangeRate(id: string, data: Partial<ExchangeRateCreateRequest>): Promise<SimpleExchangeRate> {
     try {
       const result = await this.db.prisma.$queryRaw`
-        UPDATE exchange_rates SET
+        UPDATE finapp.exchange_rates SET
           from_currency = COALESCE(${data.fromCurrency?.toUpperCase()}, from_currency),
           to_currency = COALESCE(${data.toCurrency?.toUpperCase()}, to_currency),
           rate_date = COALESCE(${data.rateDate}, rate_date),
@@ -215,12 +215,16 @@ export class ExchangeRateService {
   // 删除汇率记录
   async deleteExchangeRate(id: string): Promise<boolean> {
     try {
-      const result = await this.db.prisma.$queryRaw`
-        DELETE FROM exchange_rates WHERE id = ${id}
-      ` as any[];
+      const result = await this.db.prisma.exchangeRate.delete({
+        where: { id }
+      });
 
-      return true;
-    } catch (error) {
+      return !!result;
+    } catch (error: any) {
+      if (error?.code === 'P2025') {
+        // 记录不存在
+        throw new Error('Exchange rate not found');
+      }
       console.error('Error deleting exchange rate:', error);
       throw new Error('Failed to delete exchange rate');
     }
@@ -230,7 +234,7 @@ export class ExchangeRateService {
   async getLatestRate(fromCurrency: string, toCurrency: string): Promise<SimpleExchangeRate | null> {
     try {
       const result = await this.db.prisma.$queryRaw`
-        SELECT * FROM exchange_rates 
+        SELECT * FROM finapp.exchange_rates 
         WHERE from_currency = ${fromCurrency.toUpperCase()} 
           AND to_currency = ${toCurrency.toUpperCase()}
         ORDER BY rate_date DESC, created_at DESC
@@ -282,7 +286,7 @@ export class ExchangeRateService {
       const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
       const result = await this.db.prisma.$queryRawUnsafe(`
-        SELECT * FROM exchange_rates 
+        SELECT * FROM finapp.exchange_rates 
         ${whereClause}
         ORDER BY rate_date DESC
         LIMIT ${limit}
@@ -342,7 +346,7 @@ export class ExchangeRateService {
         try {
           // 检查是否已存在
           const existing = await this.db.prisma.$queryRaw`
-            SELECT id FROM exchange_rates 
+            SELECT id FROM finapp.exchange_rates 
             WHERE from_currency = ${rate.fromCurrency.toUpperCase()}
               AND to_currency = ${rate.toCurrency.toUpperCase()}
               AND rate_date = ${rate.rateDate}
@@ -387,26 +391,26 @@ export class ExchangeRateService {
   async getExchangeRateStatistics(): Promise<ExchangeRateStatistics> {
     try {
       const totalRatesResult = await this.db.prisma.$queryRaw`
-        SELECT COUNT(*) as count FROM exchange_rates
+        SELECT COUNT(*) as count FROM finapp.exchange_rates
       ` as any[];
 
       const currencyPairsResult = await this.db.prisma.$queryRaw`
         SELECT COUNT(DISTINCT CONCAT(from_currency, '-', to_currency)) as count 
-        FROM exchange_rates
+        FROM finapp.exchange_rates
       ` as any[];
 
       const latestUpdateResult = await this.db.prisma.$queryRaw`
-        SELECT MAX(created_at) as latest FROM exchange_rates
+        SELECT MAX(created_at) as latest FROM finapp.exchange_rates
       ` as any[];
 
       const dataSourcesResult = await this.db.prisma.$queryRaw`
-        SELECT COUNT(DISTINCT data_source) as count FROM exchange_rates
+        SELECT COUNT(DISTINCT data_source) as count FROM finapp.exchange_rates
       ` as any[];
 
       const currenciesResult = await this.db.prisma.$queryRaw`
-        SELECT DISTINCT from_currency as currency FROM exchange_rates
+        SELECT DISTINCT from_currency as currency FROM finapp.exchange_rates
         UNION
-        SELECT DISTINCT to_currency as currency FROM exchange_rates
+        SELECT DISTINCT to_currency as currency FROM finapp.exchange_rates
         ORDER BY currency
       ` as any[];
 
@@ -480,7 +484,7 @@ export class ExchangeRateService {
       if (rateDate) {
         // 获取指定日期的汇率
         const result = await this.db.prisma.$queryRaw`
-          SELECT * FROM exchange_rates 
+          SELECT * FROM finapp.exchange_rates 
           WHERE from_currency = ${fromCurrency.toUpperCase()} 
             AND to_currency = ${toCurrency.toUpperCase()}
             AND rate_date = ${rateDate}

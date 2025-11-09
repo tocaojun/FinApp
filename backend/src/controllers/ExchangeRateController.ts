@@ -34,13 +34,25 @@ export class ExchangeRateController {
 
       res.json({
         success: true,
-        data: result,
+        data: {
+          rates: result.rates,
+          total: result.total
+        },
+        pagination: {
+          page: criteria.page,
+          limit: criteria.limit,
+          total: result.total
+        },
         message: 'Exchange rates retrieved successfully'
       });
     } catch (error) {
       console.error('Exchange rate search error:', error);
       res.status(500).json({
         success: false,
+        data: {
+          rates: [],
+          total: 0
+        },
         message: error instanceof Error ? error.message : 'Failed to retrieve exchange rates'
       });
     }
@@ -404,6 +416,15 @@ export class ExchangeRateController {
   // 手动触发汇率更新
   refreshExchangeRates = async (req: Request, res: Response): Promise<void> => {
     try {
+      // 首先验证服务是否可用
+      if (!exchangeRateUpdateService) {
+        res.status(500).json({
+          success: false,
+          message: 'Exchange rate update service is not available'
+        });
+        return;
+      }
+
       // 触发异步更新，不等待完成
       exchangeRateUpdateService.updateAllRates().catch(error => {
         console.error('Background exchange rate update failed:', error);
@@ -414,6 +435,7 @@ export class ExchangeRateController {
         message: 'Exchange rate refresh initiated. This may take a few minutes to complete.'
       });
     } catch (error) {
+      console.error('Refresh exchange rates error:', error);
       res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to refresh exchange rates'
@@ -449,10 +471,20 @@ export class ExchangeRateController {
   // 导入历史汇率数据
   importHistoricalRates = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { years = 10 } = req.body;
+      const { 
+        fromCurrency, 
+        toCurrency, 
+        startDate, 
+        endDate,
+        daysBack = 365,
+        years 
+      } = req.body;
+
+      // 支持两种调用方式：按日期范围或按年数
+      let yearsToImport = years || Math.ceil(daysBack / 365) || 10;
 
       // 验证参数
-      if (years < 1 || years > 20) {
+      if (yearsToImport < 1 || yearsToImport > 20) {
         res.status(400).json({
           success: false,
           message: 'Years must be between 1 and 20'
@@ -461,7 +493,7 @@ export class ExchangeRateController {
       }
 
       // 异步执行导入，不阻塞响应
-      exchangeRateUpdateService.importHistoricalRates(years).then(result => {
+      exchangeRateUpdateService.importHistoricalRates(yearsToImport).then(result => {
         console.log('Historical import completed:', result);
       }).catch(error => {
         console.error('Historical import failed:', error);
@@ -469,9 +501,14 @@ export class ExchangeRateController {
 
       res.json({
         success: true,
-        message: `Historical exchange rate import initiated for the past ${years} years. This will take several minutes to complete. Check logs for progress.`
+        data: {
+          importedCount: 0,
+          message: `Historical exchange rate import initiated for the past ${yearsToImport} years. This will take several minutes to complete. Check logs for progress.`
+        },
+        message: `Historical exchange rate import initiated for the past ${yearsToImport} years. This will take several minutes to complete.`
       });
     } catch (error) {
+      console.error('Import historical rates error:', error);
       res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to import historical rates'

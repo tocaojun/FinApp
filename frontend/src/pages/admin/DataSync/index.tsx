@@ -37,6 +37,7 @@ import {
 import axios from 'axios';
 import dayjs from 'dayjs';
 import priceSyncApiClient from '../../../services/priceSyncApi';
+import ExchangeRateSync from './ExchangeRateSync';
 
 const { Option } = Select;
 
@@ -113,7 +114,8 @@ const DataSync: React.FC = () => {
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [taskModalVisible, setTaskModalVisible] = useState(false);
   const [editingTask, setEditingTask] = useState<SyncTask | null>(null);
   const [form] = Form.useForm();
@@ -129,11 +131,16 @@ const DataSync: React.FC = () => {
     const loadData = async () => {
       if (isMounted) {
         try {
+          console.log('[DataSync] 开始加载数据...');
+          setLoadError(null);
+          
           // 第一阶段：加载关键数据（数据源和任务）- 必须成功
           await Promise.all([
             loadDataSources(),
             loadSyncTasks(),
           ]);
+          
+          console.log('[DataSync] 关键数据加载成功');
           
           // 第二阶段：加载次要数据（支持数据）- 超时不阻塞
           if (isMounted) {
@@ -171,8 +178,14 @@ const DataSync: React.FC = () => {
               setAssets([]);
             });
           }
-        } catch (error) {
-          console.error('数据加载过程中出错:', error);
+        } catch (error: any) {
+          const errorMsg = error?.message || '未知错误';
+          console.error('[DataSync] 数据加载过程中出错:', error);
+          setLoadError(`数据加载失败: ${errorMsg}`);
+        } finally {
+          if (isMounted) {
+            setLoading(false);
+          }
         }
       }
     };
@@ -738,11 +751,11 @@ const DataSync: React.FC = () => {
           </Button>
           <Table
             columns={taskColumns}
-            dataSource={syncTasks.map(task => ({ ...task, key: task.id }))}
+            dataSource={(syncTasks || []).map(task => ({ ...task, key: task.id }))}
             loading={loading}
             pagination={{
               pageSize: 10,
-              total: syncTasks.length,
+              total: syncTasks?.length || 0,
             }}
             scroll={{ x: 1200 }}
           />
@@ -830,11 +843,11 @@ const DataSync: React.FC = () => {
                 )
               },
             ]}
-            dataSource={dataSources.map(ds => ({ ...ds, key: ds.id }))}
+            dataSource={(dataSources || []).map(ds => ({ ...ds, key: ds.id }))}
             loading={loading}
             pagination={{
               pageSize: 10,
-              total: dataSources.length,
+              total: dataSources?.length || 0,
             }}
           />
         </>
@@ -846,20 +859,35 @@ const DataSync: React.FC = () => {
       children: (
         <Table
           columns={logColumns}
-          dataSource={syncLogs.map(log => ({ ...log, key: log.id }))}
+          dataSource={(syncLogs || []).map(log => ({ ...log, key: log.id }))}
           loading={loading}
           pagination={{
             pageSize: 10,
-            total: syncLogs.length,
+            total: syncLogs?.length || 0,
           }}
           scroll={{ x: 1200 }}
         />
       )
     },
+    {
+      key: 'exchangeRates',
+      label: '汇率同步',
+      children: <ExchangeRateSync />
+    },
   ];
 
   return (
     <Card title="数据同步" style={{ margin: 0 }}>
+      {loadError && (
+        <div style={{ marginBottom: 16, padding: 16, backgroundColor: '#fff2f0', borderRadius: 4, border: '1px solid #ffccc7' }}>
+          <p style={{ color: '#d4380d', margin: 0 }}>
+            <strong>错误:</strong> {loadError}
+          </p>
+          <p style={{ color: '#666', margin: '8px 0 0 0', fontSize: 12 }}>
+            请检查后端服务是否正常运行，或打开浏览器开发者工具查看详细错误信息
+          </p>
+        </div>
+      )}
       <Tabs items={tabItems} activeKey={activeTab} onChange={setActiveTab} />
 
       <Modal

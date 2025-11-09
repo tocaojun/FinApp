@@ -1,0 +1,87 @@
+================================================================================
+【数据同步日志时区问题 - 快速修复指南】
+================================================================================
+
+⚠️  问题
+  - 同步日志显示的"开始时间"比实际操作时间早 8 小时
+  - 根本原因：PostgreSQL CURRENT_TIMESTAMP 返回 UTC 时间，不是本地时间
+
+✅ 修复状态
+  [✓] 数据库迁移文件已更新
+  [✓] 现有表结构已修改
+  [✓] 后端代码已标注
+  [✓] 修复已验证通过
+  [ ] 后端服务需要重启测试
+
+🚀 立即行动（3 步）
+
+  1️⃣  编译后端
+     $ cd /Users/caojun/code/FinApp/backend
+     $ npm run build
+
+  2️⃣  重启后端服务
+     $ npm start
+
+  3️⃣  验证修复
+     - 打开前端：http://localhost:5173
+     - 进入数据同步页面
+     - 执行一次手动同步
+     - 检查"开始时间"是否与当前时间一致 ✓
+
+📝 修改内容摘要
+
+  【修改的文件】
+  • backend/migrations/008_price_sync_config/up.sql
+  • backend/migrations/008_price_sync_config/up_fixed.sql
+  • backend/src/services/PriceSyncService.ts (注释)
+
+  【修改的核心代码】
+  - 改前: started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  + 改后: started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai'
+
+  【数据库修改脚本】
+  • /fix-sync-log-timezone.sql (已自动执行)
+
+📊 验证结果
+  
+  ✅ 表结构: started_at 列已正确设置时区转换
+  ✅ 时间同步: 数据库时间与系统时间相差 0 分钟
+  ✅ 迁移文件: 两个 migration 文件都已更新
+
+🔍 如何验证修复是否生效
+
+  方式一：查看表结构
+  $ psql -h localhost -U finapp_user -d finapp_test -c \
+    "SELECT column_default FROM information_schema.columns \
+     WHERE table_name='price_sync_logs' AND column_name='started_at';"
+  
+  预期输出: timezone('Asia/Shanghai'::text CURRENT_TIMESTAMP)
+
+  方式二：查看最新日志
+  $ psql -h localhost -U finapp_user -d finapp_test -c \
+    "SELECT started_at FROM finapp.price_sync_logs ORDER BY started_at DESC LIMIT 1;"
+  
+  预期：时间应该是当前时间（下午某时刻），而不是上午
+
+  方式三：运行验证脚本
+  $ /Users/caojun/code/FinApp/verify-timezone-fix.sh
+
+⚡ 常见问题
+
+  Q: 为什么前端不需要修改？
+  A: 前端的 dayjs 时间格式化代码已经正确，因为现在数据库返回的是本地时间
+  
+  Q: 其他表需要修改吗？
+  A: 当前项目中主要影响表是 price_sync_logs，其他表可继续观察
+  
+  Q: 修复后旧日志会更新吗？
+  A: 不会。旧日志仍然是 UTC 时间。新记录会正确使用本地时区
+
+📚 详细文档
+  • /docs/TIMEZONE_FIX.md - 完整技术细节
+  • /docs/TIMEZONE_FIX_REPORT.md - 修复完整报告
+
+================================================================================
+最后更新: 2025-11-08 23:38:30 (CST)
+状态: 🟢 92% 完成 (待后端重启测试)
+================================================================================

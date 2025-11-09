@@ -93,10 +93,28 @@ export class ExchangeRateService {
       }
     });
 
-    const response = await apiGet<ApiResponse<{ rates: ExchangeRate[]; total: number }>>(
-      `/exchange-rates?${queryParams}`
-    );
-    return response.data;
+    try {
+      const response = await apiGet<ApiResponse<{ rates: ExchangeRate[]; total: number }>>(
+        `/exchange-rates?${queryParams}`
+      );
+      
+      console.log('[DEBUG] searchExchangeRates response:', response);
+      console.log('[DEBUG] response.data:', response.data);
+      
+      if (!response.data) {
+        throw new Error('Invalid response format: missing data field');
+      }
+      
+      if (!response.data.rates || typeof response.data.total !== 'number') {
+        console.error('[ERROR] Invalid data structure:', response.data);
+        throw new Error('Invalid response structure: expected { rates, total }');
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('[ERROR] searchExchangeRates failed:', error);
+      throw error;
+    }
   }
 
   // 创建汇率记录

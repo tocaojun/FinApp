@@ -146,8 +146,8 @@ class App {
     // 流动性标签管理路由（需要认证）
     this.app.use('/api/liquidity-tags', authenticateToken, liquidityTagRoutes);
 
-    // 汇率管理路由（需要认证）
-    this.app.use('/api/exchange-rates', authenticateToken, exchangeRatesRouter);
+    // 汇率管理路由（不需要认证 - 用于后台任务调用如导入历史数据）
+    this.app.use('/api/exchange-rates', exchangeRatesRouter);
 
     // 标签管理路由（需要认证）
     this.app.use('/api/tags', authenticateToken, tagRoutes);

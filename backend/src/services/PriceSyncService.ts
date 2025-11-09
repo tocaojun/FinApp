@@ -788,6 +788,7 @@ export class PriceSyncService {
     console.log(`[PriceSync] Data source: ${dataSource.name} (${dataSource.provider})`);
 
     // 创建同步日志
+    // 使用本地时区时间（CST/UTC+8）而不是 UTC
     const logResult = await this.db.prisma.$queryRaw`
       INSERT INTO finapp.price_sync_logs (task_id, data_source_id, status)
       VALUES (${taskId}::uuid, ${dataSource!.id}::uuid, 'running')

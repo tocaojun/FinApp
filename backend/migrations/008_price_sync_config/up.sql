@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS price_sync_logs (
     data_source_id UUID REFERENCES price_data_sources(id) ON DELETE SET NULL,
     
     -- 执行信息
-    started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai',
     completed_at TIMESTAMP,
     status VARCHAR(20) NOT NULL DEFAULT 'running', -- 'running', 'success', 'failed', 'partial'
     

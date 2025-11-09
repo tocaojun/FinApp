@@ -180,7 +180,7 @@ const NotificationCenter: React.FC = () => {
 
   return (
     <Dropdown
-      overlay={notificationContent}
+      dropdownRender={() => notificationContent}
       trigger={['click']}
       placement="bottomRight"
     >
