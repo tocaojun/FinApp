@@ -120,6 +120,7 @@ services/*.pid
 # Backup files
 *.backup
 *.bak
+backups/
 
 # Mock API data
 config/mock-api/*.json
