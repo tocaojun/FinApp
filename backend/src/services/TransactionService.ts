@@ -99,7 +99,11 @@ export class TransactionService {
       currency: correctCurrency,  // 使用从 asset 表获取的正确 currency
       transactionDate,             // 用户选择的交易日期
       executedAt,                  // 系统记录的执行时刻
-      settledAt: request.settledAt,
+      settledAt: request.settledAt 
+        ? typeof request.settledAt === 'string' 
+          ? new Date(request.settledAt)
+          : request.settledAt
+        : undefined,
       notes: request.notes,
       tags: request.tags || [],
       liquidityTag: request.liquidityTag,
@@ -445,8 +449,15 @@ export class TransactionService {
     }
 
     if (request.executedAt !== undefined) {
+      // 处理 executedAt：确保是 Date 类型
+      let executedAtValue: Date;
+      if (typeof request.executedAt === 'string') {
+        executedAtValue = new Date(request.executedAt);
+      } else {
+        executedAtValue = request.executedAt;
+      }
       updateFields.push(`executed_at = $${paramIndex}::timestamp with time zone`);
-      values.push(request.executedAt);
+      values.push(executedAtValue);
       paramIndex++;
     }
 

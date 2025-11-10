@@ -534,38 +534,43 @@ const TransactionManagement: React.FC = () => {
       }
       
       // 准备交易数据，匹配后端API格式
-      const transactionData = {
-        portfolioId: values.portfolioId,
-        tradingAccountId: values.tradingAccountId, // 使用表单选择的交易账户ID
-        assetId: values.assetId,
-        transactionType: values.transactionType, // 已经是正确格式
-        type: values.transactionType, // 添加 type 字段
-        side: values.transactionType === 'buy' ? 'BUY' : 
-              values.transactionType === 'sell' ? 'SELL' :
-              values.transactionType === 'deposit' ? 'DEPOSIT' :
-              values.transactionType === 'withdrawal' ? 'WITHDRAWAL' : 'BUY',
-        quantity: values.quantity,
-        price: values.price,
-        totalAmount: values.price * values.quantity, // 添加 totalAmount 字段
-        fee: values.fee || 0, // 添加 fee 字段
-        fees: values.fee || 0,
-        currency: asset.currency, // 使用资产的 currency
-        transactionDate: values.executedAt.format('YYYY-MM-DD'), // 用户选择的交易日期（纯日期，无时区问题）
-        executedAt: new Date().toISOString(), // 当前录入时刻（系统时间戳）
-        settledAt: values.executedAt.format('YYYY-MM-DD') + 'T12:00:00.000Z', // 结算日期
-        notes: values.notes || '',
-        tags: values.tags || []
-      } as any; // 临时使用 any 类型避免类型错误
-
       if (editingTransaction) {
-
+        // 编辑模式：只发送用户修改的字段
+        const updateData = {
+          quantity: values.quantity,
+          price: values.price,
+          fees: values.fee || 0,
+          notes: values.notes || '',
+          tags: values.tags || [],
+          transactionDate: values.executedAt.format('YYYY-MM-DD') // 用户选择的交易日期（纯日期）
+        };
         
         // 更新交易记录
-        await TransactionService.updateTransaction(editingTransaction.id, transactionData);
+        await TransactionService.updateTransaction(editingTransaction.id, updateData);
         message.success('交易记录更新成功');
       } else {
+        // 创建模式：发送完整的交易数据
+        const createData = {
+          portfolioId: values.portfolioId,
+          tradingAccountId: values.tradingAccountId,
+          assetId: values.assetId,
+          transactionType: values.transactionType,
+          side: values.transactionType === 'buy' ? 'BUY' : 
+                values.transactionType === 'sell' ? 'SELL' :
+                values.transactionType === 'deposit' ? 'DEPOSIT' :
+                values.transactionType === 'withdrawal' ? 'WITHDRAWAL' : 'BUY',
+          quantity: values.quantity,
+          price: values.price,
+          fees: values.fee || 0,
+          currency: asset.currency,
+          transactionDate: values.executedAt.format('YYYY-MM-DD'), // 用户选择的交易日期（纯日期）
+          executedAt: new Date().toISOString(), // 当前录入时刻（系统时间戳）
+          notes: values.notes || '',
+          tags: values.tags || []
+        };
+        
         // 创建新交易记录
-        await TransactionService.createTransaction(transactionData);
+        await TransactionService.createTransaction(createData);
         message.success('交易记录添加成功');
       }
 
