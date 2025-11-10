@@ -1021,12 +1021,25 @@ export class PriceSyncService {
             break;
           case 'CN':
             // 中国：需要根据具体交易所判断
-            // 通常 symbol 格式为 \"600000\" (上交所) 或 \"000001\" (深交所)
+            // Yahoo Finance 中文转换规则：
+            // - 600000-609999: 上海股票 → .SS
+            // - 000000-003999: 深圳股票 → .SZ
+            // - 500000-599999: 深交所 ETF 和基金 → .SS (注意：ETF在Yahoo中需要用.SS)
+            // - 800000-899999: B股 → .SS
             if (asset.symbol.startsWith('6')) {
-              yahooSymbol = `${asset.symbol}.SS`; // 上海交易所
+              // 600000+ → 上交所
+              yahooSymbol = `${asset.symbol}.SS`;
+            } else if (asset.symbol.startsWith('5')) {
+              // 500000+ → 深交所 ETF/基金，但Yahoo Finance需要用.SS
+              yahooSymbol = `${asset.symbol}.SS`;
             } else if (asset.symbol.startsWith('0') || asset.symbol.startsWith('3')) {
-              yahooSymbol = `${asset.symbol}.SZ`; // 深圳交易所
+              // 000000-003999 → 深交所股票
+              yahooSymbol = `${asset.symbol}.SZ`;
+            } else if (asset.symbol.startsWith('8')) {
+              // 800000+ → B股，使用上交所后缀
+              yahooSymbol = `${asset.symbol}.SS`;
             } else {
+              // 其他情况，尝试直接使用
               yahooSymbol = asset.symbol;
             }
             break;
