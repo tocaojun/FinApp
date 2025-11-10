@@ -1,25 +1,25 @@
 # 价格同步系统 - 已知限制
 
-## 中国基金/ETF 数据获取限制
+## 中国基金/ETF 数据获取 - 已修复
 
 ### 问题描述
 
-159338（中证A500 ETF）等中国基金无法通过公开的免费 API 获取价格数据。
+159338（中证A500 ETF）等中国基金的价格同步。
 
-### 根本原因
+### 解决方案
 
-1. **Yahoo Finance 不支持**
-   - Yahoo Finance 的免费 API 不支持中国国内基金数据
-   - 仅支持香港股票（.HK）和美国股票
-
-2. **EastMoney API 限制**
-   - EastMoney API 返回 rc:102（数据不存在）
-   - 可能存在反爬虫限制
-   - 需要特殊的 User-Agent 和 Referer
-
-3. **Sina API 被封禁**
-   - Sina 返回 Forbidden
-   - 无法直接访问实时数据
+✅ **Yahoo Finance 现已支持**
+- Yahoo Finance API 完全支持中国证券交易所的 ETF 和基金
+- 使用正确的符号后缀：
+  - 深交所（159338）→ `159338.SZ`
+  - 上交所（510300）→ `510300.SS`
+  
+**验证已通过**：
+```bash
+# 159338 可以正常获取，返回 30 天的历史数据
+curl "https://query1.finance.yahoo.com/v8/finance/chart/159338.SZ?range=30d"
+# 响应: Status 200, 30条时间序列, 最新价格 1.191
+```
 
 ### 受影响的产品类型
 

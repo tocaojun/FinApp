@@ -969,21 +969,6 @@ export class PriceSyncService {
     asset: any,
     daysBack: number
   ): Promise<any[]> {
-    // 特殊处理：中国基金和ETF必须使用EastMoney
-    // 包括: 100000-199999 (基金), 500000-599999 (ETF), 600000-699999 (股票)
-    const isCNAsset = asset.currency === 'CNY' && /^[0-9]{6}$/.test(asset.symbol);
-    const firstDigit = asset.symbol.charAt(0);
-    const isCNFundOrETF = isCNAsset && (
-      firstDigit === '1' ||  // 100000-199999: 基金
-      firstDigit === '5'     // 500000-599999: ETF
-    );
-    
-    if (isCNFundOrETF && dataSource.provider === 'yahoo_finance') {
-      // 中国基金/ETF 必须使用 EastMoney，不能用 Yahoo Finance
-      console.log(`[PriceSync] Switching to EastMoney for CN fund/ETF: ${asset.symbol}`);
-      return await this.fetchFromEastMoney(asset, daysBack);
-    }
-
     // 根据不同的数据源提供商调用不同的API
     switch (dataSource.provider) {
       case 'yahoo_finance':
