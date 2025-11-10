@@ -26,8 +26,9 @@ const createTransactionValidation = [
   body('transactionType').isIn([
     'buy', 'sell', 'dividend', 'split', 'merger', 'spin_off', 'deposit', 'withdrawal',
     'BUY', 'SELL', 'DIVIDEND', 'SPLIT', 'MERGER', 'SPIN_OFF', 'DEPOSIT', 'WITHDRAWAL',
-    'STOCK_BUY', 'STOCK_SELL', 'FUND_SUBSCRIBE', 'FUND_REDEEM', 'BOND_BUY', 'BOND_SELL',
-    'OPTION_BUY', 'OPTION_SELL', 'OPTION_EXERCISE', 'TRANSFER_IN', 'TRANSFER_OUT', 'FEE', 'INTEREST'
+    'STOCK_BUY', 'STOCK_SELL', 'ETF_BUY', 'ETF_SELL', 'FUND_SUBSCRIBE', 'FUND_REDEEM', 'BOND_BUY', 'BOND_SELL',
+    'CRYPTO_BUY', 'CRYPTO_SELL', 'OPTION_BUY', 'OPTION_SELL', 'OPTION_EXERCISE', 'FUTURES_BUY', 'FUTURES_SELL',
+    'TRANSFER_IN', 'TRANSFER_OUT', 'FEE', 'INTEREST'
   ]).withMessage('Invalid transaction type'),
   body('side').isIn(['BUY', 'SELL', 'DEPOSIT', 'WITHDRAWAL']).withMessage('Invalid transaction side'),
   body('quantity').isFloat({ min: 0.000001 }).withMessage('Quantity must be greater than 0'),
@@ -46,8 +47,9 @@ const updateTransactionValidation = [
   body('transactionType').optional().isIn([
     'buy', 'sell', 'dividend', 'split', 'merger', 'spin_off', 'deposit', 'withdrawal',
     'BUY', 'SELL', 'DIVIDEND', 'SPLIT', 'MERGER', 'SPIN_OFF', 'DEPOSIT', 'WITHDRAWAL',
-    'STOCK_BUY', 'STOCK_SELL', 'FUND_SUBSCRIBE', 'FUND_REDEEM', 'BOND_BUY', 'BOND_SELL',
-    'OPTION_BUY', 'OPTION_SELL', 'OPTION_EXERCISE', 'TRANSFER_IN', 'TRANSFER_OUT', 'FEE', 'INTEREST'
+    'STOCK_BUY', 'STOCK_SELL', 'ETF_BUY', 'ETF_SELL', 'FUND_SUBSCRIBE', 'FUND_REDEEM', 'BOND_BUY', 'BOND_SELL',
+    'CRYPTO_BUY', 'CRYPTO_SELL', 'OPTION_BUY', 'OPTION_SELL', 'OPTION_EXERCISE', 'FUTURES_BUY', 'FUTURES_SELL',
+    'TRANSFER_IN', 'TRANSFER_OUT', 'FEE', 'INTEREST'
   ]).withMessage('Invalid transaction type'),
   body('side').optional().isIn(['BUY', 'SELL', 'DEPOSIT', 'WITHDRAWAL']).withMessage('Invalid transaction side'),
   body('quantity').optional().isFloat({ min: 0.000001 }).withMessage('Quantity must be greater than 0'),
