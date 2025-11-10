@@ -172,7 +172,8 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
               // 如果有持仓数据，使用它们
               if (allHoldings.length > 0) {
                 const portfolioData = convertHoldingsToChartData(allHoldings);
-                const totalValue = allHoldings.reduce((sum, h) => sum + h.marketValue, 0);
+                // 使用转换后的市值（考虑汇率），如果没有则使用原市值
+                const totalValue = allHoldings.reduce((sum, h) => sum + (h.convertedMarketValue || h.marketValue), 0);
                 
                 // 计算百分比
                 portfolioData.forEach(item => {
@@ -214,7 +215,8 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
 
           // 转换持仓数据为图表数据
           const portfolioData = convertHoldingsToChartData(holdings);
-          const totalValue = holdings.reduce((sum, h) => sum + h.marketValue, 0);
+          // 使用转换后的市值（考虑汇率），如果没有则使用原市值
+          const totalValue = holdings.reduce((sum, h) => sum + (h.convertedMarketValue || h.marketValue), 0);
           
           // 计算百分比
           portfolioData.forEach(item => {

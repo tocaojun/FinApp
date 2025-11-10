@@ -48,7 +48,13 @@ const AllocationChart: React.FC<AllocationChartProps> = ({ portfolioId }) => {
       return [];
     }
 
-    const totalValue = holdings.reduce((sum, holding) => sum + holding.marketValue, 0);
+    // 使用转换后的市值（已按汇率转换为基础币种，通常是人民币）
+    // 这样可以正确处理不同币种的资产
+    const totalValue = holdings.reduce((sum, holding) => {
+      // 优先使用转换后的市值，如果没有则使用原市值
+      return sum + (holding.convertedMarketValue || holding.marketValue || 0);
+    }, 0);
+    
     const groupedData: Record<string, number> = {};
 
     // 根据类型分组数据
@@ -79,7 +85,9 @@ const AllocationChart: React.FC<AllocationChartProps> = ({ portfolioId }) => {
           key = '其他';
       }
       
-      groupedData[key] = (groupedData[key] || 0) + holding.marketValue;
+      // 使用转换后的市值（已按汇率转换）以正确处理多币种资产
+      const value = holding.convertedMarketValue || holding.marketValue || 0;
+      groupedData[key] = (groupedData[key] || 0) + value;
     });
 
     // 颜色配置

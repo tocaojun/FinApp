@@ -59,7 +59,8 @@ const ReportsPage: React.FC = () => {
   const [quarterlyReports, setQuarterlyReports] = useState<QuarterlyReport[]>([]);
   const [irrAnalysis, setIrrAnalysis] = useState<IRRAnalysis[]>([]);
   const [customReports, setCustomReports] = useState<CustomReport[]>([]);
-  const [selectedQuarter, setSelectedQuarter] = useState<string>('2024Q3');
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedQuarterNum, setSelectedQuarterNum] = useState<string>('Q1');
   const [selectedPortfolio, setSelectedPortfolio] = useState<string>('all');
   const [quarterlySummary, setQuarterlySummary] = useState<QuarterlySummary>({
     totalAssets: 0,
@@ -83,7 +84,7 @@ const ReportsPage: React.FC = () => {
         getQuarterlyReports(),
         getIRRAnalysis(),
         getCustomReports(),
-        getQuarterlySummary(selectedQuarter)
+        getQuarterlySummary(`${selectedYear}${selectedQuarterNum}`)
       ]);
       
       setQuarterlyReports(quarterlyData);
@@ -98,18 +99,18 @@ const ReportsPage: React.FC = () => {
     }
   };
 
-  // 当选择的季度改变时，重新加载概览数据
+  // 当选择的年份或季度改变时，重新加载概览数据
   useEffect(() => {
     const loadSummary = async () => {
       try {
-        const summaryData = await getQuarterlySummary(selectedQuarter);
+        const summaryData = await getQuarterlySummary(`${selectedYear}${selectedQuarterNum}`);
         setQuarterlySummary(summaryData);
       } catch (error) {
         console.error('加载季度概览失败:', error);
       }
     };
     loadSummary();
-  }, [selectedQuarter]);
+  }, [selectedYear, selectedQuarterNum]);
 
   // 当选择的投资组合改变时，重新加载IRR数据
   useEffect(() => {
@@ -350,7 +351,7 @@ const ReportsPage: React.FC = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `quarterly-report-${reportId}.pdf`;
+      a.download = `quarterly-report-${reportId}.json`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -364,7 +365,8 @@ const ReportsPage: React.FC = () => {
   const handleGenerateQuarterlyReport = async () => {
     setLoading(true);
     try {
-      const result = await generateQuarterlyReport(selectedQuarter);
+      const quarter = `${selectedYear}${selectedQuarterNum}`;
+      const result = await generateQuarterlyReport(quarter);
       if (result.success) {
         message.success('季度报告生成成功');
         // 重新加载季度报表列表
@@ -555,13 +557,25 @@ const ReportsPage: React.FC = () => {
             <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Space>
                 <Select
-                  value={selectedQuarter}
-                  onChange={setSelectedQuarter}
-                  style={{ width: 120 }}
+                  value={selectedYear}
+                  onChange={setSelectedYear}
+                  style={{ width: 100 }}
                 >
-                  <Option value="2024Q3">2024 Q3</Option>
-                  <Option value="2024Q2">2024 Q2</Option>
-                  <Option value="2024Q1">2024 Q1</Option>
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                    <Option key={year} value={year}>
+                      {year}
+                    </Option>
+                  ))}
+                </Select>
+                <Select
+                  value={selectedQuarterNum}
+                  onChange={setSelectedQuarterNum}
+                  style={{ width: 80 }}
+                >
+                  <Option value="Q1">Q1</Option>
+                  <Option value="Q2">Q2</Option>
+                  <Option value="Q3">Q3</Option>
+                  <Option value="Q4">Q4</Option>
                 </Select>
                 <Button 
                   type="primary" 
@@ -716,8 +730,8 @@ const ReportsPage: React.FC = () => {
           </Card>
         </TabPane>
       </Tabs>
-    </>
     </div>
+    </>
   );
 };
 

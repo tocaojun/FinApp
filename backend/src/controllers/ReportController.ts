@@ -312,8 +312,8 @@ export class ReportController {
         type as 'quarterly' | 'custom'
       );
 
-      res.setHeader('Content-Type', 'application/octet-stream');
-      res.setHeader('Content-Disposition', `attachment; filename="report-${reportId}.pdf"`);
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="report-${reportId}.json"`);
       res.send(buffer);
     } catch (error) {
       console.error('Error downloading report:', error);

@@ -172,7 +172,8 @@ export const convertHoldingsToChartData = (holdings: Holding[]) => {
   
   return holdings.map((holding, index) => ({
     name: holding.assetName || holding.assetSymbol,
-    value: holding.marketValue,
+    // 使用转换后的市值（考虑汇率），如果没有则使用原市值
+    value: holding.convertedMarketValue || holding.marketValue,
     percentage: 0, // 需要在外部计算
     color: colors[index % colors.length]
   }));
@@ -180,16 +181,17 @@ export const convertHoldingsToChartData = (holdings: Holding[]) => {
 
 // 生成模拟的流动性分布数据（基于实际持仓）
 export const generateLiquidityData = (holdings: Holding[]) => {
-  const totalValue = holdings.reduce((sum, holding) => sum + holding.marketValue, 0);
+  // 使用转换后的市值（考虑汇率），如果没有则使用原市值
+  const totalValue = holdings.reduce((sum, holding) => sum + (holding.convertedMarketValue || holding.marketValue), 0);
   
   // 简单的流动性分类逻辑（可以根据资产类型进一步优化）
   const highLiquidity = holdings.filter(h => h.assetSymbol.match(/^[0-9]{5}$/)); // 港股
   const mediumLiquidity = holdings.filter(h => !h.assetSymbol.match(/^[0-9]{5}$/) && h.assetSymbol.length <= 4); // 美股等
   const lowLiquidity = holdings.filter(h => h.assetSymbol.length > 4 && !h.assetSymbol.match(/^[0-9]{5}$/)); // 其他
   
-  const highValue = highLiquidity.reduce((sum, h) => sum + h.marketValue, 0);
-  const mediumValue = mediumLiquidity.reduce((sum, h) => sum + h.marketValue, 0);
-  const lowValue = lowLiquidity.reduce((sum, h) => sum + h.marketValue, 0);
+  const highValue = highLiquidity.reduce((sum, h) => sum + (h.convertedMarketValue || h.marketValue), 0);
+  const mediumValue = mediumLiquidity.reduce((sum, h) => sum + (h.convertedMarketValue || h.marketValue), 0);
+  const lowValue = lowLiquidity.reduce((sum, h) => sum + (h.convertedMarketValue || h.marketValue), 0);
   
   return [
     {

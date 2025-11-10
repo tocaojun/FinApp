@@ -660,9 +660,10 @@ export class ReportService {
     try {
       const reportDetails = await this.getReportDetails(userId, reportId, type);
       
-      // 这里实现PDF生成逻辑，现在返回简单的JSON数据
+      // 返回 JSON 格式数据，让前端以 JSON 格式下载
+      // 后续可以改为真实 PDF，但 JSON 格式对数据完整性更好
       const content = JSON.stringify(reportDetails, null, 2);
-      return Buffer.from(content);
+      return Buffer.from(content, 'utf-8');
     } catch (error) {
       console.error('Failed to download report:', error);
       throw error;
