@@ -533,23 +533,25 @@ export class PortfolioService {
       updateFields.push(`current_balance = $${paramIndex++}`);
       values.push(typeof data.balance === 'string' ? parseFloat(data.balance) : data.balance);
     }
-    if (data.availableBalance !== undefined) {
-      updateFields.push(`available_balance = $${paramIndex++}`);
-      values.push(typeof data.availableBalance === 'string' ? parseFloat(data.availableBalance) : data.availableBalance);
+    if (data.isActive !== undefined) {
+      updateFields.push(`is_active = $${paramIndex++}`);
+      values.push(data.isActive);
     }
 
     // 总是更新 updated_at
     updateFields.push(`updated_at = $${paramIndex++}`);
     values.push(new Date());
 
-    // 添加 accountId 和 portfolioId 到 where 子句
+    // 添加 WHERE 子句参数
+    const whereParamIndex1 = paramIndex++;
+    const whereParamIndex2 = paramIndex;
     values.push(accountId);
     values.push(portfolioId);
 
     const query = `
       UPDATE finapp.trading_accounts
       SET ${updateFields.join(', ')}
-      WHERE id = $${paramIndex++}::uuid AND portfolio_id = $${paramIndex}::uuid
+      WHERE id = $${whereParamIndex1}::uuid AND portfolio_id = $${whereParamIndex2}::uuid
       RETURNING 
         id,
         portfolio_id,
@@ -581,7 +583,7 @@ export class PortfolioService {
         accountNumber: row.account_number,
         accountType: row.account_type,
         currency: row.currency,
-        balance: parseFloat(row.initial_balance) || 0,
+        balance: parseFloat(row.current_balance) || 0,
         availableBalance: parseFloat(row.current_balance) || 0,
         isActive: row.is_active,
         createdAt: new Date(row.created_at),

@@ -164,12 +164,33 @@ const AccountsTab: React.FC<AccountsTabProps> = ({ portfolioId }) => {
       if (editingAccount) {
         // 更新账户
         try {
+          // 转换字段名以匹配后端期望
+          const updateData = {
+            name: values.name?.trim(),
+            accountType: values.type,
+            broker: values.broker?.trim(),
+            accountNumber: values.accountNumber?.trim(),
+            balance: parseFloat(values.balance) || 0,
+            currency: values.currency,
+            isActive: values.isActive !== undefined ? values.isActive : true
+          };
+          
           const updatedAccount = await PortfolioService.updateTradingAccount(
             portfolioId, 
             editingAccount.id, 
-            values
+            updateData
           );
-          setAccounts(prev => prev.map(a => a.id === editingAccount.id ? updatedAccount : a));
+          // 将后端返回的数据转换为前端 Account 格式
+          const convertedAccount: Account = {
+            ...updatedAccount,
+            type: updatedAccount.accountType || editingAccount.type,
+            broker: updatedAccount.broker || updatedAccount.brokerName,
+            createdAt: updatedAccount.createdAt?.toString() || editingAccount.createdAt
+          };
+          setAccounts(prev => prev.map(a => a.id === editingAccount.id ? convertedAccount : a));
+          setModalVisible(false);
+          setEditingAccount(null);
+          form.resetFields();
           message.success('账户更新成功');
         } catch (error) {
           console.error('更新账户失败:', error);

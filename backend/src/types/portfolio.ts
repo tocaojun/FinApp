@@ -150,6 +150,7 @@ export interface UpdateTradingAccountRequest {
   currency?: string;
   balance?: number;
   availableBalance?: number;
+  isActive?: boolean;
 }
 
 export interface CreateAssetRequest {
