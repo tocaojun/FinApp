@@ -465,12 +465,17 @@ const TransactionManagement: React.FC = () => {
       const transactionDate = (transaction as any).transactionDate;
       
       if (!transactionDate) {
-        // 如果 transactionDate 为空，说明数据有问题，需要提醒用户
-        message.error('交易记录缺少交易日期（transactionDate），请联系管理员');
-        throw new Error(`Transaction ${transaction.id} is missing transactionDate`);
-      }
-      
-      if (typeof transactionDate === 'string') {
+        // 如果 transactionDate 为空，使用 executedAt 作为默认值，用户可以编辑修改
+        const fallbackDate = transaction.executedAt || new Date();
+        if (typeof fallbackDate === 'string') {
+          const dateStr = fallbackDate.substring(0, 10);
+          executedAtValue = dayjs(dateStr + 'T12:00:00');
+        } else {
+          executedAtValue = dayjs(fallbackDate);
+        }
+        // 显示警告，告知用户该记录缺少交易日期
+        console.warn(`Transaction ${transaction.id} is missing transactionDate, using executedAt as default. Please fill in the transaction date.`);
+      } else if (typeof transactionDate === 'string') {
         // 如果是字符串，取前10位作为日期部分，避免时区转换
         const dateStr = transactionDate.substring(0, 10);
         executedAtValue = dayjs(dateStr + 'T12:00:00'); // 设置为中午12点避免时区问题
