@@ -239,6 +239,29 @@ export class TransactionController {
     }
   };
 
+  // 获取交易汇总统计（支持币种转换为人民币）
+  getTransactionSummaryWithConversion = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const portfolioId = req.query.portfolioId as string;
+      const baseCurrency = (req.query.baseCurrency as string) || 'CNY';
+
+      const summary = await this.transactionService.getTransactionSummaryWithConversion(userId, portfolioId, baseCurrency);
+
+      res.json({
+        success: true,
+        data: summary,
+        message: 'Transaction summary with conversion retrieved successfully'
+      });
+    } catch (error) {
+      console.error('Error getting transaction summary with conversion:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get transaction summary with conversion'
+      });
+    }
+  };
+
   // 导出交易记录
   exportTransactions = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {

@@ -36,6 +36,22 @@ export interface TransactionSummary {
   recentTransactions: Transaction[];
 }
 
+export interface TransactionSummaryWithConversion {
+  totalTransactions: number;
+  totalBuyAmount: number;
+  totalSellAmount: number;
+  totalFees: number;
+  totalAmountInBaseCurrency: number;
+  totalFeesInBaseCurrency: number;
+  netCashFlow: number;
+  currencyBreakdown: Array<{
+    currency: string;
+    totalAmount: number;
+    totalFees: number;
+    exchangeRate: number;
+  }>;
+}
+
 export class TransactionService {
   static async getTransactions(params?: {
     page?: number;
@@ -96,6 +112,40 @@ export class TransactionService {
         totalSellAmount: 0,
         totalFees: 0,
         recentTransactions: []
+      };
+    }
+  }
+
+  static async getTransactionSummaryWithConversion(portfolioId?: string, baseCurrency: string = 'CNY'): Promise<TransactionSummaryWithConversion> {
+    try {
+      const params = new URLSearchParams();
+      if (portfolioId) params.append('portfolioId', portfolioId);
+      params.append('baseCurrency', baseCurrency);
+      const queryString = params.toString() ? '?' + params.toString() : '';
+
+      const response = await apiGet<{ success: boolean; data: TransactionSummaryWithConversion }>(`/transactions/summary/stats-with-conversion${queryString}`);
+      return response.data || {
+        totalTransactions: 0,
+        totalBuyAmount: 0,
+        totalSellAmount: 0,
+        totalFees: 0,
+        totalAmountInBaseCurrency: 0,
+        totalFeesInBaseCurrency: 0,
+        netCashFlow: 0,
+        currencyBreakdown: []
+      };
+    } catch (error) {
+      console.error('获取交易统计（含汇率转换）失败:', error);
+      // 返回空数据
+      return {
+        totalTransactions: 0,
+        totalBuyAmount: 0,
+        totalSellAmount: 0,
+        totalFees: 0,
+        totalAmountInBaseCurrency: 0,
+        totalFeesInBaseCurrency: 0,
+        netCashFlow: 0,
+        currencyBreakdown: []
       };
     }
   }

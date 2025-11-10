@@ -206,4 +206,14 @@ router.get('/summary/stats',
   transactionController.getTransactionSummary
 );
 
+// 获取交易汇总统计（支持币种转换）
+router.get('/summary/stats-with-conversion', 
+  authenticateToken, 
+  requirePermission('transactions', 'read'),
+  query('portfolioId').optional().isUUID().withMessage('Portfolio ID must be a valid UUID'),
+  query('baseCurrency').optional().isLength({ min: 3, max: 3 }).withMessage('Base currency must be 3 characters'),
+  validateRequest,
+  transactionController.getTransactionSummaryWithConversion
+);
+
 export { router as transactionsRouter };

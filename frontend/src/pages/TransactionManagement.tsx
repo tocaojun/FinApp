@@ -189,7 +189,7 @@ const TransactionManagement: React.FC = () => {
       });
       
       setTransactions(formattedTransactions);
-      calculateStatistics(formattedTransactions);
+      await calculateStatistics(formattedTransactions);
     } catch (error) {
       console.error('获取交易数据失败:', error);
       message.error('获取交易数据失败');
@@ -280,39 +280,67 @@ const TransactionManagement: React.FC = () => {
     fetchTradingAccounts(); // 获取所有交易账户
   }, []);
 
-  // 计算统计数据
-  const calculateStatistics = (data: Transaction[]) => {
-    const stats: TransactionStats = {
-      totalTransactions: data.length,
-      totalAmount: data.reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0),
-      totalFees: data.reduce((sum, t) => sum + t.fee, 0),
-      pendingCount: data.filter(t => t.status === 'PENDING').length,
-      buyCount: data.filter(t => {
-        const type = t.transactionType?.toUpperCase() || '';
-        return type.includes('BUY') || type === 'DEPOSIT' || type === 'FUND_SUBSCRIBE';
-      }).length,
-      sellCount: data.filter(t => {
+  // 计算统计数据（支持汇率转换为人民币）
+  const calculateStatistics = async (data: Transaction[]) => {
+    try {
+      // 调用新的 API 获取支持汇率转换的统计信息
+      const summaryWithConversion = await TransactionService.getTransactionSummaryWithConversion(selectedPortfolio || undefined, 'CNY');
+      
+      const stats: TransactionStats = {
+        totalTransactions: summaryWithConversion.totalTransactions,
+        // 使用转换后的人民币金额，而不是直接相加不同币种的金额
+        totalAmount: summaryWithConversion.totalAmountInBaseCurrency,
+        // 使用转换后的人民币手续费
+        totalFees: summaryWithConversion.totalFeesInBaseCurrency,
+        pendingCount: data.filter(t => t.status === 'PENDING').length,
+        buyCount: data.filter(t => {
+          const type = t.transactionType?.toUpperCase() || '';
+          return type.includes('BUY') || type === 'DEPOSIT' || type === 'FUND_SUBSCRIBE';
+        }).length,
+        sellCount: data.filter(t => {
+          const type = t.transactionType?.toUpperCase() || '';
+          return type.includes('SELL') || type === 'WITHDRAWAL' || type === 'FUND_REDEEM';
+        }).length,
+        // 使用转换后的 net cash flow
+        profitLoss: summaryWithConversion.netCashFlow,
+        avgTransactionSize: summaryWithConversion.totalTransactions > 0 ? summaryWithConversion.totalAmountInBaseCurrency / summaryWithConversion.totalTransactions : 0
+      };
+      
+      setStatistics(stats);
+    } catch (error) {
+      console.error('计算统计数据失败:', error);
+      // 降级方案：使用本地数据计算（不支持汇率转换）
+      const stats: TransactionStats = {
+        totalTransactions: data.length,
+        totalAmount: data.reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0),
+        totalFees: data.reduce((sum, t) => sum + t.fee, 0),
+        pendingCount: data.filter(t => t.status === 'PENDING').length,
+        buyCount: data.filter(t => {
+          const type = t.transactionType?.toUpperCase() || '';
+          return type.includes('BUY') || type === 'DEPOSIT' || type === 'FUND_SUBSCRIBE';
+        }).length,
+        sellCount: data.filter(t => {
+          const type = t.transactionType?.toUpperCase() || '';
+          return type.includes('SELL') || type === 'WITHDRAWAL' || type === 'FUND_REDEEM';
+        }).length,
+        profitLoss: 0,
+        avgTransactionSize: data.length > 0 ? data.reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0) / data.length : 0
+      };
+      
+      const sellAmount = data.filter(t => {
         const type = t.transactionType?.toUpperCase() || '';
         return type.includes('SELL') || type === 'WITHDRAWAL' || type === 'FUND_REDEEM';
-      }).length,
-      profitLoss: 0, // 需要根据实际业务逻辑计算
-      avgTransactionSize: data.length > 0 ? data.reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0) / data.length : 0
-    };
-    
-    // 简单的盈亏计算（卖出 - 买入）
-    const sellAmount = data.filter(t => {
-      const type = t.transactionType?.toUpperCase() || '';
-      return type.includes('SELL') || type === 'WITHDRAWAL' || type === 'FUND_REDEEM';
-    }).reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0);
-    
-    const buyAmount = data.filter(t => {
-      const type = t.transactionType?.toUpperCase() || '';
-      return type.includes('BUY') || type === 'DEPOSIT' || type === 'FUND_SUBSCRIBE';
-    }).reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0);
-    
-    stats.profitLoss = sellAmount - buyAmount;
-    
-    setStatistics(stats);
+      }).reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0);
+      
+      const buyAmount = data.filter(t => {
+        const type = t.transactionType?.toUpperCase() || '';
+        return type.includes('BUY') || type === 'DEPOSIT' || type === 'FUND_SUBSCRIBE';
+      }).reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0);
+      
+      stats.profitLoss = sellAmount - buyAmount;
+      
+      setStatistics(stats);
+    }
   };
 
   // 表格列定义
@@ -602,7 +630,7 @@ const TransactionManagement: React.FC = () => {
       // 删除成功后，从本地状态中移除该交易
       const newTransactions = transactions.filter(t => t.id !== id);
       setTransactions(newTransactions);
-      calculateStatistics(newTransactions);
+      await calculateStatistics(newTransactions);
       message.success('删除成功');
     } catch (error) {
       console.error('删除交易失败:', error);

@@ -706,6 +706,130 @@ export class TransactionService {
     };
   }
 
+  // 获取交易汇总统计（支持币种转换为人民币）
+  async getTransactionSummaryWithConversion(userId: string, portfolioId?: string, baseCurrency: string = 'CNY'): Promise<TransactionSummary & { totalAmountInBaseCurrency: number; totalFeesInBaseCurrency: number; currencyBreakdown: Array<{ currency: string; totalAmount: number; totalFees: number; exchangeRate: number }> }> {
+    const conditions = ['p.user_id = $1'];
+    const values: any[] = [userId];
+    let paramIndex = 2;
+
+    if (portfolioId) {
+      conditions.push(`t.portfolio_id = $${paramIndex}`);
+      values.push(portfolioId);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // 获取交易记录及其币种信息
+    const transactionQuery = `
+      SELECT 
+        t.id,
+        t.total_amount,
+        t.fees,
+        t.currency,
+        t.transaction_date,
+        t.transaction_type
+      FROM finapp.transactions t
+      JOIN finapp.portfolios p ON t.portfolio_id = p.id
+      ${whereClause}
+      ORDER BY t.transaction_date DESC, t.created_at DESC
+    `;
+
+    const transactions = await databaseService.executeRawQuery<any[]>(transactionQuery, values);
+
+    // 获取所有涉及的币种汇率
+    const currencies = new Set<string>(transactions.map(t => t.currency));
+    currencies.add(baseCurrency); // 确保包含基础货币
+
+    const exchangeRates = new Map<string, number>();
+
+    // 获取最新的汇率数据
+    for (const currency of currencies) {
+      if (currency === baseCurrency) {
+        exchangeRates.set(currency, 1); // 基础货币的汇率是 1
+        continue;
+      }
+
+      const rateQuery = `
+        SELECT rate 
+        FROM finapp.exchange_rates 
+        WHERE from_currency = $1 AND to_currency = $2 
+        ORDER BY rate_date DESC 
+        LIMIT 1
+      `;
+
+      const rateResult = await databaseService.executeRawQuery<Array<{ rate: string }>>(rateQuery, [currency, baseCurrency]);
+
+      if (rateResult && rateResult.length > 0) {
+        exchangeRates.set(currency, parseFloat(rateResult[0].rate));
+      } else {
+        // 如果找不到汇率，使用 1 作为默认值（需要在前端提示）
+        console.warn(`No exchange rate found for ${currency} to ${baseCurrency}, using default rate of 1`);
+        exchangeRates.set(currency, 1);
+      }
+    }
+
+    // 按币种汇总交易金额和手续费
+    const currencyTotals = new Map<string, { totalAmount: number; totalFees: number; buyAmount: number; sellAmount: number }>();
+
+    transactions.forEach(tx => {
+      const currency = tx.currency;
+      if (!currencyTotals.has(currency)) {
+        currencyTotals.set(currency, { totalAmount: 0, totalFees: 0, buyAmount: 0, sellAmount: 0 });
+      }
+
+      const current = currencyTotals.get(currency)!;
+      current.totalAmount += parseFloat(tx.total_amount || '0');
+      current.totalFees += parseFloat(tx.fees || '0');
+
+      const txType = (tx.transaction_type || '').toUpperCase();
+      if (txType.includes('BUY') || txType === 'DEPOSIT' || txType === 'FUND_SUBSCRIBE') {
+        current.buyAmount += parseFloat(tx.total_amount || '0');
+      } else if (txType.includes('SELL') || txType === 'WITHDRAWAL' || txType === 'FUND_REDEEM') {
+        current.sellAmount += parseFloat(tx.total_amount || '0');
+      }
+    });
+
+    // 转换为基础货币
+    let totalAmountInBaseCurrency = 0;
+    let totalFeesInBaseCurrency = 0;
+    let totalBuyAmountInBaseCurrency = 0;
+    let totalSellAmountInBaseCurrency = 0;
+
+    const currencyBreakdown: Array<{ currency: string; totalAmount: number; totalFees: number; exchangeRate: number }> = [];
+
+    currencyTotals.forEach((totals, currency) => {
+      const rate = exchangeRates.get(currency) || 1;
+      const amountInBase = totals.totalAmount * rate;
+      const feesInBase = totals.totalFees * rate;
+
+      totalAmountInBaseCurrency += amountInBase;
+      totalFeesInBaseCurrency += feesInBase;
+      totalBuyAmountInBaseCurrency += totals.buyAmount * rate;
+      totalSellAmountInBaseCurrency += totals.sellAmount * rate;
+
+      currencyBreakdown.push({
+        currency,
+        totalAmount: totals.totalAmount,
+        totalFees: totals.totalFees,
+        exchangeRate: rate
+      });
+    });
+
+    return {
+      totalTransactions: transactions.length,
+      totalBuyAmount: totalBuyAmountInBaseCurrency,
+      totalSellAmount: totalSellAmountInBaseCurrency,
+      totalFees: totalFeesInBaseCurrency,
+      netCashFlow: totalSellAmountInBaseCurrency - totalBuyAmountInBaseCurrency,
+      totalAmountInBaseCurrency,
+      totalFeesInBaseCurrency,
+      currencyBreakdown,
+      transactionsByType: [],
+      transactionsByMonth: []
+    };
+  }
+
   // 验证交易数据
   private async validateTransaction(request: CreateTransactionRequest): Promise<TransactionValidationResult> {
     const errors: string[] = [];
