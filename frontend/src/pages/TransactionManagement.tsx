@@ -461,7 +461,17 @@ const TransactionManagement: React.FC = () => {
       
       if (!transactionDate) {
         // 如果 transactionDate 为空，说明数据有问题，需要提醒用户
-        message.error('交易记录缺少交易日期（transactionDate），请联系管理员');\n        throw new Error(`Transaction ${transaction.id} is missing transactionDate`);\n      }\n      \n      if (typeof transactionDate === 'string') {\n        // 如果是字符串，取前10位作为日期部分，避免时区转换\n        const dateStr = transactionDate.substring(0, 10);\n        executedAtValue = dayjs(dateStr + 'T12:00:00'); // 设置为中午12点避免时区问题\n      } else {\n        executedAtValue = dayjs(transactionDate);\n      }
+        message.error('交易记录缺少交易日期（transactionDate），请联系管理员');
+        throw new Error(`Transaction ${transaction.id} is missing transactionDate`);
+      }
+      
+      if (typeof transactionDate === 'string') {
+        // 如果是字符串，取前10位作为日期部分，避免时区转换
+        const dateStr = transactionDate.substring(0, 10);
+        executedAtValue = dayjs(dateStr + 'T12:00:00'); // 设置为中午12点避免时区问题
+      } else {
+        executedAtValue = dayjs(transactionDate);
+      }
       
       // 标签处理: 确保标签是字符串数组
       let tagsValue = transaction.tags || [];
