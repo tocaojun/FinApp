@@ -568,8 +568,6 @@ export class PortfolioService {
     `;
 
     try {
-      console.log('[updateTradingAccount] Query:', query);
-      console.log('[updateTradingAccount] Values:', values);
       const result = await databaseService.executeRawQuery(query, values);
       
       if (!Array.isArray(result) || result.length === 0) {
