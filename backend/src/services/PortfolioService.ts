@@ -484,11 +484,139 @@ export class PortfolioService {
   }
 
   async updateTradingAccount(userId: string, portfolioId: string, accountId: string, data: UpdateTradingAccountRequest): Promise<TradingAccount | null> {
-    return null;
+    // 验证投资组合所有权
+    const portfolioCheck = await databaseService.executeRawQuery(
+      `SELECT id FROM finapp.portfolios WHERE id = $1::uuid AND user_id = $2::uuid`,
+      [portfolioId, userId]
+    );
+    
+    if (!Array.isArray(portfolioCheck) || portfolioCheck.length === 0) {
+      throw new Error('Portfolio not found or access denied');
+    }
+
+    // 验证交易账户所有权
+    const accountCheck = await databaseService.executeRawQuery(
+      `SELECT id FROM finapp.trading_accounts WHERE id = $1::uuid AND portfolio_id = $2::uuid`,
+      [accountId, portfolioId]
+    );
+    
+    if (!Array.isArray(accountCheck) || accountCheck.length === 0) {
+      return null;
+    }
+
+    // 构建更新查询
+    const updateFields: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (data.name !== undefined) {
+      updateFields.push(`name = $${paramIndex++}`);
+      values.push(data.name);
+    }
+    if (data.broker !== undefined) {
+      updateFields.push(`broker_name = $${paramIndex++}`);
+      values.push(data.broker);
+    }
+    if (data.accountNumber !== undefined) {
+      updateFields.push(`account_number = $${paramIndex++}`);
+      values.push(data.accountNumber);
+    }
+    if (data.accountType !== undefined) {
+      updateFields.push(`account_type = $${paramIndex++}`);
+      values.push(data.accountType);
+    }
+    if (data.currency !== undefined) {
+      updateFields.push(`currency = $${paramIndex++}`);
+      values.push(data.currency);
+    }
+    if (data.balance !== undefined) {
+      updateFields.push(`current_balance = $${paramIndex++}`);
+      values.push(typeof data.balance === 'string' ? parseFloat(data.balance) : data.balance);
+    }
+    if (data.availableBalance !== undefined) {
+      updateFields.push(`available_balance = $${paramIndex++}`);
+      values.push(typeof data.availableBalance === 'string' ? parseFloat(data.availableBalance) : data.availableBalance);
+    }
+
+    // 总是更新 updated_at
+    updateFields.push(`updated_at = $${paramIndex++}`);
+    values.push(new Date());
+
+    // 添加 accountId 和 portfolioId 到 where 子句
+    values.push(accountId);
+    values.push(portfolioId);
+
+    const query = `
+      UPDATE finapp.trading_accounts
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramIndex++}::uuid AND portfolio_id = $${paramIndex}::uuid
+      RETURNING 
+        id,
+        portfolio_id,
+        name,
+        broker_name,
+        account_number,
+        account_type,
+        currency,
+        initial_balance,
+        current_balance,
+        is_active,
+        created_at,
+        updated_at
+    `;
+
+    try {
+      const result = await databaseService.executeRawQuery(query, values);
+      
+      if (!Array.isArray(result) || result.length === 0) {
+        return null;
+      }
+
+      const row = result[0];
+      return {
+        id: row.id,
+        portfolioId: row.portfolio_id,
+        name: row.name,
+        broker: row.broker_name,
+        accountNumber: row.account_number,
+        accountType: row.account_type,
+        currency: row.currency,
+        balance: parseFloat(row.initial_balance) || 0,
+        availableBalance: parseFloat(row.current_balance) || 0,
+        isActive: row.is_active,
+        createdAt: new Date(row.created_at),
+        updatedAt: new Date(row.updated_at)
+      };
+    } catch (error) {
+      console.error('更新交易账户时出错:', error);
+      throw error;
+    }
   }
 
   async deleteTradingAccount(userId: string, portfolioId: string, accountId: string): Promise<boolean> {
-    return false;
+    // 验证投资组合所有权
+    const portfolioCheck = await databaseService.executeRawQuery(
+      `SELECT id FROM finapp.portfolios WHERE id = $1::uuid AND user_id = $2::uuid`,
+      [portfolioId, userId]
+    );
+    
+    if (!Array.isArray(portfolioCheck) || portfolioCheck.length === 0) {
+      throw new Error('Portfolio not found or access denied');
+    }
+
+    // 删除交易账户
+    const query = `
+      DELETE FROM finapp.trading_accounts
+      WHERE id = $1::uuid AND portfolio_id = $2::uuid
+    `;
+
+    try {
+      const result = await databaseService.executeRawQuery(query, [accountId, portfolioId]);
+      return true;
+    } catch (error) {
+      console.error('删除交易账户时出错:', error);
+      throw error;
+    }
   }
 
   async createAsset(userId: string, portfolioId: string, data: CreateAssetRequest): Promise<Asset> {
