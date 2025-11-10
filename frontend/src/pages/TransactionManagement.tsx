@@ -550,8 +550,9 @@ const TransactionManagement: React.FC = () => {
         fee: values.fee || 0, // 添加 fee 字段
         fees: values.fee || 0,
         currency: asset.currency, // 使用资产的 currency
-        executedAt: values.executedAt.format('YYYY-MM-DD') + 'T12:00:00.000Z',
-        settledAt: values.executedAt.format('YYYY-MM-DD') + 'T12:00:00.000Z', // 使用相同的时间
+        transactionDate: values.executedAt.format('YYYY-MM-DD'), // 用户选择的交易日期（纯日期，无时区问题）
+        executedAt: new Date().toISOString(), // 当前录入时刻（系统时间戳）
+        settledAt: values.executedAt.format('YYYY-MM-DD') + 'T12:00:00.000Z', // 结算日期
         notes: values.notes || '',
         tags: values.tags || []
       } as any; // 临时使用 any 类型避免类型错误

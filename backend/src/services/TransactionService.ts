@@ -61,6 +61,29 @@ export class TransactionService {
     const totalAmount = Math.abs(request.quantity) * request.price;
     const fees = request.fees || 0;
 
+    // 解析交易日期和执行时刻
+    let transactionDate: Date;
+    let executedAt: Date;
+    
+    // transactionDate：用户选择的交易发生日期（纯日期）
+    if (request.transactionDate) {
+      const dateStr = typeof request.transactionDate === 'string' 
+        ? request.transactionDate 
+        : request.transactionDate instanceof Date 
+          ? request.transactionDate.toISOString().split('T')[0]
+          : new Date().toISOString().split('T')[0];
+      transactionDate = new Date(dateStr + 'T00:00:00Z');
+    } else {
+      transactionDate = new Date();
+    }
+
+    // executedAt：系统记录的录入时刻
+    executedAt = request.executedAt 
+      ? typeof request.executedAt === 'string' 
+        ? new Date(request.executedAt)
+        : request.executedAt
+      : new Date();
+
     const transaction: Transaction = {
       id: transactionId,
       userId,
@@ -74,7 +97,8 @@ export class TransactionService {
       totalAmount,
       fees,
       currency: correctCurrency,  // 使用从 asset 表获取的正确 currency
-      executedAt: request.executedAt || new Date(),
+      transactionDate,             // 用户选择的交易日期
+      executedAt,                  // 系统记录的执行时刻
       settledAt: request.settledAt,
       notes: request.notes,
       tags: request.tags || [],
@@ -99,9 +123,9 @@ export class TransactionService {
       INSERT INTO finapp.transactions (
         id, portfolio_id, trading_account_id, asset_id,
         transaction_type, quantity, price, total_amount, fees,
-        currency, transaction_date, notes, created_at, updated_at
+        currency, transaction_date, executed_at, notes, created_at, updated_at
       ) VALUES (
-        $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, $10, $11::timestamp, $12, $13::timestamp, $14::timestamp
+        $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, $10, $11::date, $12::timestamptz, $13, $14::timestamp, $15::timestamp
       ) RETURNING *
     `;
 
@@ -116,7 +140,8 @@ export class TransactionService {
       transaction.totalAmount,
       transaction.fees,
       transaction.currency,
-      transaction.executedAt,
+      transaction.transactionDate,  // 纯日期（YYYY-MM-DD格式）
+      transaction.executedAt,       // 完整时间戳（ISO格式）
       transaction.notes,
       transaction.createdAt,
       transaction.updatedAt
@@ -273,16 +298,14 @@ export class TransactionService {
         portfolioName: row.portfolio_name,
         assetName: row.asset_name,
         assetSymbol: row.asset_symbol,
+        transactionDate: row.transaction_date ? new Date(row.transaction_date + 'T00:00:00Z') : undefined,
         executedAt: (() => {
-        if (row.executed_at) {
-          return new Date(row.executed_at);
-        } else if (row.transaction_date) {
-          const dateStr = row.transaction_date + 'T12:00:00.000Z';
-          return new Date(dateStr);
-        } else {
-          return new Date();
-        }
-      })(),
+          if (row.executed_at) {
+            return new Date(row.executed_at);
+          } else {
+            return new Date();
+          }
+        })(),
         settledAt: row.settlement_date ? new Date(row.settlement_date) : undefined,
         notes: row.notes,
         tags: transactionTags,
@@ -346,12 +369,10 @@ export class TransactionService {
       totalAmount: parseFloat(row.total_amount),
       fees: parseFloat(row.fees || '0'),
       currency: row.currency,
+      transactionDate: row.transaction_date ? new Date(row.transaction_date + 'T00:00:00Z') : undefined,
       executedAt: (() => {
         if (row.executed_at) {
           return new Date(row.executed_at);
-        } else if (row.transaction_date) {
-          const dateStr = row.transaction_date + 'T12:00:00.000Z';
-          return new Date(dateStr);
         } else {
           return new Date();
         }
@@ -405,6 +426,21 @@ export class TransactionService {
     if (request.status !== undefined) {
       updateFields.push(`status = $${paramIndex}`);
       values.push(request.status);
+      paramIndex++;
+    }
+
+    if (request.transactionDate !== undefined) {
+      // 交易日期处理：转换为纯日期格式
+      let transactionDate: string;
+      if (typeof request.transactionDate === 'string') {
+        transactionDate = request.transactionDate;
+      } else if (request.transactionDate instanceof Date) {
+        transactionDate = request.transactionDate.toISOString().split('T')[0];
+      } else {
+        transactionDate = new Date(request.transactionDate).toISOString().split('T')[0];
+      }
+      updateFields.push(`transaction_date = $${paramIndex}::date`);
+      values.push(transactionDate);
       paramIndex++;
     }
 

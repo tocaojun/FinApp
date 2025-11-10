@@ -11,7 +11,8 @@ export interface Transaction {
   totalAmount: number;
   fees: number;
   currency: string;
-  executedAt: Date;
+  transactionDate?: Date; // 交易发生日期（用户选择）
+  executedAt: Date; // 录入执行时刻（系统自动记录）
   settledAt?: Date;
   notes?: string;
   tags: string[];
@@ -74,8 +75,9 @@ export interface CreateTransactionRequest {
   price: number;
   fees?: number;
   currency: string;
-  executedAt: Date;
-  settledAt?: Date;
+  transactionDate?: Date | string; // 交易发生日期（用户选择的日期）
+  executedAt: Date | string; // 录入执行时刻（系统记录）
+  settledAt?: Date | string;
   notes?: string;
   tags?: string[];
   liquidityTag?: LiquidityTag;
@@ -88,8 +90,9 @@ export interface UpdateTransactionRequest {
   price?: number;
   fees?: number;
   currency?: string;
-  executedAt?: Date;
-  settledAt?: Date;
+  transactionDate?: Date | string; // 交易发生日期
+  executedAt?: Date | string;
+  settledAt?: Date | string;
   notes?: string;
   tags?: string[];
   liquidityTag?: LiquidityTag;
