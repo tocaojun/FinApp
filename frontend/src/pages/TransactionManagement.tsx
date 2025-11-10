@@ -75,6 +75,16 @@ interface TransactionStats {
 }
 
 const TransactionManagement: React.FC = () => {
+  
+  const getSideFromTransactionType = (transactionType: string): string => {
+    const type = transactionType.toLowerCase();
+    if (type.includes('buy') || type === 'fund_subscribe' || type === 'deposit') {
+      return 'BUY';
+    } else if (type.includes('sell') || type === 'fund_redeem' || type === 'withdrawal') {
+      return 'SELL';
+    }
+    return 'BUY';
+  };
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -599,16 +609,13 @@ const TransactionManagement: React.FC = () => {
           tradingAccountId: values.tradingAccountId,
           assetId: values.assetId,
           transactionType: values.transactionType,
-          side: values.transactionType === 'buy' ? 'BUY' : 
-                values.transactionType === 'sell' ? 'SELL' :
-                values.transactionType === 'deposit' ? 'DEPOSIT' :
-                values.transactionType === 'withdrawal' ? 'WITHDRAWAL' : 'BUY',
+          side: getSideFromTransactionType(values.transactionType),
           quantity: values.quantity,
           price: values.price,
           fees: values.fee || 0,
           currency: asset.currency,
-          transactionDate: values.executedAt.format('YYYY-MM-DD'), // 用户选择的交易日期（纯日期，对应 transaction_date 列）
-          // 注意：不发送 executedAt，后端会自动设置为当前时刻
+          transactionDate: values.executedAt.format('YYYY-MM-DD'),
+          executedAt: new Date().toISOString(),
           notes: values.notes || '',
           tags: values.tags || []
         };
@@ -965,14 +972,18 @@ const TransactionManagement: React.FC = () => {
                 rules={[{ required: true, message: '请选择交易类型' }]}
               >
                 <Select placeholder="选择交易类型">
-                  <Option value="buy">买入</Option>
-                  <Option value="sell">卖出</Option>
-                  <Option value="deposit">存入</Option>
-                  <Option value="withdrawal">取出</Option>
-                  <Option value="dividend">分红</Option>
-                  <Option value="split">拆股</Option>
-                  <Option value="merger">合并</Option>
-                  <Option value="spin_off">分拆</Option>
+                  <Option value="STOCK_BUY">股票买入</Option>
+                  <Option value="STOCK_SELL">股票卖出</Option>
+                  <Option value="ETF_BUY">ETF买入</Option>
+                  <Option value="ETF_SELL">ETF卖出</Option>
+                  <Option value="FUND_SUBSCRIBE">基金申购</Option>
+                  <Option value="FUND_REDEEM">基金赎回</Option>
+                  <Option value="BOND_BUY">债券买入</Option>
+                  <Option value="BOND_SELL">债券卖出</Option>
+                  <Option value="DEPOSIT">存入</Option>
+                  <Option value="WITHDRAWAL">取出</Option>
+                  <Option value="DIVIDEND">分红</Option>
+                  <Option value="INTEREST">利息</Option>
                 </Select>
               </Form.Item>
             </Col>
