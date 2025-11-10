@@ -65,17 +65,17 @@ export class TransactionService {
     let transactionDate: Date;
     let executedAt: Date;
     
-    // transactionDate：用户选择的交易发生日期（纯日期）
-    if (request.transactionDate) {
-      const dateStr = typeof request.transactionDate === 'string' 
-        ? request.transactionDate 
-        : request.transactionDate instanceof Date 
-          ? request.transactionDate.toISOString().split('T')[0]
-          : new Date().toISOString().split('T')[0];
-      transactionDate = new Date(dateStr + 'T00:00:00Z');
-    } else {
-      transactionDate = new Date();
+    // transactionDate：用户选择的交易发生日期（纯日期）- 必须提供
+    if (!request.transactionDate) {
+      throw new Error('transactionDate is required when creating a transaction');
     }
+    
+    const dateStr = typeof request.transactionDate === 'string' 
+      ? request.transactionDate 
+      : request.transactionDate instanceof Date 
+        ? request.transactionDate.toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0];
+    transactionDate = new Date(dateStr + 'T00:00:00Z');
 
     // executedAt：系统记录的录入时刻
     executedAt = request.executedAt 
@@ -303,13 +303,7 @@ export class TransactionService {
         assetName: row.asset_name,
         assetSymbol: row.asset_symbol,
         transactionDate: row.transaction_date ? new Date(row.transaction_date + 'T00:00:00Z') : undefined,
-        executedAt: (() => {
-          if (row.executed_at) {
-            return new Date(row.executed_at);
-          } else {
-            return new Date();
-          }
-        })(),
+        executedAt: row.executed_at ? new Date(row.executed_at) : new Date(), // executedAt 可以使用当前时间作为默认值
         settledAt: row.settlement_date ? new Date(row.settlement_date) : undefined,
         notes: row.notes,
         tags: transactionTags,
@@ -374,13 +368,7 @@ export class TransactionService {
       fees: parseFloat(row.fees || '0'),
       currency: row.currency,
       transactionDate: row.transaction_date ? new Date(row.transaction_date + 'T00:00:00Z') : undefined,
-      executedAt: (() => {
-        if (row.executed_at) {
-          return new Date(row.executed_at);
-        } else {
-          return new Date();
-        }
-      })(),
+      executedAt: row.executed_at ? new Date(row.executed_at) : new Date(), // executedAt 可以使用当前时间作为默认值
       settledAt: row.settled_at ? new Date(row.settled_at) : undefined,
       notes: row.notes,
       tags: tags,

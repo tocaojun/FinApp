@@ -457,15 +457,11 @@ const TransactionManagement: React.FC = () => {
       
       // 日期处理: 使用 transactionDate（用户选择的交易日期）而不是 executedAt（系统执行时刻）
       let executedAtValue;
-      // 优先使用 transactionDate（如果存在），否则使用 executedAt 作为后备
-      const dateToUse = (transaction as any).transactionDate || transaction.executedAt;
-      if (typeof dateToUse === 'string') {
-        // 如果是字符串，取前10位作为日期部分，避免时区转换
-        const dateStr = dateToUse.substring(0, 10);
-        executedAtValue = dayjs(dateStr + 'T12:00:00'); // 设置为中午12点避免时区问题
-      } else {
-        executedAtValue = dayjs(dateToUse);
-      }
+      const transactionDate = (transaction as any).transactionDate;
+      
+      if (!transactionDate) {
+        // 如果 transactionDate 为空，说明数据有问题，需要提醒用户
+        message.error('交易记录缺少交易日期（transactionDate），请联系管理员');\n        throw new Error(`Transaction ${transaction.id} is missing transactionDate`);\n      }\n      \n      if (typeof transactionDate === 'string') {\n        // 如果是字符串，取前10位作为日期部分，避免时区转换\n        const dateStr = transactionDate.substring(0, 10);\n        executedAtValue = dayjs(dateStr + 'T12:00:00'); // 设置为中午12点避免时区问题\n      } else {\n        executedAtValue = dayjs(transactionDate);\n      }
       
       // 标签处理: 确保标签是字符串数组
       let tagsValue = transaction.tags || [];
