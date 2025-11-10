@@ -286,15 +286,29 @@ const TransactionManagement: React.FC = () => {
       totalAmount: data.reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0),
       totalFees: data.reduce((sum, t) => sum + t.fee, 0),
       pendingCount: data.filter(t => t.status === 'PENDING').length,
-      buyCount: data.filter(t => ['BUY', 'DEPOSIT'].includes(t.transactionType)).length,
-      sellCount: data.filter(t => ['SELL', 'WITHDRAWAL'].includes(t.transactionType)).length,
+      buyCount: data.filter(t => {
+        const type = t.transactionType?.toUpperCase() || '';
+        return type.includes('BUY') || type === 'DEPOSIT' || type === 'FUND_SUBSCRIBE';
+      }).length,
+      sellCount: data.filter(t => {
+        const type = t.transactionType?.toUpperCase() || '';
+        return type.includes('SELL') || type === 'WITHDRAWAL' || type === 'FUND_REDEEM';
+      }).length,
       profitLoss: 0, // 需要根据实际业务逻辑计算
       avgTransactionSize: data.length > 0 ? data.reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0) / data.length : 0
     };
     
     // 简单的盈亏计算（卖出 - 买入）
-    const sellAmount = data.filter(t => t.transactionType === 'SELL').reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0);
-    const buyAmount = data.filter(t => t.transactionType === 'BUY').reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0);
+    const sellAmount = data.filter(t => {
+      const type = t.transactionType?.toUpperCase() || '';
+      return type.includes('SELL') || type === 'WITHDRAWAL' || type === 'FUND_REDEEM';
+    }).reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0);
+    
+    const buyAmount = data.filter(t => {
+      const type = t.transactionType?.toUpperCase() || '';
+      return type.includes('BUY') || type === 'DEPOSIT' || type === 'FUND_SUBSCRIBE';
+    }).reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0);
+    
     stats.profitLoss = sellAmount - buyAmount;
     
     setStatistics(stats);
@@ -347,22 +361,46 @@ const TransactionManagement: React.FC = () => {
       title: '类型',
       dataIndex: 'transactionType',
       key: 'transactionType',
-      width: 80,
+      width: 120,
       render: (type) => {
-        const typeMap = {
+        const typeMap: Record<string, { color: string; text: string }> = {
+          // 新的具体交易类型
+          STOCK_BUY: { color: 'green', text: '股票买入' },
+          STOCK_SELL: { color: 'red', text: '股票卖出' },
+          ETF_BUY: { color: 'green', text: 'ETF买入' },
+          ETF_SELL: { color: 'red', text: 'ETF卖出' },
+          FUND_SUBSCRIBE: { color: 'green', text: '基金申购' },
+          FUND_REDEEM: { color: 'red', text: '基金赎回' },
+          BOND_BUY: { color: 'green', text: '债券买入' },
+          BOND_SELL: { color: 'red', text: '债券卖出' },
+          CRYPTO_BUY: { color: 'green', text: '加密买入' },
+          CRYPTO_SELL: { color: 'red', text: '加密卖出' },
+          // 通用交易类型
           BUY: { color: 'green', text: '买入' },
           SELL: { color: 'red', text: '卖出' },
           DEPOSIT: { color: 'blue', text: '存入' },
           WITHDRAWAL: { color: 'orange', text: '取出' },
           DIVIDEND: { color: 'purple', text: '分红' },
           INTEREST: { color: 'cyan', text: '利息' },
+          FEE: { color: 'volcano', text: '手续费' },
+          // 旧的小写格式（向后兼容）
+          buy: { color: 'green', text: '买入' },
+          sell: { color: 'red', text: '卖出' },
+          deposit: { color: 'blue', text: '存入' },
+          withdrawal: { color: 'orange', text: '取出' },
+          dividend: { color: 'purple', text: '分红' },
         };
-        const { color, text } = typeMap[type as keyof typeof typeMap];
+        const mapping = typeMap[type] || { color: 'default', text: type };
+        const { color, text } = mapping;
         return <Tag color={color}>{text}</Tag>;
       },
       filters: [
-        { text: '买入', value: 'BUY' },
-        { text: '卖出', value: 'SELL' },
+        { text: '股票买入', value: 'STOCK_BUY' },
+        { text: '股票卖出', value: 'STOCK_SELL' },
+        { text: 'ETF买入', value: 'ETF_BUY' },
+        { text: 'ETF卖出', value: 'ETF_SELL' },
+        { text: '基金申购', value: 'FUND_SUBSCRIBE' },
+        { text: '基金赎回', value: 'FUND_REDEEM' },
         { text: '存入', value: 'DEPOSIT' },
         { text: '取出', value: 'WITHDRAWAL' },
         { text: '分红', value: 'DIVIDEND' },
