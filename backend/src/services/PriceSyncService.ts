@@ -969,6 +969,21 @@ export class PriceSyncService {
     asset: any,
     daysBack: number
   ): Promise<any[]> {
+    // 特殊处理：中国基金和ETF必须使用EastMoney
+    // 包括: 100000-199999 (基金), 500000-599999 (ETF), 600000-699999 (股票)
+    const isCNAsset = asset.currency === 'CNY' && /^[0-9]{6}$/.test(asset.symbol);
+    const firstDigit = asset.symbol.charAt(0);
+    const isCNFundOrETF = isCNAsset && (
+      firstDigit === '1' ||  // 100000-199999: 基金
+      firstDigit === '5'     // 500000-599999: ETF
+    );
+    
+    if (isCNFundOrETF && dataSource.provider === 'yahoo_finance') {
+      // 中国基金/ETF 必须使用 EastMoney，不能用 Yahoo Finance
+      console.log(`[PriceSync] Switching to EastMoney for CN fund/ETF: ${asset.symbol}`);
+      return await this.fetchFromEastMoney(asset, daysBack);
+    }
+
     // 根据不同的数据源提供商调用不同的API
     switch (dataSource.provider) {
       case 'yahoo_finance':
@@ -1022,18 +1037,22 @@ export class PriceSyncService {
           case 'CN':
             // 中国：需要根据具体交易所判断
             // Yahoo Finance 中文转换规则：
+            // - 100000-199999: 深交所基金 → .SZ (100138等)
+            // - 500000-599999: 深交所 ETF 和基金 → .SZ
             // - 600000-609999: 上海股票 → .SS
             // - 000000-003999: 深圳股票 → .SZ
-            // - 500000-599999: 深交所 ETF 和基金 → .SS (注意：ETF在Yahoo中需要用.SS)
             // - 800000-899999: B股 → .SS
-            if (asset.symbol.startsWith('6')) {
+            if (asset.symbol.startsWith('1')) {
+              // 100000+ → 深交所基金（含ETF），使用深交所后缀
+              yahooSymbol = `${asset.symbol}.SZ`;
+            } else if (asset.symbol.startsWith('6')) {
               // 600000+ → 上交所
               yahooSymbol = `${asset.symbol}.SS`;
             } else if (asset.symbol.startsWith('5')) {
-              // 500000+ → 深交所 ETF/基金，但Yahoo Finance需要用.SS
-              yahooSymbol = `${asset.symbol}.SS`;
+              // 500000+ → 深交所 ETF/基金，使用深交所后缀
+              yahooSymbol = `${asset.symbol}.SZ`;
             } else if (asset.symbol.startsWith('0') || asset.symbol.startsWith('3')) {
-              // 000000-003999 → 深交所股票
+              // 000000-003999 → 深圳股票
               yahooSymbol = `${asset.symbol}.SZ`;
             } else if (asset.symbol.startsWith('8')) {
               // 800000+ → B股，使用上交所后缀
@@ -1145,13 +1164,30 @@ export class PriceSyncService {
   }
 
   private async fetchFromEastMoney(asset: any, daysBack: number): Promise<any[]> {
-    // 东方财富 API 实现（示例）
+    // 东方财富 API 实现
     try {
+      // 转换符号为 EastMoney 的 secid 格式
+      // 中国交易所代码：
+      // - 0: 深交所 (000000-199999, 500000-599999)
+      // - 1: 上交所 (600000-699999, 960000-969999)
+      let secid = asset.symbol;
+      const firstDigit = asset.symbol.charAt(0);
+      
+      if (firstDigit === '1' || firstDigit === '5' || firstDigit === '0' || firstDigit === '3') {
+        // 深交所：1xxxxxx (基金), 5xxxxx (ETF), 0xxxxx (股票), 3xxxxx (创业板)
+        secid = `0.${asset.symbol}`;
+      } else if (firstDigit === '6' || firstDigit === '9') {
+        // 上交所：6xxxxx (股票), 9xxxxx (债券)
+        secid = `1.${asset.symbol}`;
+      }
+      
+      console.log(`[EastMoney] Fetching ${asset.symbol} with secid: ${secid}`);
+
       const response = await axios.get(
         'http://push2.eastmoney.com/api/qt/stock/kline/get',
         {
           params: {
-            secid: asset.symbol,
+            secid: secid,
             fields1: 'f1,f2,f3,f4,f5',
             fields2: 'f51,f52,f53,f54,f55,f56,f57',
             klt: 101, // 日K
@@ -1159,24 +1195,36 @@ export class PriceSyncService {
             lmt: daysBack,
           },
           timeout: 30000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Referer': 'http://quote.eastmoney.com/',
+          },
         }
       );
 
+      if (!response.data || !response.data.data || !response.data.data.klines) {
+        console.warn(`[EastMoney] No kline data returned for ${asset.symbol} (${secid})`);
+        return [];
+      }
+
       const klines = response.data.data.klines;
-      return klines.map((kline: string) => {
-        const [date, open, close, high, low, volume] = kline.split(',');
+      const prices = klines.map((kline: string) => {
+        const parts = kline.split(',');
         return {
-          date: date || '',
-          open: parseFloat(open || '0'),
-          high: parseFloat(high || '0'),
-          low: parseFloat(low || '0'),
-          close: parseFloat(close || '0'),
-          volume: parseInt(volume || '0'),
+          date: parts[0] || '',
+          open: parseFloat(parts[1] || '0'),
+          high: parseFloat(parts[3] || '0'),
+          low: parseFloat(parts[4] || '0'),
+          close: parseFloat(parts[2] || '0'),
+          volume: parseInt(parts[5] || '0'),
           currency: asset.currency || 'CNY',
         };
-      });
+      }).filter(p => p.date && p.close > 0);
+
+      console.log(`[EastMoney] Fetched ${prices.length} price records for ${asset.symbol}`);
+      return prices;
     } catch (error) {
-      console.error(`Error fetching from EastMoney for ${asset.symbol}:`, error);
+      console.error(`[EastMoney] Error fetching data for ${asset.symbol}:`, error);
       throw error;
     }
   }
