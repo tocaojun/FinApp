@@ -42,6 +42,7 @@ import { TagService, Tag as TagType } from '../services/tagService';
 import { TradingAccountService, TradingAccount } from '../services/tradingAccountService';
 import CategoryTagSelector from '../components/common/CategoryTagSelector';
 import { TransactionImportModal } from '../components/transaction/TransactionImportModal';
+import { formatCurrency, formatPrice } from '../utils/currencyUtils';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -419,20 +420,20 @@ const TransactionManagement: React.FC = () => {
     {
       title: '单价 (每份净值)',
       key: 'price',
-      width: 100,
+      width: 120,
       align: 'right',
-      render: (_, record) => `¥${record.price.toFixed(4)}`,
+      render: (_, record) => formatPrice(record.price, record.currency, 4),
     },
     {
       title: '金额 (数量×单价)',
       dataIndex: 'amount',
       key: 'amount',
-      width: 120,
+      width: 140,
       align: 'right',
-      render: (amount) => {
+      render: (amount, record) => {
         // 只显示金额绝对值，不体现资金流向
         const displayAmount = Math.abs(amount);
-        return `¥${displayAmount.toFixed(2)}`;
+        return formatCurrency(displayAmount, record.currency, 2);
       },
       sorter: (a, b) => Math.abs(a.amount) - Math.abs(b.amount),
     },
@@ -440,9 +441,9 @@ const TransactionManagement: React.FC = () => {
       title: '手续费',
       dataIndex: 'fee',
       key: 'fee',
-      width: 80,
+      width: 100,
       align: 'right',
-      render: (value) => `¥${Math.abs(value).toFixed(2)}`,
+      render: (value, record) => formatCurrency(Math.abs(value), record.currency, 2),
     },
     {
       title: '状态',
