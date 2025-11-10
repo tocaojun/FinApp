@@ -123,19 +123,37 @@ export class TransactionService {
       params.append('baseCurrency', baseCurrency);
       const queryString = params.toString() ? '?' + params.toString() : '';
 
+      console.log('[TransactionService.getTransactionSummaryWithConversion] Calling API with URL:', `/transactions/summary/stats-with-conversion${queryString}`);
       const response = await apiGet<{ success: boolean; data: TransactionSummaryWithConversion }>(`/transactions/summary/stats-with-conversion${queryString}`);
-      return response.data || {
-        totalTransactions: 0,
-        totalBuyAmount: 0,
-        totalSellAmount: 0,
-        totalFees: 0,
-        totalAmountInBaseCurrency: 0,
-        totalFeesInBaseCurrency: 0,
-        netCashFlow: 0,
-        currencyBreakdown: []
-      };
+      console.log('[TransactionService.getTransactionSummaryWithConversion] Full response:', response);
+      console.log('[TransactionService.getTransactionSummaryWithConversion] Response type:', typeof response);
+      console.log('[TransactionService.getTransactionSummaryWithConversion] Response keys:', Object.keys(response || {}));
+      console.log('[TransactionService.getTransactionSummaryWithConversion] response.data:', response?.data);
+      console.log('[TransactionService.getTransactionSummaryWithConversion] response.data type:', typeof response?.data);
+      
+      if (response && response.data) {
+        console.log('[TransactionService.getTransactionSummaryWithConversion] Returning data:', {
+          totalTransactions: response.data.totalTransactions,
+          totalAmountInBaseCurrency: response.data.totalAmountInBaseCurrency,
+          totalFeesInBaseCurrency: response.data.totalFeesInBaseCurrency
+        });
+        return response.data;
+      } else {
+        console.warn('[TransactionService.getTransactionSummaryWithConversion] response.data is falsy');
+        console.warn('[TransactionService.getTransactionSummaryWithConversion] response:', response);
+        return {
+          totalTransactions: 0,
+          totalBuyAmount: 0,
+          totalSellAmount: 0,
+          totalFees: 0,
+          totalAmountInBaseCurrency: 0,
+          totalFeesInBaseCurrency: 0,
+          netCashFlow: 0,
+          currencyBreakdown: []
+        };
+      }
     } catch (error) {
-      console.error('获取交易统计（含汇率转换）失败:', error);
+      console.error('[TransactionService.getTransactionSummaryWithConversion] API call failed:', error);
       // 返回空数据
       return {
         totalTransactions: 0,

@@ -280,72 +280,107 @@ const TransactionManagement: React.FC = () => {
     fetchTradingAccounts(); // 获取所有交易账户
   }, []);
 
+  // 当选中的投资组合改变时，重新计算统计信息
+  useEffect(() => {
+    if (transactions.length > 0) {
+      console.log('[TransactionManagement] selectedPortfolio changed, recalculating statistics');
+      calculateStatistics(transactions);
+    }
+  }, [selectedPortfolio]);
+
   // 计算统计数据（支持汇率转换为人民币）
   const calculateStatistics = async (data: Transaction[]) => {
-    // 首先总是计算本地数据统计（作为备选）
-    const localStats: TransactionStats = {
-      totalTransactions: data.length,
-      totalAmount: data.reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0),
-      totalFees: data.reduce((sum, t) => sum + t.fee, 0),
-      pendingCount: data.filter(t => t.status === 'PENDING').length,
-      buyCount: data.filter(t => {
-        const type = t.transactionType?.toUpperCase() || '';
-        return type.includes('BUY') || type === 'DEPOSIT' || type === 'FUND_SUBSCRIBE';
-      }).length,
-      sellCount: data.filter(t => {
-        const type = t.transactionType?.toUpperCase() || '';
-        return type.includes('SELL') || type === 'WITHDRAWAL' || type === 'FUND_REDEEM';
-      }).length,
-      profitLoss: 0,
-      avgTransactionSize: data.length > 0 ? data.reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0) / data.length : 0
-    };
-    
-    // 计算卖出和买入金额用于盈亏计算
-    const sellAmount = data.filter(t => {
-      const type = t.transactionType?.toUpperCase() || '';
-      return type.includes('SELL') || type === 'WITHDRAWAL' || type === 'FUND_REDEEM';
-    }).reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0);
-    
-    const buyAmount = data.filter(t => {
+    // 统计计数信息（这部分不依赖汇率转换）
+    const totalTransactions = data.length;
+    const pendingCount = data.filter(t => t.status === 'PENDING').length;
+    const buyCount = data.filter(t => {
       const type = t.transactionType?.toUpperCase() || '';
       return type.includes('BUY') || type === 'DEPOSIT' || type === 'FUND_SUBSCRIBE';
-    }).reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0);
-    
-    localStats.profitLoss = sellAmount - buyAmount;
+    }).length;
+    const sellCount = data.filter(t => {
+      const type = t.transactionType?.toUpperCase() || '';
+      return type.includes('SELL') || type === 'WITHDRAWAL' || type === 'FUND_REDEEM';
+    }).length;
     
     // 尝试调用新的 API 获取支持汇率转换的统计信息
     try {
+      console.log('[calculateStatistics] Data length:', data.length);
       console.log('[calculateStatistics] Calling getTransactionSummaryWithConversion with portfolioId:', selectedPortfolio);
+      console.log('[calculateStatistics] selectedPortfolio || undefined =', selectedPortfolio || undefined);
       const summaryWithConversion = await TransactionService.getTransactionSummaryWithConversion(selectedPortfolio || undefined, 'CNY');
       
-      console.log('[calculateStatistics] API response:', summaryWithConversion);
+      console.log('[calculateStatistics] API response received:', summaryWithConversion);
+      console.log('[calculateStatistics] summaryWithConversion.totalTransactions:', summaryWithConversion?.totalTransactions);
       
-      // 如果 API 有有效数据，使用 API 返回的数据
-      if (summaryWithConversion && summaryWithConversion.totalAmountInBaseCurrency > 0) {
+      // 检查 API 响应是否有效：totalTransactions > 0 表示确实有交易数据
+      // 不再以 totalAmountInBaseCurrency > 0 作为判断条件，因为可能存在买卖相互抵消的情况
+      if (summaryWithConversion && summaryWithConversion.totalTransactions > 0) {
         const stats: TransactionStats = {
           totalTransactions: summaryWithConversion.totalTransactions,
           // 使用转换后的人民币金额，而不是直接相加不同币种的金额
           totalAmount: summaryWithConversion.totalAmountInBaseCurrency,
           // 使用转换后的人民币手续费
           totalFees: summaryWithConversion.totalFeesInBaseCurrency,
-          pendingCount: localStats.pendingCount,
-          buyCount: localStats.buyCount,
-          sellCount: localStats.sellCount,
+          pendingCount,
+          buyCount,
+          sellCount,
           // 使用转换后的 net cash flow
           profitLoss: summaryWithConversion.netCashFlow,
           avgTransactionSize: summaryWithConversion.totalTransactions > 0 ? summaryWithConversion.totalAmountInBaseCurrency / summaryWithConversion.totalTransactions : 0
         };
         
+        console.log('[calculateStatistics] Using API data with currency conversion');
         setStatistics(stats);
       } else {
-        // API 返回的数据无效，使用本地数据
-        console.log('[calculateStatistics] API returned invalid data, using local data');
-        setStatistics(localStats);
+        // API 返回的数据为空（没有交易），设置为零
+        console.log('[calculateStatistics] No transaction data from API, showing zeros');
+        const emptyStats: TransactionStats = {
+          totalTransactions: 0,
+          totalAmount: 0,
+          totalFees: 0,
+          pendingCount: 0,
+          buyCount: 0,
+          sellCount: 0,
+          profitLoss: 0,
+          avgTransactionSize: 0
+        };
+        setStatistics(emptyStats);
       }
     } catch (error) {
-      console.error('获取汇率转换统计数据失败，使用本地数据计算:', error);
-      // 降级方案：使用本地数据计算（不支持汇率转换）
-      setStatistics(localStats);
+      console.error('获取汇率转换统计数据失败:', error);
+      // 降级方案：使用本地数据计算（不支持汇率转换，但仍然以币种分组方式聚合）
+      console.log('[calculateStatistics] Falling back to local data calculation by currency');
+      
+      // 按币种聚合，不直接相加
+      const currencyTotals = new Map<string, { amount: number; fees: number }>();
+      data.forEach(t => {
+        const currency = t.currency || 'CNY';
+        if (!currencyTotals.has(currency)) {
+          currencyTotals.set(currency, { amount: 0, fees: 0 });
+        }
+        const current = currencyTotals.get(currency)!;
+        current.amount += t.amount || t.totalAmount || 0;
+        current.fees += t.fee || 0;
+      });
+      
+      // 输出警告日志，显示各币种的统计数据
+      console.warn('[calculateStatistics] Fallback statistics by currency:', Array.from(currencyTotals.entries()));
+      
+      // 由于没有汇率信息，只显示交易笔数和计数统计
+      const fallbackStats: TransactionStats = {
+        totalTransactions,
+        // 无法准确汇总不同币种的金额，显示 0 并提示用户
+        totalAmount: 0,
+        totalFees: 0,
+        pendingCount,
+        buyCount,
+        sellCount,
+        profitLoss: 0,
+        avgTransactionSize: 0
+      };
+      
+      console.warn('[calculateStatistics] Cannot aggregate amounts in different currencies without exchange rates. Showing 0 for amounts.');
+      setStatistics(fallbackStats);
     }
   };
 

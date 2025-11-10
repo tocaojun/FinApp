@@ -708,12 +708,14 @@ export class TransactionService {
 
   // 获取交易汇总统计（支持币种转换为人民币）
   async getTransactionSummaryWithConversion(userId: string, portfolioId?: string, baseCurrency: string = 'CNY'): Promise<TransactionSummary & { totalAmountInBaseCurrency: number; totalFeesInBaseCurrency: number; currencyBreakdown: Array<{ currency: string; totalAmount: number; totalFees: number; exchangeRate: number }> }> {
-    const conditions = ['p.user_id = $1'];
+    console.log('[TransactionService.getTransactionSummaryWithConversion] Called with userId:', userId, 'portfolioId:', portfolioId, 'baseCurrency:', baseCurrency);
+    
+    const conditions = ['p.user_id = $1::uuid'];
     const values: any[] = [userId];
     let paramIndex = 2;
 
     if (portfolioId) {
-      conditions.push(`t.portfolio_id = $${paramIndex}`);
+      conditions.push(`t.portfolio_id = $${paramIndex}::uuid`);
       values.push(portfolioId);
       paramIndex++;
     }
@@ -825,7 +827,7 @@ export class TransactionService {
       });
     });
 
-    return {
+    const result = {
       totalTransactions: transactions.length,
       totalBuyAmount: totalBuyAmountInBaseCurrency,
       totalSellAmount: totalSellAmountInBaseCurrency,
@@ -837,6 +839,16 @@ export class TransactionService {
       transactionsByType: [],
       transactionsByMonth: []
     };
+    
+    console.log('[TransactionService.getTransactionSummaryWithConversion] Returning result:', {
+      totalTransactions: result.totalTransactions,
+      totalAmountInBaseCurrency: result.totalAmountInBaseCurrency,
+      totalFeesInBaseCurrency: result.totalFeesInBaseCurrency,
+      currencyBreakdownCount: result.currencyBreakdown.length,
+      currencyBreakdown: result.currencyBreakdown
+    });
+    
+    return result;
   }
 
   // 验证交易数据
