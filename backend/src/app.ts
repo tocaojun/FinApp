@@ -24,6 +24,7 @@ import tagRoutes from './routes/tagRoutes';
 import holdingsRouter from './routes/holdings';
 import priceSyncRouter from './routes/priceSync';
 import wealthRouter from './routes/wealth';
+import { reportsRouter } from './routes/reports';
 import { databaseService } from './services/DatabaseService';
 import { CacheService } from './services/CacheService';
 import { exchangeRateUpdateService } from './services/ExchangeRateUpdateService';
@@ -164,8 +165,8 @@ class App {
     // 财富产品管理路由（需要认证）
     this.app.use('/api/wealth', authenticateToken, wealthRouter);
 
-    // TODO: 添加其他路由
-    // this.app.use('/api/reports', authenticateToken, reportsRouter);
+    // 报表管理路由（需要认证）
+    this.app.use('/api/reports', reportsRouter);
 
     // 404 处理
     this.app.use((req, res) => {

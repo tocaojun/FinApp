@@ -14,7 +14,11 @@ import {
   Typography,
   Empty,
   Alert,
-  message
+  message,
+  Modal,
+  Form,
+  Input,
+  Popconfirm
 } from 'antd';
 import {
   DownloadOutlined,
@@ -50,6 +54,7 @@ const { Option } = Select;
 const { TabPane } = Tabs;
 
 const ReportsPage: React.FC = () => {
+  const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [quarterlyReports, setQuarterlyReports] = useState<QuarterlyReport[]>([]);
   const [irrAnalysis, setIrrAnalysis] = useState<IRRAnalysis[]>([]);
@@ -62,6 +67,9 @@ const ReportsPage: React.FC = () => {
     returnRate: 0,
     portfolioCount: 0
   });
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [editingReport, setEditingReport] = useState<CustomReport | null>(null);
+  const [reportModalLoading, setReportModalLoading] = useState(false);
 
   // 加载数据
   useEffect(() => {
@@ -389,9 +397,16 @@ const ReportsPage: React.FC = () => {
   };
 
   const handleEditCustomReport = (reportId: string) => {
-    // TODO: 打开编辑对话框
-    console.log('编辑自定义报告:', reportId);
-    message.info('编辑功能开发中');
+    const report = customReports.find(r => r.id === reportId);
+    if (report) {
+      setEditingReport(report);
+      form.setFieldsValue({
+        name: report.name,
+        type: report.type,
+        dateRange: report.dateRange
+      });
+      setReportModalVisible(true);
+    }
   };
 
   const handleDeleteCustomReport = async (reportId: string) => {
@@ -411,9 +426,43 @@ const ReportsPage: React.FC = () => {
   };
 
   const handleCreateCustomReport = () => {
-    // TODO: 打开创建对话框
-    console.log('创建自定义报告');
-    message.info('创建功能开发中');
+    setEditingReport(null);
+    form.resetFields();
+    setReportModalVisible(true);
+  };
+
+  const handleSaveCustomReport = async (values: any) => {
+    try {
+      setReportModalLoading(true);
+      if (editingReport) {
+        // 更新报表
+        const result = await updateCustomReport(editingReport.id, {
+          name: values.name,
+          type: values.type,
+          dateRange: values.dateRange,
+          filters: {}
+        });
+        message.success('报表更新成功');
+      } else {
+        // 创建新报表
+        const result = await createCustomReport({
+          name: values.name,
+          type: values.type,
+          dateRange: values.dateRange,
+          filters: {}
+        });
+        message.success('报表创建成功');
+      }
+      setReportModalVisible(false);
+      // 重新加载自定义报表列表
+      const customData = await getCustomReports();
+      setCustomReports(customData);
+    } catch (error) {
+      message.error(editingReport ? '更新报表失败' : '创建报表失败');
+      console.error('Error saving report:', error);
+    } finally {
+      setReportModalLoading(false);
+    }
   };
 
   const handleRecalculateIRR = async () => {
@@ -427,6 +476,60 @@ const ReportsPage: React.FC = () => {
   };
 
   return (
+    <>
+      <Modal
+        title={editingReport ? '编辑自定义报表' : '创建自定义报表'}
+        visible={reportModalVisible}
+        onCancel={() => setReportModalVisible(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setReportModalVisible(false)}>
+            取消
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            loading={reportModalLoading}
+            onClick={() => form.submit()}
+          >
+            {editingReport ? '更新' : '创建'}
+          </Button>
+        ]}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSaveCustomReport}
+        >
+          <Form.Item
+            label="报表名称"
+            name="name"
+            rules={[{ required: true, message: '请输入报表名称' }]}
+          >
+            <Input placeholder="输入报表名称" />
+          </Form.Item>
+
+          <Form.Item
+            label="报表类型"
+            name="type"
+            rules={[{ required: true, message: '请选择报表类型' }]}
+          >
+            <Select placeholder="选择报表类型">
+              <Option value="portfolio">投资组合</Option>
+              <Option value="transaction">交易记录</Option>
+              <Option value="performance">绩效分析</Option>
+              <Option value="risk">风险分析</Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            label="日期范围"
+            name="dateRange"
+            rules={[{ required: true, message: '请选择日期范围' }]}
+          >
+            <RangePicker style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
+      </Modal>
     <div style={{ padding: '24px' }}>
       <div style={{ marginBottom: '24px' }}>
         <Title level={2}>
@@ -613,6 +716,7 @@ const ReportsPage: React.FC = () => {
           </Card>
         </TabPane>
       </Tabs>
+    </>
     </div>
   );
 };

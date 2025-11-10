@@ -292,16 +292,27 @@ export class PortfolioController {
       // 获取用户所有投资组合
       const portfolios = await portfolioService.getPortfoliosByUserId(userId);
       
-      // 计算汇总统计 - 使用真实数据库数据
-      const totalValue = portfolios.reduce((sum, p) => sum + (p.totalValue || 0), 0);
-      const totalCost = portfolios.reduce((sum, p) => sum + (p.totalCost || 0), 0);
-      const totalReturn = portfolios.reduce((sum, p) => sum + (p.totalGainLoss || 0), 0);
+      // 为每个投资组合获取详细的汇总信息
+      let totalValue = 0;
+      let totalCost = 0;
+      let totalReturn = 0;
+      
+      for (const portfolio of portfolios) {
+        try {
+          const summary = await portfolioService.getPortfolioSummary(userId, portfolio.id);
+          if (summary) {
+            totalValue += summary.totalValue || 0;
+            totalCost += summary.totalCost || 0;
+            totalReturn += summary.totalReturn || 0;
+          }
+        } catch (error) {
+          console.warn(`Failed to get summary for portfolio ${portfolio.id}:`, error);
+          // 继续处理其他投资组合
+        }
+      }
       
       // 计算今日收益 - 基于实际持仓变化，如果没有今日数据则为0
-      const todayChange = portfolios.reduce((sum, p) => {
-        // 这里应该从持仓表或价格变化表获取今日变化，暂时使用0
-        return sum + 0;
-      }, 0);
+      const todayChange = 0;
       
       // 计算今日收益率
       const todayChangePercent = totalValue > 0 ? (todayChange / totalValue) * 100 : 0;
