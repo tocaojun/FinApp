@@ -56,7 +56,7 @@ interface TransactionFormData {
   quantity: number;
   price: number;
   fee: number;
-  executedAt: dayjs.Dayjs;
+  executedAt: dayjs.Dayjs;  // 表单字段名称（实际对应后端的 transactionDate，用户选择的交易日期）
   notes?: string;
   tags: string[];
 }
@@ -1005,13 +1005,13 @@ const TransactionManagement: React.FC = () => {
           </Row>
 
           <Form.Item
-            label="执行日期"
+            label="交易日期"
             name="executedAt"
-            rules={[{ required: true, message: '请选择执行日期' }]}
+            rules={[{ required: true, message: '请选择交易日期' }]}
           >
             <DatePicker
               style={{ width: '100%' }}
-              placeholder="选择执行日期"
+              placeholder="选择交易日期"
               format="YYYY-MM-DD"
             />
           </Form.Item>
