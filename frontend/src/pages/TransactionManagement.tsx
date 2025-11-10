@@ -282,64 +282,70 @@ const TransactionManagement: React.FC = () => {
 
   // 计算统计数据（支持汇率转换为人民币）
   const calculateStatistics = async (data: Transaction[]) => {
-    try {
-      // 调用新的 API 获取支持汇率转换的统计信息
-      const summaryWithConversion = await TransactionService.getTransactionSummaryWithConversion(selectedPortfolio || undefined, 'CNY');
-      
-      const stats: TransactionStats = {
-        totalTransactions: summaryWithConversion.totalTransactions,
-        // 使用转换后的人民币金额，而不是直接相加不同币种的金额
-        totalAmount: summaryWithConversion.totalAmountInBaseCurrency,
-        // 使用转换后的人民币手续费
-        totalFees: summaryWithConversion.totalFeesInBaseCurrency,
-        pendingCount: data.filter(t => t.status === 'PENDING').length,
-        buyCount: data.filter(t => {
-          const type = t.transactionType?.toUpperCase() || '';
-          return type.includes('BUY') || type === 'DEPOSIT' || type === 'FUND_SUBSCRIBE';
-        }).length,
-        sellCount: data.filter(t => {
-          const type = t.transactionType?.toUpperCase() || '';
-          return type.includes('SELL') || type === 'WITHDRAWAL' || type === 'FUND_REDEEM';
-        }).length,
-        // 使用转换后的 net cash flow
-        profitLoss: summaryWithConversion.netCashFlow,
-        avgTransactionSize: summaryWithConversion.totalTransactions > 0 ? summaryWithConversion.totalAmountInBaseCurrency / summaryWithConversion.totalTransactions : 0
-      };
-      
-      setStatistics(stats);
-    } catch (error) {
-      console.error('计算统计数据失败:', error);
-      // 降级方案：使用本地数据计算（不支持汇率转换）
-      const stats: TransactionStats = {
-        totalTransactions: data.length,
-        totalAmount: data.reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0),
-        totalFees: data.reduce((sum, t) => sum + t.fee, 0),
-        pendingCount: data.filter(t => t.status === 'PENDING').length,
-        buyCount: data.filter(t => {
-          const type = t.transactionType?.toUpperCase() || '';
-          return type.includes('BUY') || type === 'DEPOSIT' || type === 'FUND_SUBSCRIBE';
-        }).length,
-        sellCount: data.filter(t => {
-          const type = t.transactionType?.toUpperCase() || '';
-          return type.includes('SELL') || type === 'WITHDRAWAL' || type === 'FUND_REDEEM';
-        }).length,
-        profitLoss: 0,
-        avgTransactionSize: data.length > 0 ? data.reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0) / data.length : 0
-      };
-      
-      const sellAmount = data.filter(t => {
-        const type = t.transactionType?.toUpperCase() || '';
-        return type.includes('SELL') || type === 'WITHDRAWAL' || type === 'FUND_REDEEM';
-      }).reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0);
-      
-      const buyAmount = data.filter(t => {
+    // 首先总是计算本地数据统计（作为备选）
+    const localStats: TransactionStats = {
+      totalTransactions: data.length,
+      totalAmount: data.reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0),
+      totalFees: data.reduce((sum, t) => sum + t.fee, 0),
+      pendingCount: data.filter(t => t.status === 'PENDING').length,
+      buyCount: data.filter(t => {
         const type = t.transactionType?.toUpperCase() || '';
         return type.includes('BUY') || type === 'DEPOSIT' || type === 'FUND_SUBSCRIBE';
-      }).reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0);
+      }).length,
+      sellCount: data.filter(t => {
+        const type = t.transactionType?.toUpperCase() || '';
+        return type.includes('SELL') || type === 'WITHDRAWAL' || type === 'FUND_REDEEM';
+      }).length,
+      profitLoss: 0,
+      avgTransactionSize: data.length > 0 ? data.reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0) / data.length : 0
+    };
+    
+    // 计算卖出和买入金额用于盈亏计算
+    const sellAmount = data.filter(t => {
+      const type = t.transactionType?.toUpperCase() || '';
+      return type.includes('SELL') || type === 'WITHDRAWAL' || type === 'FUND_REDEEM';
+    }).reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0);
+    
+    const buyAmount = data.filter(t => {
+      const type = t.transactionType?.toUpperCase() || '';
+      return type.includes('BUY') || type === 'DEPOSIT' || type === 'FUND_SUBSCRIBE';
+    }).reduce((sum, t) => sum + (t.amount || t.totalAmount || 0), 0);
+    
+    localStats.profitLoss = sellAmount - buyAmount;
+    
+    // 尝试调用新的 API 获取支持汇率转换的统计信息
+    try {
+      console.log('[calculateStatistics] Calling getTransactionSummaryWithConversion with portfolioId:', selectedPortfolio);
+      const summaryWithConversion = await TransactionService.getTransactionSummaryWithConversion(selectedPortfolio || undefined, 'CNY');
       
-      stats.profitLoss = sellAmount - buyAmount;
+      console.log('[calculateStatistics] API response:', summaryWithConversion);
       
-      setStatistics(stats);
+      // 如果 API 有有效数据，使用 API 返回的数据
+      if (summaryWithConversion && summaryWithConversion.totalAmountInBaseCurrency > 0) {
+        const stats: TransactionStats = {
+          totalTransactions: summaryWithConversion.totalTransactions,
+          // 使用转换后的人民币金额，而不是直接相加不同币种的金额
+          totalAmount: summaryWithConversion.totalAmountInBaseCurrency,
+          // 使用转换后的人民币手续费
+          totalFees: summaryWithConversion.totalFeesInBaseCurrency,
+          pendingCount: localStats.pendingCount,
+          buyCount: localStats.buyCount,
+          sellCount: localStats.sellCount,
+          // 使用转换后的 net cash flow
+          profitLoss: summaryWithConversion.netCashFlow,
+          avgTransactionSize: summaryWithConversion.totalTransactions > 0 ? summaryWithConversion.totalAmountInBaseCurrency / summaryWithConversion.totalTransactions : 0
+        };
+        
+        setStatistics(stats);
+      } else {
+        // API 返回的数据无效，使用本地数据
+        console.log('[calculateStatistics] API returned invalid data, using local data');
+        setStatistics(localStats);
+      }
+    } catch (error) {
+      console.error('获取汇率转换统计数据失败，使用本地数据计算:', error);
+      // 降级方案：使用本地数据计算（不支持汇率转换）
+      setStatistics(localStats);
     }
   };
 

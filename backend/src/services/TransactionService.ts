@@ -735,7 +735,11 @@ export class TransactionService {
       ORDER BY t.transaction_date DESC, t.created_at DESC
     `;
 
+    console.log('[TransactionService.getTransactionSummaryWithConversion] Query:', transactionQuery, 'Values:', values);
+    
     const transactions = await databaseService.executeRawQuery<any[]>(transactionQuery, values);
+    
+    console.log('[TransactionService.getTransactionSummaryWithConversion] Transactions count:', transactions.length, 'Data:', transactions.slice(0, 3));
 
     // 获取所有涉及的币种汇率
     const currencies = new Set<string>(transactions.map(t => t.currency));
@@ -779,16 +783,21 @@ export class TransactionService {
       }
 
       const current = currencyTotals.get(currency)!;
-      current.totalAmount += parseFloat(tx.total_amount || '0');
-      current.totalFees += parseFloat(tx.fees || '0');
+      const amount = parseFloat(tx.total_amount || '0');
+      const fees = parseFloat(tx.fees || '0');
+      
+      current.totalAmount += amount;
+      current.totalFees += fees;
 
       const txType = (tx.transaction_type || '').toUpperCase();
       if (txType.includes('BUY') || txType === 'DEPOSIT' || txType === 'FUND_SUBSCRIBE') {
-        current.buyAmount += parseFloat(tx.total_amount || '0');
+        current.buyAmount += amount;
       } else if (txType.includes('SELL') || txType === 'WITHDRAWAL' || txType === 'FUND_REDEEM') {
-        current.sellAmount += parseFloat(tx.total_amount || '0');
+        current.sellAmount += amount;
       }
     });
+    
+    console.log('[TransactionService] Currency totals:', Array.from(currencyTotals.entries()));
 
     // 转换为基础货币
     let totalAmountInBaseCurrency = 0;
