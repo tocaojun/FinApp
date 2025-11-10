@@ -19,7 +19,8 @@ export interface Transaction {
   fees?: number;  // 兼容后端字段
   currency: string;
   transactionDate?: string | Date;  // 用户选择的交易日期（纯日期，必需）
-  executedAt: string;
+  executedAt?: string | Date;  // 系统执行/更新的时刻（系统管理，对应数据库 executed_at）
+  settledAt?: string | Date;  // 交易结算时刻（可选）
   notes?: string;
   tags: string[];  // 标签数组
   status?: string;  // 交易状态
@@ -46,7 +47,9 @@ export class TransactionService {
   }): Promise<{ transactions: Transaction[]; total: number }> {
     try {
       const queryString = params ? '?' + new URLSearchParams(params as any).toString() : '';
-      return await apiGet<{ transactions: Transaction[]; total: number }>(`/transactions${queryString}`);
+      const response = await apiGet<{ success: boolean; data: { transactions: Transaction[]; total: number; page: number; limit: number }}>(`/transactions${queryString}`);
+      // 后端返回格式: { success: true, data: { transactions: [...], total: ..., page: ..., limit: ... } }
+      return response.data || { transactions: [], total: 0 };
     } catch (error) {
       console.error('获取交易记录失败:', error);
       throw error;
@@ -55,7 +58,8 @@ export class TransactionService {
 
   static async getTransactionById(id: string): Promise<Transaction> {
     try {
-      return await apiGet<Transaction>(`/transactions/${id}`);
+      const response = await apiGet<{ success: boolean; data: Transaction }>(`/transactions/${id}`);
+      return response.data || {} as Transaction;
     } catch (error) {
       console.error('获取交易详情失败:', error);
       throw error;
@@ -64,8 +68,8 @@ export class TransactionService {
 
   static async getRecentTransactions(limit: number = 10): Promise<Transaction[]> {
     try {
-      const response = await apiGet<{ transactions: Transaction[]; total: number }>(`/transactions?limit=${limit}&page=1`);
-      return response.transactions || [];
+      const response = await apiGet<{ success: boolean; data: { transactions: Transaction[]; total: number }}>(`/transactions?limit=${limit}&page=1`);
+      return response.data?.transactions || [];
     } catch (error) {
       console.error('获取最近交易记录失败:', error);
       // 返回空数组
@@ -75,7 +79,14 @@ export class TransactionService {
 
   static async getTransactionSummary(): Promise<TransactionSummary> {
     try {
-      return await apiGet<TransactionSummary>('/transactions/summary');
+      const response = await apiGet<{ success: boolean; data: TransactionSummary }>('/transactions/summary');
+      return response.data || {
+        totalTransactions: 0,
+        totalBuyAmount: 0,
+        totalSellAmount: 0,
+        totalFees: 0,
+        recentTransactions: []
+      };
     } catch (error) {
       console.error('获取交易概览失败:', error);
       // 返回空数据
@@ -91,7 +102,8 @@ export class TransactionService {
 
   static async createTransaction(transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>): Promise<Transaction> {
     try {
-      return await apiPost<Transaction>('/transactions', transaction);
+      const response = await apiPost<{ success: boolean; data: Transaction }>('/transactions', transaction);
+      return response.data || {} as Transaction;
     } catch (error) {
       console.error('创建交易记录失败:', error);
       throw error;
@@ -100,7 +112,8 @@ export class TransactionService {
 
   static async updateTransaction(id: string, transaction: Partial<Transaction>): Promise<Transaction> {
     try {
-      return await apiPut<Transaction>(`/transactions/${id}`, transaction);
+      const response = await apiPut<{ success: boolean; data: Transaction }>(`/transactions/${id}`, transaction);
+      return response.data || {} as Transaction;
     } catch (error) {
       console.error('更新交易记录失败:', error);
       throw error;

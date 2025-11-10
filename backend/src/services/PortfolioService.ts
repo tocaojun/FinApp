@@ -229,14 +229,33 @@ export class PortfolioService {
     const accountsData = Array.isArray(accountsResult) ? accountsResult[0] : { account_count: 0, total_balance: 0 };
 
     // 获取持仓统计和市值计算（需要考虑汇率转换）
+    // 注意：股票期权需要计算内在价值，而不是使用成交价
     const positionsQuery = `
       SELECT 
         COUNT(DISTINCT p.id) as position_count,
         COUNT(DISTINCT p.asset_id) as unique_assets,
         COALESCE(SUM(p.total_cost), 0) as total_cost,
-        COALESCE(SUM(p.quantity * COALESCE(ap.close_price, 0)), 0) as market_value,
+        COALESCE(SUM(
+          CASE 
+            WHEN at.code = 'STOCK_OPTION' THEN
+              p.quantity * (
+                CASE 
+                  WHEN sod.option_type = 'CALL' THEN
+                    GREATEST(COALESCE(asp.close_price, 0) - COALESCE(sod.strike_price, 0), 0)
+                  WHEN sod.option_type = 'PUT' THEN
+                    GREATEST(COALESCE(sod.strike_price, 0) - COALESCE(asp.close_price, 0), 0)
+                  ELSE COALESCE(ap.close_price, 0)
+                END
+              )
+            ELSE
+              p.quantity * COALESCE(ap.close_price, 0)
+          END
+        ), 0) as market_value,
         p.currency
       FROM finapp.positions p
+      LEFT JOIN finapp.assets a ON p.asset_id = a.id
+      LEFT JOIN finapp.asset_types at ON a.asset_type_id = at.id
+      LEFT JOIN finapp.stock_option_details sod ON a.id = sod.asset_id
       LEFT JOIN LATERAL (
         SELECT close_price 
         FROM finapp.asset_prices 
@@ -244,6 +263,13 @@ export class PortfolioService {
         ORDER BY price_date DESC 
         LIMIT 1
       ) ap ON true
+      LEFT JOIN LATERAL (
+        SELECT close_price
+        FROM finapp.asset_prices
+        WHERE asset_id = sod.underlying_stock_id
+        ORDER BY price_date DESC
+        LIMIT 1
+      ) asp ON at.code = 'STOCK_OPTION'
       WHERE p.portfolio_id = $1::uuid AND p.is_active = true
       GROUP BY p.currency
     `;

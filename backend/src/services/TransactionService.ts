@@ -286,14 +286,42 @@ export class TransactionService {
     const transactions: Transaction[] = results.map((row: any) => {
       const transactionTags = tagsMap.get(row.id) || [];
       
-      return {
+      // 处理 transaction_date：pg 库返回的 DATE 值是 Date 对象
+      // 但由于 DATE 类型没有时区信息，pg 会用 UTC 解释，
+      // 导致本地午夜时间被转换为 UTC 的前一天晚上
+      // 例如：数据库中存储的 2025-11-04（本地日期）被返回为 2025-11-03T16:00:00.000Z
+      let parsedTransactionDate: Date | undefined = undefined;
+      
+      if (row.transaction_date) {
+        if (row.transaction_date instanceof Date) {
+          // 从 UTC Date 对象恢复原始本地日期
+          // pg 库返回 DATE 字段为 UTC Date 对象，需要加上时区偏移
+          const isoStr = row.transaction_date.toISOString(); // 例如 "2025-11-03T16:00:00.000Z"
+          const utcDate = new Date(isoStr);
+          const localDate = new Date(utcDate.getTime() + (8 * 60 * 60 * 1000)); // 加 8 小时（中国时区）
+          const localDateStr = localDate.toISOString().split('T')[0]; // 获取本地日期
+          
+          parsedTransactionDate = new Date(localDateStr + 'T00:00:00Z');
+        } else if (typeof row.transaction_date === 'string') {
+          // 如果已经是字符串，直接使用
+          parsedTransactionDate = new Date(row.transaction_date + 'T00:00:00Z');
+        }
+      }
+      
+      // 处理 executed_at：TIMESTAMP 字段，直接使用
+      let parsedExecutedAt: Date | undefined = undefined;
+      if (row.executed_at) {
+        parsedExecutedAt = row.executed_at instanceof Date ? row.executed_at : new Date(row.executed_at);
+      }
+      
+      const transaction = {
         id: row.id,
         userId: userId, // 从参数获取，因为表中没有这个字段
         portfolioId: row.portfolio_id,
         tradingAccountId: row.trading_account_id,
         assetId: row.asset_id,
         transactionType: row.transaction_type,
-        side: 'BUY', // 默认值，因为表中没有这个字段
+        side: row.side || 'BUY',
         quantity: parseFloat(row.quantity),
         price: parseFloat(row.price),
         totalAmount: parseFloat(row.total_amount),
@@ -302,9 +330,11 @@ export class TransactionService {
         portfolioName: row.portfolio_name,
         assetName: row.asset_name,
         assetSymbol: row.asset_symbol,
-        transactionDate: row.transaction_date ? new Date(row.transaction_date + 'T00:00:00Z') : undefined,
-        executedAt: row.executed_at ? new Date(row.executed_at) : new Date(), // executedAt 可以使用当前时间作为默认值
-        settledAt: row.settlement_date ? new Date(row.settlement_date) : undefined,
+        // transactionDate: 用户选择的交易日期（从 transaction_date 列读取）
+        transactionDate: parsedTransactionDate,
+        // executedAt: 系统执行/更新的时刻（从 executed_at 列读取）
+        executedAt: parsedExecutedAt,
+        settledAt: row.settled_at ? new Date(row.settled_at) : undefined,
         notes: row.notes,
         tags: transactionTags,
         liquidityTag: row.liquidity_tag,
@@ -312,6 +342,7 @@ export class TransactionService {
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at)
       };
+      return transaction;
     });
 
     return {
@@ -354,6 +385,26 @@ export class TransactionService {
     const tagsResult = await databaseService.executeRawQuery<Array<{name: string}>>(tagsQuery, [transactionId]);
     const tags = tagsResult.map(t => t.name);
     
+    // 处理 transaction_date
+    let parsedTransactionDate: Date | undefined = undefined;
+    if (row.transaction_date) {
+      if (row.transaction_date instanceof Date) {
+        const isoStr = row.transaction_date.toISOString();
+        const utcDate = new Date(isoStr);
+        const localDate = new Date(utcDate.getTime() + (8 * 60 * 60 * 1000));
+        const localDateStr = localDate.toISOString().split('T')[0];
+        parsedTransactionDate = new Date(localDateStr + 'T00:00:00Z');
+      } else if (typeof row.transaction_date === 'string') {
+        parsedTransactionDate = new Date(row.transaction_date + 'T00:00:00Z');
+      }
+    }
+    
+    // 处理 executed_at
+    let parsedExecutedAt: Date | undefined = undefined;
+    if (row.executed_at) {
+      parsedExecutedAt = row.executed_at instanceof Date ? row.executed_at : new Date(row.executed_at);
+    }
+    
     return {
       id: row.id,
       userId: row.user_id,
@@ -367,8 +418,10 @@ export class TransactionService {
       totalAmount: parseFloat(row.total_amount),
       fees: parseFloat(row.fees || '0'),
       currency: row.currency,
-      transactionDate: row.transaction_date ? new Date(row.transaction_date + 'T00:00:00Z') : undefined,
-      executedAt: row.executed_at ? new Date(row.executed_at) : new Date(), // executedAt 可以使用当前时间作为默认值
+      // transactionDate: 用户选择的交易日期（从 transaction_date 列读取）
+      transactionDate: parsedTransactionDate,
+      // executedAt: 系统执行/更新的时刻（从 executed_at 列读取）
+      executedAt: parsedExecutedAt,
       settledAt: row.settled_at ? new Date(row.settled_at) : undefined,
       notes: row.notes,
       tags: tags,
@@ -436,18 +489,12 @@ export class TransactionService {
       paramIndex++;
     }
 
-    if (request.executedAt !== undefined) {
-      // 处理 executedAt：确保是 Date 类型
-      let executedAtValue: Date;
-      if (typeof request.executedAt === 'string') {
-        executedAtValue = new Date(request.executedAt);
-      } else {
-        executedAtValue = request.executedAt;
-      }
-      updateFields.push(`executed_at = $${paramIndex}::timestamp with time zone`);
-      values.push(executedAtValue);
-      paramIndex++;
-    }
+    // 注意：executedAt 是系统字段，不允许客户端更新
+    // 当交易被更新时，自动将 executed_at 更新为当前时间
+    // 这表示"交易信息上次被修改的时间"
+    updateFields.push(`executed_at = $${paramIndex}::timestamp with time zone`);
+    values.push(new Date());
+    paramIndex++;
 
     // 重新计算总金额
     if (request.quantity !== undefined || request.price !== undefined) {

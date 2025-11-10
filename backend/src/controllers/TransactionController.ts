@@ -65,6 +65,12 @@ export class TransactionController {
 
       const result = await this.transactionService.getTransactions(userId, filter);
 
+      // 调试：打印返回的数据
+      if (result.transactions && result.transactions.length > 0) {
+        console.log('TransactionController.getTransactions - first transaction:', result.transactions[0]);
+        console.log('TransactionController.getTransactions - has transactionDate?', 'transactionDate' in result.transactions[0]);
+      }
+
       res.json({
         success: true,
         data: result,

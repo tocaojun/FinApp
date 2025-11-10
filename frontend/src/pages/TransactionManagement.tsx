@@ -56,9 +56,11 @@ interface TransactionFormData {
   quantity: number;
   price: number;
   fee: number;
-  executedAt: dayjs.Dayjs;  // 表单字段名称（实际对应后端的 transactionDate，用户选择的交易日期）
+  executedAt: dayjs.Dayjs;  // 表单字段名称（对应后端的 transactionDate，用户选择的交易日期）
   notes?: string;
   tags: string[];
+  // 备注：executedAt 在前端表单中用于收集"用户选择的交易日期"
+  // 后端会将其存储到 transaction_date 列，同时将当前时刻自动更新到 executed_at 列
 }
 
 interface TransactionStats {
@@ -121,13 +123,29 @@ const TransactionManagement: React.FC = () => {
       
       // 获取交易数据
       const response = await TransactionService.getTransactions();
-      const transactionData = response.data?.transactions || [];
+      // 后端返回 { transactions: [...], total: ..., page: ..., limit: ... }
+      const transactionData = response.transactions || [];
       
-      const formattedTransactions: Transaction[] = transactionData.map((tx: any) => {
+      // 调试：打印原始数据以检查 transactionDate 是否存在
+      console.log('fetchTransactions - API response:', response);
+      console.log('fetchTransactions - raw transaction data:', transactionData);
+      if (transactionData.length > 0) {
+        console.log('fetchTransactions - first transaction:', transactionData[0]);
+        console.log('fetchTransactions - first transaction.transactionDate:', transactionData[0].transactionDate);
+      }
+      
+      const formattedTransactions: Transaction[] = transactionData.map((tx: any, index: number) => {
         // 优先使用后端返回的投资组合名称
         const portfolioName = tx.portfolio?.name || portfolioMap.get(tx.portfolioId) || '未知投资组合';
         
-        return {
+        // 调试：打印原始数据的所有字段
+        if (index === 0) {
+          console.log('fetchTransactions - raw transaction keys:', Object.keys(tx));
+          console.log('fetchTransactions - raw transaction.transactionDate:', tx.transactionDate);
+          console.log('fetchTransactions - raw transaction.executedAt:', tx.executedAt);
+        }
+        
+        const formatted = {
           id: tx.id,
           portfolioId: tx.portfolioId || '',
           portfolioName,
@@ -143,14 +161,20 @@ const TransactionManagement: React.FC = () => {
           amount: Number(tx.totalAmount || tx.amount || 0),
           fee: Number(tx.fees || tx.fee || 0),
           currency: tx.currency || 'CNY',
-          transactionDate: tx.transactionDate,  // 用户选择的交易日期（保留原始值）
-          executedAt: tx.executedAt || tx.createdAt,  // 系统执行时刻（不再用 transactionDate 作为后备）
+          transactionDate: tx.transactionDate,  // 用户选择的交易日期（必需）
+          executedAt: tx.executedAt,  // 系统执行/更新的时刻（只读，不由前端修改）
           status: tx.status || 'EXECUTED',
           notes: tx.notes || '',
           tags: tx.tags || [],
           createdAt: tx.createdAt,
           updatedAt: tx.updatedAt
-        };
+        } as Transaction;
+        
+        if (index === 0) {
+          console.log('fetchTransactions - formatted transaction.transactionDate:', formatted.transactionDate);
+        }
+        
+        return formatted;
       });
       
       setTransactions(formattedTransactions);
@@ -273,7 +297,14 @@ const TransactionManagement: React.FC = () => {
       dataIndex: 'transactionDate',
       key: 'transactionDate',
       width: 150,
-      render: (text) => text ? dayjs(text).format('YYYY-MM-DD') : '-',
+      render: (text) => {
+        if (!text) return '-';
+        // transactionDate 是纯日期格式，确保按 YYYY-MM-DD 显示
+        const dateStr = typeof text === 'string' 
+          ? text.substring(0, 10)  // 字符串取前10位
+          : dayjs(text).format('YYYY-MM-DD');
+        return dateStr;
+      },
       sorter: (a, b) => {
         const dateA = a.transactionDate ? dayjs(a.transactionDate).unix() : 0;
         const dateB = b.transactionDate ? dayjs(b.transactionDate).unix() : 0;
@@ -460,26 +491,20 @@ const TransactionManagement: React.FC = () => {
         await fetchTradingAccounts(transaction.portfolioId);
       }
       
-      // 日期处理: 使用 transactionDate（用户选择的交易日期）而不是 executedAt（系统执行时刻）
+      // 日期处理: 使用 transactionDate（用户选择的交易日期）
       let executedAtValue;
-      const transactionDate = (transaction as any).transactionDate;
+      const transactionDate = transaction.transactionDate;
       
       if (!transactionDate) {
-        // 如果 transactionDate 为空，使用 executedAt 作为默认值，用户可以编辑修改
-        const fallbackDate = transaction.executedAt || new Date();
-        if (typeof fallbackDate === 'string') {
-          const dateStr = fallbackDate.substring(0, 10);
-          executedAtValue = dayjs(dateStr + 'T12:00:00');
-        } else {
-          executedAtValue = dayjs(fallbackDate);
-        }
-        // 显示警告，告知用户该记录缺少交易日期
-        console.warn(`Transaction ${transaction.id} is missing transactionDate, using executedAt as default. Please fill in the transaction date.`);
+        // 如果 transactionDate 为空，允许用户编辑。显示当前日期作为默认值
+        console.warn(`Transaction ${transaction.id} is missing transactionDate. Allowing user to fill it in.`);
+        executedAtValue = dayjs();  // 使用当前日期作为默认
       } else if (typeof transactionDate === 'string') {
         // 如果是字符串，取前10位作为日期部分，避免时区转换
         const dateStr = transactionDate.substring(0, 10);
-        executedAtValue = dayjs(dateStr + 'T12:00:00'); // 设置为中午12点避免时区问题
+        executedAtValue = dayjs(dateStr);
       } else {
+        // 如果是 Date 对象
         executedAtValue = dayjs(transactionDate);
       }
       
@@ -560,7 +585,8 @@ const TransactionManagement: React.FC = () => {
           fees: values.fee || 0,
           notes: values.notes || '',
           tags: values.tags || [],
-          transactionDate: values.executedAt.format('YYYY-MM-DD') // 用户选择的交易日期（纯日期）
+          transactionDate: values.executedAt.format('YYYY-MM-DD') // 用户选择的交易日期（纯日期，对应 transaction_date 列）
+          // 备注：executedAt 不需要在编辑时发送，后端会自动更新为当前时刻
         };
         
         // 更新交易记录
@@ -581,8 +607,8 @@ const TransactionManagement: React.FC = () => {
           price: values.price,
           fees: values.fee || 0,
           currency: asset.currency,
-          transactionDate: values.executedAt.format('YYYY-MM-DD'), // 用户选择的交易日期（纯日期）
-          executedAt: new Date().toISOString(), // 当前录入时刻（系统时间戳）
+          transactionDate: values.executedAt.format('YYYY-MM-DD'), // 用户选择的交易日期（纯日期，对应 transaction_date 列）
+          // 注意：不发送 executedAt，后端会自动设置为当前时刻
           notes: values.notes || '',
           tags: values.tags || []
         };
@@ -677,9 +703,11 @@ const TransactionManagement: React.FC = () => {
     const matchesStatus = !selectedStatus || transaction.status === selectedStatus;
     const matchesPortfolio = !selectedPortfolio || transaction.portfolioId === selectedPortfolio;
     
+    // 使用 transactionDate（用户选择的交易日期）而不是 executedAt（系统执行时刻）
     const matchesDateRange = !dateRange || (
-      dayjs(transaction.executedAt).isAfter(dateRange[0]) &&
-      dayjs(transaction.executedAt).isBefore(dateRange[1])
+      transaction.transactionDate && 
+      dayjs(transaction.transactionDate).isAfter(dateRange[0]) &&
+      dayjs(transaction.transactionDate).isBefore(dateRange[1])
     );
 
     return matchesSearch && matchesType && matchesStatus && matchesPortfolio && matchesDateRange;
