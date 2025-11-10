@@ -18,6 +18,7 @@ export interface Transaction {
   fee: number;
   fees?: number;  // 兼容后端字段
   currency: string;
+  transactionDate?: string | Date;  // 用户选择的交易日期（纯日期，必需）
   executedAt: string;
   notes?: string;
   tags: string[];  // 标签数组

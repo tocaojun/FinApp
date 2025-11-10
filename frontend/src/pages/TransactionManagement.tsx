@@ -143,7 +143,8 @@ const TransactionManagement: React.FC = () => {
           amount: Number(tx.totalAmount || tx.amount || 0),
           fee: Number(tx.fees || tx.fee || 0),
           currency: tx.currency || 'CNY',
-          executedAt: tx.transactionDate || tx.executedAt || tx.createdAt,
+          transactionDate: tx.transactionDate,  // 用户选择的交易日期（保留原始值）
+          executedAt: tx.executedAt || tx.createdAt,  // 系统执行时刻（不再用 transactionDate 作为后备）
           status: tx.status || 'EXECUTED',
           notes: tx.notes || '',
           tags: tx.tags || [],
@@ -269,11 +270,15 @@ const TransactionManagement: React.FC = () => {
   const columns: ColumnsType<Transaction> = [
     {
       title: '交易日期',
-      dataIndex: 'executedAt',
-      key: 'executedAt',
+      dataIndex: 'transactionDate',
+      key: 'transactionDate',
       width: 150,
-      render: (text) => dayjs(text).format('YYYY-MM-DD'),
-      sorter: (a, b) => dayjs(a.executedAt).unix() - dayjs(b.executedAt).unix(),
+      render: (text) => text ? dayjs(text).format('YYYY-MM-DD') : '-',
+      sorter: (a, b) => {
+        const dateA = a.transactionDate ? dayjs(a.transactionDate).unix() : 0;
+        const dateB = b.transactionDate ? dayjs(b.transactionDate).unix() : 0;
+        return dateA - dateB;
+      },
     },
     {
       title: '投资组合',
