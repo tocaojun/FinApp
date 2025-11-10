@@ -493,6 +493,7 @@ export class PortfolioController {
       }
 
       const data = req.body;
+      console.log('[updateTradingAccount] Request data:', { portfolioId, accountId, userId, data });
       
       const account = await portfolioService.updateTradingAccount(userId, portfolioId, accountId, data);
       

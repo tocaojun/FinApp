@@ -544,7 +544,7 @@ export class PortfolioService {
 
     // 添加 WHERE 子句参数
     const whereParamIndex1 = paramIndex++;
-    const whereParamIndex2 = paramIndex;
+    const whereParamIndex2 = paramIndex++;
     values.push(accountId);
     values.push(portfolioId);
 
@@ -568,6 +568,8 @@ export class PortfolioService {
     `;
 
     try {
+      console.log('[updateTradingAccount] Query:', query);
+      console.log('[updateTradingAccount] Values:', values);
       const result = await databaseService.executeRawQuery(query, values);
       
       if (!Array.isArray(result) || result.length === 0) {

@@ -18,12 +18,13 @@ export interface TradingAccount {
   id: string;
   portfolioId: string;
   name: string;
-  broker: string;
-  accountNumber: string;
+  broker?: string;
+  accountNumber?: string;
   accountType: 'BROKERAGE' | 'BANK' | 'CRYPTO' | 'OTHER';
   currency: string;
   balance: number;
   availableBalance: number;
+  isActive?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
