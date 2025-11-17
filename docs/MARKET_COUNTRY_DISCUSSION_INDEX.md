@@ -222,7 +222,7 @@
 
 ### 国家维度 (Country Dimension)
 - **定义**：资产由特定国家/地区发行或管理
-- **适用**：BOND, BANK_WEALTH, FUND, REIT, CASH
+- **适用**：BOND, WEALTH_NAV, WEALTH_BALANCE, FUND, REIT, CASH
 - **关键字段**：country_id
 - **文档**：SUPPORTS_MARKETS_VS_COUNTRIES.md
 - **场景**：REAL_WORLD_USE_CASES.md 场景 2, 4

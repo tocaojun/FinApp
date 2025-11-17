@@ -286,35 +286,10 @@ export class TransactionService {
     const transactions: Transaction[] = results.map((row: any) => {
       const transactionTags = tagsMap.get(row.id) || [];
       
-      // 处理 transaction_date：pg 库返回的 DATE 值是 Date 对象
-      // 但由于 DATE 类型没有时区信息，pg 会用 UTC 解释，
-      // 导致本地午夜时间被转换为 UTC 的前一天晚上
-      // 例如：数据库中存储的 2025-11-04（本地日期）被返回为 2025-11-03T16:00:00.000Z
-      let parsedTransactionDate: Date | undefined = undefined;
+      // 简单的调试日志
+      console.log(`[DEBUG] Transaction ${row.id}: transaction_date = ${row.transaction_date} (${typeof row.transaction_date})`);
       
-      if (row.transaction_date) {
-        if (row.transaction_date instanceof Date) {
-          // 从 UTC Date 对象恢复原始本地日期
-          // pg 库返回 DATE 字段为 UTC Date 对象，需要加上时区偏移
-          const isoStr = row.transaction_date.toISOString(); // 例如 "2025-11-03T16:00:00.000Z"
-          const utcDate = new Date(isoStr);
-          const localDate = new Date(utcDate.getTime() + (8 * 60 * 60 * 1000)); // 加 8 小时（中国时区）
-          const localDateStr = localDate.toISOString().split('T')[0]; // 获取本地日期
-          
-          parsedTransactionDate = new Date(localDateStr + 'T00:00:00Z');
-        } else if (typeof row.transaction_date === 'string') {
-          // 如果已经是字符串，直接使用
-          parsedTransactionDate = new Date(row.transaction_date + 'T00:00:00Z');
-        }
-      }
-      
-      // 处理 executed_at：TIMESTAMP 字段，直接使用
-      let parsedExecutedAt: Date | undefined = undefined;
-      if (row.executed_at) {
-        parsedExecutedAt = row.executed_at instanceof Date ? row.executed_at : new Date(row.executed_at);
-      }
-      
-      const transaction = {
+      return {
         id: row.id,
         userId: userId, // 从参数获取，因为表中没有这个字段
         portfolioId: row.portfolio_id,
@@ -331,9 +306,9 @@ export class TransactionService {
         assetName: row.asset_name,
         assetSymbol: row.asset_symbol,
         // transactionDate: 用户选择的交易日期（从 transaction_date 列读取）
-        transactionDate: parsedTransactionDate,
+        transactionDate: row.transaction_date ? new Date(row.transaction_date) : null,
         // executedAt: 系统执行/更新的时刻（从 executed_at 列读取）
-        executedAt: parsedExecutedAt,
+        executedAt: row.executed_at ? new Date(row.executed_at) : undefined,
         settledAt: row.settled_at ? new Date(row.settled_at) : undefined,
         notes: row.notes,
         tags: transactionTags,
@@ -342,7 +317,6 @@ export class TransactionService {
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at)
       };
-      return transaction;
     });
 
     return {

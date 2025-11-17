@@ -23,6 +23,7 @@ import PortfolioSelector from '../../components/portfolio/PortfolioSelector';
 import HoldingsTable from '../../components/portfolio/HoldingsTable';
 import AccountsTab from '../../components/portfolio/AccountsTab';
 import AllocationChart from '../../components/portfolio/AllocationChart';
+import WealthProductsTable from '../../components/portfolio/WealthProductsTable';
 import { Portfolio } from '../../types/portfolio';
 import { PortfolioService } from '../../services/portfolioService';
 
@@ -39,6 +40,7 @@ const PortfolioDetail: React.FC = () => {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingPortfolio, setEditingPortfolio] = useState<Portfolio | null>(null);
   const [activeTab, setActiveTab] = useState('holdings');
+  const [tradingAccounts, setTradingAccounts] = useState<any[]>([]);
   const [form] = Form.useForm();
 
   useEffect(() => {

@@ -39,7 +39,8 @@
 
 **适用资产类型**：
 - `BOND` - 债券（国债、公司债等）
-- `BANK_WEALTH` - 银行理财产品（由银行发行，非交易所交易）
+- `WEALTH_NAV` - 净值型理财产品（银行理财、基金等有单位净值的产品）
+- `WEALTH_BALANCE` - 余额型理财产品（活期存款、现金理财等仅有余额的产品）
 - `MUTUAL_FUND` - 共同基金/基金（场外基金）
 - `FUND` - 其他基金产品
 - `REIT` - 房地产投资信托（虽然某些REIT在交易所交易，但主要由国家/地区定义）
@@ -54,7 +55,7 @@
 **数据库配置示例**：
 ```json
 {
-  "supports_products": ["BOND", "BANK_WEALTH", "MUTUAL_FUND"],
+  "supports_products": ["BOND", "WEALTH_NAV", "WEALTH_BALANCE", "MUTUAL_FUND"],
   "supports_countries": ["CN", "US", "HK"]
 }
 ```
@@ -133,7 +134,7 @@ const countryDataSource = {
   name: "Bond & Wealth Manager",
   provider: "local_banks",
   config: {
-    supports_products: ["BOND", "BANK_WEALTH", "MUTUAL_FUND"],
+    supports_products: ["BOND", "WEALTH_NAV", "WEALTH_BALANCE", "MUTUAL_FUND"],
     supports_countries: ["CN", "US"]
   }
 }
@@ -290,7 +291,7 @@ ADD COLUMN location_dimension VARCHAR(20) DEFAULT 'market';
 
 ### 2. 初始化现有资产类型的位置维度
 - STOCK, ETF, FUTURE, OPTION → 'market'
-- BOND, BANK_WEALTH, MUTUAL_FUND, FUND, REIT, CASH → 'country'
+- BOND, WEALTH_NAV, WEALTH_BALANCE, MUTUAL_FUND, FUND, REIT, CASH → 'country'
 - CRYPTO, COMMODITY → 'global'
 
 ### 3. 扩展数据源配置支持

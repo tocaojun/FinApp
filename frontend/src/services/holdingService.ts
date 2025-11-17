@@ -1,4 +1,4 @@
-import { apiGet } from './api';
+import { apiGet, apiPost, apiPut, apiDelete } from './api';
 
 export interface Holding {
   id: string;
@@ -26,6 +26,12 @@ export interface Holding {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  
+  // 理财产品相关字段
+  productMode?: 'QUANTITY' | 'BALANCE';
+  netAssetValue?: number; // 净值型产品的单位净值
+  balance?: number; // 余额型产品的余额
+  lastNavUpdate?: string; // 最后净值更新时间
 }
 
 export interface HoldingSummary {
@@ -95,5 +101,56 @@ export class HoldingService {
       console.error('获取用户持仓资产总数失败:', error);
       return 0;
     }
+  }
+
+  // 更新理财产品净值
+  static async updateWealthProductNav(holdingId: string, netAssetValue: number): Promise<void> {
+    await apiPost(`/holdings/${holdingId}/update-nav`, {
+      netAssetValue
+    });
+  }
+
+  // 更新理财产品余额
+  static async updateWealthProductBalance(holdingId: string, balance: number): Promise<void> {
+    await apiPost(`/holdings/${holdingId}/update-balance`, {
+      balance
+    });
+  }
+
+  // 获取余额历史记录
+  static async getBalanceHistory(holdingId: string, limit: number = 50): Promise<any[]> {
+    const response = await apiGet<ApiResponse<any[]>>(`/holdings/${holdingId}/balance-history?limit=${limit}`);
+    return response.data;
+  }
+
+  // 获取投资组合余额历史汇总
+  static async getPortfolioBalanceHistorySummary(portfolioId: string, days: number = 30): Promise<any[]> {
+    const response = await apiGet<ApiResponse<any[]>>(`/holdings/portfolio/${portfolioId}/balance-history-summary?days=${days}`);
+    return response.data;
+  }
+
+  // 添加余额历史记录
+  static async addBalanceHistoryRecord(holdingId: string, data: {
+    balance: number;
+    change_type: string;
+    notes?: string;
+    update_date?: string; // 余额对应的业务日期
+  }): Promise<void> {
+    await apiPost(`/holdings/${holdingId}/balance-history`, data);
+  }
+
+  // 更新余额历史记录
+  static async updateBalanceHistoryRecord(recordId: string, data: {
+    balance?: number;
+    change_type?: string;
+    notes?: string;
+    update_date?: string; // 余额对应的业务日期
+  }): Promise<void> {
+    await apiPut(`/holdings/balance-history/${recordId}`, data);
+  }
+
+  // 删除余额历史记录
+  static async deleteBalanceHistoryRecord(recordId: string): Promise<void> {
+    await apiDelete(`/holdings/balance-history/${recordId}`);
   }
 }

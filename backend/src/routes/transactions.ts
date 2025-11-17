@@ -28,13 +28,14 @@ const createTransactionValidation = [
     'BUY', 'SELL', 'DIVIDEND', 'SPLIT', 'MERGER', 'SPIN_OFF', 'DEPOSIT', 'WITHDRAWAL',
     'STOCK_BUY', 'STOCK_SELL', 'ETF_BUY', 'ETF_SELL', 'FUND_SUBSCRIBE', 'FUND_REDEEM', 'BOND_BUY', 'BOND_SELL',
     'CRYPTO_BUY', 'CRYPTO_SELL', 'OPTION_BUY', 'OPTION_SELL', 'OPTION_EXERCISE', 'FUTURES_BUY', 'FUTURES_SELL',
-    'TRANSFER_IN', 'TRANSFER_OUT', 'FEE', 'INTEREST'
+    'TRANSFER_IN', 'TRANSFER_OUT', 'FEE', 'INTEREST', 'APPLY', 'REDEEM'
   ]).withMessage('Invalid transaction type'),
   body('side').isIn(['BUY', 'SELL', 'DEPOSIT', 'WITHDRAWAL']).withMessage('Invalid transaction side'),
   body('quantity').isFloat({ min: 0.000001 }).withMessage('Quantity must be greater than 0'),
   body('price').isFloat({ min: 0.01 }).withMessage('Price must be greater than 0'),
   body('fees').optional().isFloat({ min: 0 }).withMessage('Fees cannot be negative'),
   body('currency').isLength({ min: 3, max: 3 }).withMessage('Currency must be 3 characters'),
+  body('transactionDate').isISO8601().withMessage('Transaction date must be a valid date'),
   body('executedAt').isISO8601().withMessage('Execution date must be a valid date'),
   body('settledAt').optional().isISO8601().withMessage('Settled at must be a valid date'),
   body('notes').optional().isLength({ max: 1000 }).withMessage('Notes cannot exceed 1000 characters'),
@@ -49,13 +50,14 @@ const updateTransactionValidation = [
     'BUY', 'SELL', 'DIVIDEND', 'SPLIT', 'MERGER', 'SPIN_OFF', 'DEPOSIT', 'WITHDRAWAL',
     'STOCK_BUY', 'STOCK_SELL', 'ETF_BUY', 'ETF_SELL', 'FUND_SUBSCRIBE', 'FUND_REDEEM', 'BOND_BUY', 'BOND_SELL',
     'CRYPTO_BUY', 'CRYPTO_SELL', 'OPTION_BUY', 'OPTION_SELL', 'OPTION_EXERCISE', 'FUTURES_BUY', 'FUTURES_SELL',
-    'TRANSFER_IN', 'TRANSFER_OUT', 'FEE', 'INTEREST'
+    'TRANSFER_IN', 'TRANSFER_OUT', 'FEE', 'INTEREST', 'APPLY', 'REDEEM'
   ]).withMessage('Invalid transaction type'),
   body('side').optional().isIn(['BUY', 'SELL', 'DEPOSIT', 'WITHDRAWAL']).withMessage('Invalid transaction side'),
   body('quantity').optional().isFloat({ min: 0.000001 }).withMessage('Quantity must be greater than 0'),
   body('price').optional().isFloat({ min: 0.01 }).withMessage('Price must be greater than 0'),
   body('fees').optional().isFloat({ min: 0 }).withMessage('Fees cannot be negative'),
   body('currency').optional().isLength({ min: 3, max: 3 }).withMessage('Currency must be 3 characters'),
+  body('transactionDate').optional().isISO8601().withMessage('Transaction date must be a valid date'),
   body('executedAt').optional().isISO8601().withMessage('Execution date must be a valid date'),
   body('settledAt').optional().isISO8601().withMessage('Settled at must be a valid date'),
   body('notes').optional().isLength({ max: 1000 }).withMessage('Notes cannot exceed 1000 characters'),

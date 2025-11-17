@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Select, Space, Typography, Row, Col, Spin } from 'antd';
 import { PieChartOutlined, BarChartOutlined } from '@ant-design/icons';
 import { AssetAllocation } from '../../types/portfolio';
+import { HoldingService } from '../../services/holdingService';
 
 const { Option } = Select;
 const { Title, Text } = Typography;
@@ -26,10 +27,16 @@ const AllocationChart: React.FC<AllocationChartProps> = ({ portfolioId }) => {
   }, [portfolioId, allocationBy]);
 
   const loadAllocations = async () => {
+    // 检查是否有认证token
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      console.warn('未登录，跳过加载资产配置');
+      return;
+    }
+
     setLoading(true);
     try {
-      // 导入HoldingService获取持仓数据
-      const { HoldingService } = await import('../../services/holdingService');
+      // 获取持仓数据
       const holdings = await HoldingService.getHoldingsByPortfolio(portfolioId);
       
       // 根据选择的分配方式计算配置

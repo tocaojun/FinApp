@@ -42,6 +42,8 @@ import { TagService, Tag as TagType } from '../services/tagService';
 import { TradingAccountService, TradingAccount } from '../services/tradingAccountService';
 import CategoryTagSelector from '../components/common/CategoryTagSelector';
 import { TransactionImportModal } from '../components/transaction/TransactionImportModal';
+import BalanceWealthProductForm from '../components/BalanceWealthProductForm';
+import QuantityWealthProductForm from '../components/QuantityWealthProductForm';
 import { formatCurrency, formatPrice } from '../utils/currencyUtils';
 
 const { Option } = Select;
@@ -711,35 +713,69 @@ const TransactionManagement: React.FC = () => {
         await TransactionService.updateTransaction(editingTransaction.id, updateData);
         message.success('交易记录更新成功');
       } else {
-        // 创建模式：发送完整的交易数据
-        const createData = {
-          portfolioId: values.portfolioId,
-          tradingAccountId: values.tradingAccountId,
-          assetId: values.assetId,
-          transactionType: values.transactionType,
-          side: getSideFromTransactionType(values.transactionType),
-          quantity: values.quantity,
-          price: values.price,
-          fees: values.fee || 0,
-          currency: asset.currency,
-          transactionDate: values.executedAt.format('YYYY-MM-DD'),
-          executedAt: new Date().toISOString(),
-          notes: values.notes || '',
-          tags: values.tags || []
-        };
-        
-        // 创建新交易记录
-        await TransactionService.createTransaction(createData);
-        message.success('交易记录添加成功');
+        // 创建模式：根据产品类型处理不同的数据格式
+        if (asset.productMode === 'BALANCE') {
+          // 余额型理财产品的特殊处理
+          const createData = {
+            portfolioId: values.portfolioId,
+            tradingAccountId: values.tradingAccountId,
+            assetId: values.assetId,
+            transactionType: values.transactionType, // 'APPLY' 或 'REDEEM'
+            side: values.transactionType === 'APPLY' ? 'BUY' : 'SELL',
+            quantity: values.amount || values.quantity, // 余额型产品使用金额
+            price: 1.0, // 余额型产品价格固定为1
+            fees: values.fee || 0,
+            currency: asset.currency,
+            transactionDate: values.executedAt.format('YYYY-MM-DD'),
+            executedAt: new Date().toISOString(),
+            notes: values.notes || '',
+            tags: values.tags || []
+          };
+          
+          console.log('余额型产品交易数据:', createData);
+          await TransactionService.createTransaction(createData);
+          message.success('申购/赎回操作成功');
+        } else {
+          // 传统产品的处理
+          const createData = {
+            portfolioId: values.portfolioId,
+            tradingAccountId: values.tradingAccountId,
+            assetId: values.assetId,
+            transactionType: values.transactionType,
+            side: getSideFromTransactionType(values.transactionType),
+            quantity: values.quantity,
+            price: values.price,
+            fees: values.fee || 0,
+            currency: asset.currency,
+            transactionDate: values.executedAt.format('YYYY-MM-DD'),
+            executedAt: new Date().toISOString(),
+            notes: values.notes || '',
+            tags: values.tags || []
+          };
+          
+          await TransactionService.createTransaction(createData);
+          message.success('交易记录添加成功');
+        }
       }
 
       // 重新获取交易数据以确保数据同步
       await fetchTransactions();
       setModalVisible(false);
       form.resetFields();
-    } catch (error) {
+    } catch (error: any) {
       console.error('交易操作失败:', error);
-      message.error('操作失败，请重试');
+      
+      // 提取更详细的错误信息
+      let errorMessage = '操作失败，请重试';
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      message.error(`操作失败：${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -1072,121 +1108,153 @@ const TransactionManagement: React.FC = () => {
             </Col>
           </Row>
 
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                label="交易类型"
-                name="transactionType"
-                rules={[{ required: true, message: '请选择交易类型' }]}
-              >
-                <Select placeholder="选择交易类型">
-                  <Option value="STOCK_BUY">股票买入</Option>
-                  <Option value="STOCK_SELL">股票卖出</Option>
-                  <Option value="ETF_BUY">ETF买入</Option>
-                  <Option value="ETF_SELL">ETF卖出</Option>
-                  <Option value="FUND_SUBSCRIBE">基金申购</Option>
-                  <Option value="FUND_REDEEM">基金赎回</Option>
-                  <Option value="BOND_BUY">债券买入</Option>
-                  <Option value="BOND_SELL">债券卖出</Option>
-                  <Option value="DEPOSIT">存入</Option>
-                  <Option value="WITHDRAWAL">取出</Option>
-                  <Option value="DIVIDEND">分红</Option>
-                  <Option value="INTEREST">利息</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                label="备注信息"
-                name="notes"
-              >
-                <Input
-                  placeholder="交易备注（可选）"
-                  style={{ width: '100%' }}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item
-                label="数量"
-                name="quantity"
-                rules={[{ required: true, message: '请输入数量' }]}
-              >
-                <InputNumber
-                  placeholder="数量"
-                  style={{ width: '100%' }}
-                  min={0}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item
-                label="单价"
-                name="price"
-                rules={[{ required: true, message: '请输入单价' }]}
-              >
-                <InputNumber
-                  placeholder="单价"
-                  style={{ width: '100%' }}
-                  min={0}
-                  precision={5}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item
-                label="手续费"
-                name="fee"
-              >
-                <InputNumber
-                  placeholder="手续费"
-                  style={{ width: '100%' }}
-                  min={0}
-                  precision={2}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item
-            label="交易日期"
-            name="executedAt"
-            rules={[{ required: true, message: '请选择交易日期' }]}
-          >
-            <DatePicker
-              style={{ width: '100%' }}
-              placeholder="选择交易日期"
-              format="YYYY-MM-DD"
+          {/* 根据产品类型显示不同的表单 */}
+          {selectedAsset && selectedAsset.productMode === 'BALANCE' ? (
+            // 余额型理财产品表单
+            <BalanceWealthProductForm
+              asset={selectedAsset}
+              portfolioId={form.getFieldValue('portfolioId')}
+              tradingAccountId={form.getFieldValue('tradingAccountId')}
+              onSubmit={() => {}} // 这里会通过表单的 onFinish 处理
+              form={form}
             />
-          </Form.Item>
-
-          <Form.Item
-            label="标签"
-            name="tags"
-          >
-            <CategoryTagSelector
-              tags={tags}
-              placeholder="选择标签（同分类单选，不同分类可多选）"
-              loading={tagsLoading}
-              style={{ width: '100%' }}
+          ) : selectedAsset && selectedAsset.productMode === 'QUANTITY' ? (
+            // 净值型理财产品表单
+            <QuantityWealthProductForm
+              asset={selectedAsset}
+              portfolioId={form.getFieldValue('portfolioId')}
+              tradingAccountId={form.getFieldValue('tradingAccountId')}
+              onSubmit={() => {}} // 这里会通过表单的 onFinish 处理
+              form={form}
             />
-          </Form.Item>
+          ) : selectedAsset ? (
+            // 传统产品表单（股票、基金等）
+            <>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item
+                    label="交易类型"
+                    name="transactionType"
+                    rules={[{ required: true, message: '请选择交易类型' }]}
+                  >
+                    <Select placeholder="选择交易类型">
+                      <Option value="STOCK_BUY">股票买入</Option>
+                      <Option value="STOCK_SELL">股票卖出</Option>
+                      <Option value="ETF_BUY">ETF买入</Option>
+                      <Option value="ETF_SELL">ETF卖出</Option>
+                      <Option value="FUND_SUBSCRIBE">基金申购</Option>
+                      <Option value="FUND_REDEEM">基金赎回</Option>
+                      <Option value="BOND_BUY">债券买入</Option>
+                      <Option value="BOND_SELL">债券卖出</Option>
+                      <Option value="DEPOSIT">存入</Option>
+                      <Option value="WITHDRAWAL">取出</Option>
+                      <Option value="DIVIDEND">分红</Option>
+                      <Option value="INTEREST">利息</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    label="备注信息"
+                    name="notes"
+                  >
+                    <Input
+                      placeholder="交易备注（可选）"
+                      style={{ width: '100%' }}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
 
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Form.Item
+                    label="数量"
+                    name="quantity"
+                    rules={[{ required: true, message: '请输入数量' }]}
+                  >
+                    <InputNumber
+                      placeholder="数量"
+                      style={{ width: '100%' }}
+                      min={0}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item
+                    label="单价"
+                    name="price"
+                    rules={[{ required: true, message: '请输入单价' }]}
+                  >
+                    <InputNumber
+                      placeholder="单价"
+                      style={{ width: '100%' }}
+                      min={0}
+                      precision={5}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item
+                    label="手续费"
+                    name="fee"
+                  >
+                    <InputNumber
+                      placeholder="手续费"
+                      style={{ width: '100%' }}
+                      min={0}
+                      precision={2}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </>
+          ) : (
+            // 未选择产品时的提示
+            <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+              请先选择产品以显示相应的表单字段
+            </div>
+          )}
 
+          {/* 通用字段：交易日期和标签 */}
+          {selectedAsset && (
+            <>
+              <Form.Item
+                label="交易日期"
+                name="executedAt"
+                rules={[{ required: true, message: '请选择交易日期' }]}
+              >
+                <DatePicker
+                  style={{ width: '100%' }}
+                  placeholder="选择交易日期"
+                  format="YYYY-MM-DD"
+                />
+              </Form.Item>
 
-          <Form.Item>
-            <Space>
-              <Button type="primary" htmlType="submit" loading={loading}>
-                {editingTransaction ? '更新' : '添加'}
-              </Button>
-              <Button onClick={() => setModalVisible(false)}>
-                取消
-              </Button>
-            </Space>
-          </Form.Item>
+              <Form.Item
+                label="标签"
+                name="tags"
+              >
+                <CategoryTagSelector
+                  tags={tags}
+                  placeholder="选择标签（同分类单选，不同分类可多选）"
+                  loading={tagsLoading}
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+
+              <Form.Item>
+                <Space>
+                  <Button type="primary" htmlType="submit" loading={loading}>
+                    {editingTransaction ? '更新' : '添加'}
+                  </Button>
+                  <Button onClick={() => setModalVisible(false)}>
+                    取消
+                  </Button>
+                </Space>
+              </Form.Item>
+            </>
+          )}
         </Form>
       </Modal>
 

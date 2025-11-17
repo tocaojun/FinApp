@@ -73,11 +73,11 @@
 ### `supports_countries` - 国家维度
 ```
 适用场景：资产由特定国家/地区发行或管理
-适用资产：BOND, BANK_WEALTH, MUTUAL_FUND, REIT, CASH
+适用资产：BOND, WEALTH_NAV, WEALTH_BALANCE, MUTUAL_FUND, REIT, CASH
 
 配置示例：
 {
-  "supports_products": ["BOND", "BANK_WEALTH"],
+  "supports_products": ["BOND", "WEALTH_NAV", "WEALTH_BALANCE"],
   "supports_countries": ["CN", "US"]
 }
 
@@ -116,7 +116,8 @@
 | 代码 | 名称 | 示例 | 必须字段 |
 |------|------|------|---------|
 | BOND | 债券 | 中国国债, 美国国债 | country_id ✅ |
-| BANK_WEALTH | 银行理财 | 招商银行理财, 工商银行理财 | country_id ✅ |
+| WEALTH_NAV | 净值型理财 | 银行净值型理财产品 | country_id ✅ |
+| WEALTH_BALANCE | 余额型理财 | 银行余额型理财产品 | country_id ✅ |
 | MUTUAL_FUND | 共同基金 | 美国共同基金 | country_id ✅ |
 | FUND | 基金 | 中国公募基金 | country_id ✅ |
 | REIT | 房地产信托 | 新加坡REIT, 美国REIT | country_id ✅ |
@@ -125,7 +126,7 @@
 **数据源配置**：需要 `supports_countries`
 ```json
 {
-  "supports_products": ["BOND", "BANK_WEALTH", "MUTUAL_FUND"],
+  "supports_products": ["BOND", "WEALTH_NAV", "WEALTH_BALANCE", "MUTUAL_FUND"],
   "supports_countries": ["CN", "US", "HK"]
 }
 ```
@@ -336,8 +337,8 @@ async function validateAssetCreation(assetData) {
 ## 关键差异总结
 
 | 方面 | 市场维度 | 国家维度 | 全球维度 |
-|------|---------|---------|---------|
-| **资产类型** | STOCK, ETF, FUTURE, OPTION | BOND, BANK_WEALTH, FUND | CRYPTO, COMMODITY |
+|------|---------|---------|---------| 
+| **资产类型** | STOCK, ETF, FUTURE, OPTION | BOND, WEALTH_NAV, WEALTH_BALANCE, FUND | CRYPTO, COMMODITY |
 | **关键字段** | market_id | country_id | 无 |
 | **数据源配置** | supports_markets | supports_countries | 无 |
 | **特点** | 在交易市场交易 | 由国家发行/管理 | 全球自由交易 |

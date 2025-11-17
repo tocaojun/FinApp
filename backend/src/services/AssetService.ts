@@ -16,6 +16,7 @@ interface SimpleAsset {
   name: string;
   assetTypeId: string;
   assetTypeName?: string;
+  assetTypeCode?: string;
   countryId?: string;
   countryName?: string;
   currency: string;
@@ -25,6 +26,7 @@ interface SimpleAsset {
   liquidityTag?: string;
   isActive: boolean;
   description?: string;
+  productMode?: 'QUANTITY' | 'BALANCE';
   createdAt: string;
   updatedAt: string;
 }
@@ -63,6 +65,16 @@ interface AssetStatistics {
 
 export class AssetService {
   private db = databaseService;
+
+  // 映射资产类型代码到产品模式
+  private mapProductMode(assetTypeCode: string): 'QUANTITY' | 'BALANCE' | undefined {
+    const mapping: { [key: string]: 'QUANTITY' | 'BALANCE' } = {
+      'WEALTH_NAV': 'QUANTITY',      // 净值型理财产品
+      'WEALTH_BALANCE': 'BALANCE',   // 余额型理财产品
+      'DEPOSIT': 'BALANCE',          // 存款产品
+    };
+    return mapping[assetTypeCode];
+  }
 
   // 获取资产类型
   async getAssetTypes(): Promise<SimpleAssetType[]> {
@@ -473,6 +485,7 @@ export class AssetService {
           liquidityTag: row.liquidity_tag,
           isActive: row.is_active,
           description: row.description,
+          productMode: this.mapProductMode(row.assetTypeCode),
           createdAt: row.created_at,
           updatedAt: row.updated_at
         })),
@@ -530,7 +543,7 @@ export class AssetService {
   async getAssetById(id: string): Promise<SimpleAsset | null> {
     try {
       const result = await this.db.prisma.$queryRaw`
-        SELECT a.*, at.name as "assetTypeName", c.name as "countryName"
+        SELECT a.*, at.name as "assetTypeName", at.code as "assetTypeCode", c.name as "countryName"
         FROM assets a
         LEFT JOIN asset_types at ON a.asset_type_id = at.id
         LEFT JOIN countries c ON a.country_id = c.id
@@ -548,6 +561,7 @@ export class AssetService {
         name: row.name,
         assetTypeId: row.asset_type_id,
         assetTypeName: row.assetTypeName,
+        assetTypeCode: row.assetTypeCode,
         countryId: row.country_id,
         countryName: row.countryName,
         currency: row.currency,
@@ -557,6 +571,7 @@ export class AssetService {
         liquidityTag: row.liquidity_tag,
         isActive: row.is_active,
         description: row.description,
+        productMode: this.mapProductMode(row.assetTypeCode),
         createdAt: row.created_at,
         updatedAt: row.updated_at
       };
@@ -651,12 +666,35 @@ export class AssetService {
         SELECT COUNT(*) as count FROM transactions WHERE asset_id = ${id}::uuid
       ` as any[];
 
-      const count = parseInt(transactionsCount[0].count) || 0;
-      if (count > 0) {
-        throw new Error(`Cannot delete asset "${existing[0].name}" because it has ${count} transaction record(s). Please delete these transactions first.`);
+      const transactionCount = parseInt(transactionsCount[0].count) || 0;
+      if (transactionCount > 0) {
+        throw new Error(`Cannot delete asset "${existing[0].name}" because it has ${transactionCount} transaction record(s). Please delete these transactions first.`);
       }
 
-      // 执行删除
+      // 检查是否有持仓记录使用此资产
+      const positionsCount = await this.db.prisma.$queryRaw`
+        SELECT COUNT(*) as count FROM positions WHERE asset_id = ${id}::uuid
+      ` as any[];
+
+      const positionCount = parseInt(positionsCount[0].count) || 0;
+      if (positionCount > 0) {
+        throw new Error(`Cannot delete asset "${existing[0].name}" because it has ${positionCount} position record(s). Please delete these positions first.`);
+      }
+
+      // 检查是否有资产价格记录
+      const pricesCount = await this.db.prisma.$queryRaw`
+        SELECT COUNT(*) as count FROM asset_prices WHERE asset_id = ${id}::uuid
+      ` as any[];
+
+      const priceCount = parseInt(pricesCount[0].count) || 0;
+      if (priceCount > 0) {
+        // 价格记录可以一起删除，先删除价格记录
+        await this.db.prisma.$queryRaw`
+          DELETE FROM asset_prices WHERE asset_id = ${id}::uuid
+        `;
+      }
+
+      // 执行删除资产
       await this.db.prisma.$queryRaw`
         DELETE FROM assets WHERE id = ${id}::uuid
       `;

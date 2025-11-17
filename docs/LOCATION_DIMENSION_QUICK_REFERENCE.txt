@@ -27,7 +27,8 @@
 【国家维度】(location_dimension = 'country')
 ─────────────────────────────────────────
   BOND           债券（国债、公司债）
-  BANK_WEALTH    银行理财产品
+  WEALTH_NAV     净值型理财产品
+  WEALTH_BALANCE 余额型理财产品
   MUTUAL_FUND    共同基金
   FUND           基金
   REIT           房地产投资信托
@@ -55,7 +56,7 @@
 
 【仅支持国家维度资产】
   {
-    "supports_products": ["BOND", "BANK_WEALTH"],
+    "supports_products": ["BOND", "WEALTH_NAV", "WEALTH_BALANCE"],
     "supports_countries": ["CN", "US"]
   }
 
@@ -249,7 +250,7 @@ API 方法速查
     国家   全球
    
    市场维度: STOCK, ETF, FUTURE, OPTION
-   国家维度: BOND, BANK_WEALTH, FUND, REIT, CASH
+   国家维度: BOND, WEALTH_NAV, WEALTH_BALANCE, FUND, REIT, CASH
    全球维度: CRYPTO, COMMODITY
 
 ================================================================================

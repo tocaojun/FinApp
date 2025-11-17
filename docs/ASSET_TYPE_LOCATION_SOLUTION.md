@@ -12,7 +12,7 @@
 
 **之前的问题**：系统对所有资产类型都假设绑定到交易市场，导致：
 - 国债无法正确分类（它属于国家，不属于市场）
-- 银行理财产品无法正确管理
+- 理财产品无法正确管理（需要按净值型/余额型区分）
 - 数据源配置无法准确表示其覆盖范围
 
 ---
@@ -34,7 +34,7 @@ ALTER TABLE finapp.asset_types ADD COLUMN location_dimension VARCHAR(20) DEFAULT
 #### 初始化设置
 ```
 市场维度: STOCK, ETF, FUTURE, OPTION, STOCK_OPTION
-国家维度: BOND, BANK_WEALTH, MUTUAL_FUND, FUND, REIT, CASH
+国家维度: BOND, WEALTH_NAV, WEALTH_BALANCE, MUTUAL_FUND, FUND, REIT, CASH
 全球维度: CRYPTO, COMMODITY
 ```
 
@@ -264,7 +264,7 @@ useEffect(() => {
 | 维度 | 资产类型 | 位置字段 | 数据源配置 |
 |------|---------|---------|----------|
 | **市场** | STOCK, ETF, FUTURE, OPTION | `market_id` | `supports_markets` |
-| **国家** | BOND, BANK_WEALTH, FUND, REIT, CASH | `country_id` | `supports_countries` |
+| **国家** | BOND, WEALTH_NAV, WEALTH_BALANCE, FUND, REIT, CASH | `country_id` | `supports_countries` |
 | **全球** | CRYPTO, COMMODITY | 无限制 | 无地理限制 |
 
 系统现在可以准确处理国债、理财产品、基金等不绑定交易所的资产类型，同时保持对市场维度资产的完整支持。

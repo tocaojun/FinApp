@@ -38,6 +38,13 @@ const PortfolioSelector: React.FC<PortfolioSelectorProps> = ({
   }, [selectedPortfolioId, portfolios]);
 
   const loadPortfolios = async () => {
+    // 检查是否有认证token
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      console.warn('未登录，跳过加载投资组合');
+      return;
+    }
+
     setLoading(true);
     try {
       const data = await PortfolioService.getPortfolios();

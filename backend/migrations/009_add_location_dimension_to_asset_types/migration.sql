@@ -15,7 +15,7 @@ WHERE code IN ('STOCK', 'ETF', 'FUTURE', 'OPTION');
 -- Country-bound assets
 UPDATE finapp.asset_types 
 SET location_dimension = 'country' 
-WHERE code IN ('BOND', 'BANK_WEALTH', 'MUTUAL_FUND', 'FUND', 'REIT', 'CASH');
+WHERE code IN ('BOND', 'MUTUAL_FUND', 'FUND', 'REIT', 'CASH', 'WEALTH', 'WEALTH_NAV', 'WEALTH_BALANCE');
 
 -- Global assets (no geographical restriction)
 UPDATE finapp.asset_types 

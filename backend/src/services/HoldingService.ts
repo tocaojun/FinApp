@@ -27,6 +27,12 @@ export interface Holding {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  
+  // 理财产品相关字段
+  productMode?: 'QUANTITY' | 'BALANCE';
+  netAssetValue?: number; // 数量型产品的单位净值
+  balance?: number; // 余额型产品的余额
+  lastNavUpdate?: string; // 最后净值更新时间
 }
 
 export class HoldingService {
@@ -65,6 +71,11 @@ export class HoldingService {
         p.is_active,
         p.created_at,
         p.updated_at,
+        -- 理财产品相关字段
+        p.product_mode,
+        p.net_asset_value,
+        p.balance,
+        p.last_nav_update,
         a.symbol as asset_symbol,
         a.name as asset_name,
         at.name as asset_type,
@@ -111,7 +122,11 @@ export class HoldingService {
       ) ap ON true
       WHERE p.portfolio_id = $1::uuid 
         AND p.is_active = true 
-        AND p.quantity != 0
+        AND (
+          (p.product_mode = 'BALANCE' AND COALESCE(p.balance, 0) > 0)
+          OR (p.product_mode != 'BALANCE' AND p.quantity != 0)
+          OR (p.product_mode IS NULL AND p.quantity != 0)
+        )
       ORDER BY p.updated_at DESC
     `;
 
@@ -151,8 +166,16 @@ export class HoldingService {
       let currentPrice = parseFloat(row.current_price) || 0;
       let marketValue = 0;
       
-      // 股票期权特殊处理
-      if (row.asset_type_code === 'STOCK_OPTION') {
+      // 理财产品特殊处理
+      if (row.product_mode === 'QUANTITY' && row.net_asset_value) {
+        // 数量型净值产品：使用净值作为当前价格
+        currentPrice = parseFloat(row.net_asset_value);
+        marketValue = quantity * currentPrice;
+      } else if (row.product_mode === 'BALANCE' && row.balance) {
+        // 余额型理财产品：余额就是市值，价格设为1
+        currentPrice = 1;
+        marketValue = parseFloat(row.balance);
+      } else if (row.asset_type_code === 'STOCK_OPTION') {
         const underlyingStockPrice = parseFloat(row.underlying_stock_price) || 0;
         const strikePrice = parseFloat(row.strike_price) || 0;
         const optionType = row.option_type;
@@ -175,8 +198,15 @@ export class HoldingService {
         marketValue = quantity * currentPrice;
       }
       
-      // 正确的盈亏计算：(当前价格 - 平均成本) × 持仓数量
-      const unrealizedPnL = (currentPrice - averageCost) * quantity;
+      // 盈亏计算：根据产品类型使用不同的计算方式
+      let unrealizedPnL = 0;
+      if (row.product_mode === 'BALANCE') {
+        // 余额型产品：当前余额 - 总成本
+        unrealizedPnL = marketValue - totalCost;
+      } else {
+        // 其他产品：(当前价格 - 平均成本) × 持仓数量
+        unrealizedPnL = (currentPrice - averageCost) * quantity;
+      }
       const unrealizedPnLPercent = totalCost > 0 ? (unrealizedPnL / totalCost) * 100 : 0;
 
       // 使用 position 表的 currency，而不是 asset 表的
@@ -225,7 +255,13 @@ export class HoldingService {
         lastTransactionDate: row.last_transaction_date,
         isActive: row.is_active,
         createdAt: row.created_at,
-        updatedAt: row.updated_at
+        updatedAt: row.updated_at,
+        
+        // 理财产品相关字段
+        productMode: row.product_mode as 'QUANTITY' | 'BALANCE' | undefined,
+        netAssetValue: row.net_asset_value ? parseFloat(row.net_asset_value) : undefined,
+        balance: row.balance ? parseFloat(row.balance) : undefined,
+        lastNavUpdate: row.last_nav_update
       };
     });
   }
@@ -248,6 +284,11 @@ export class HoldingService {
         p.is_active,
         p.created_at,
         p.updated_at,
+        -- 理财产品相关字段
+        p.product_mode,
+        p.net_asset_value,
+        p.balance,
+        p.last_nav_update,
         a.symbol as asset_symbol,
         a.name as asset_name,
         at.name as asset_type,
@@ -324,8 +365,16 @@ export class HoldingService {
     let currentPrice = parseFloat(row.current_price) || 0;
     let marketValue = 0;
     
-    // 股票期权特殊处理
-    if (row.asset_type_code === 'STOCK_OPTION') {
+    // 理财产品特殊处理
+    if (row.product_mode === 'QUANTITY' && row.net_asset_value) {
+      // 数量型净值产品：使用净值作为当前价格
+      currentPrice = parseFloat(row.net_asset_value);
+      marketValue = quantity * currentPrice;
+    } else if (row.product_mode === 'BALANCE' && row.balance) {
+      // 余额型理财产品：余额就是市值，价格设为1
+      currentPrice = 1;
+      marketValue = parseFloat(row.balance);
+    } else if (row.asset_type_code === 'STOCK_OPTION') {
       const underlyingStockPrice = parseFloat(row.underlying_stock_price) || 0;
       const strikePrice = parseFloat(row.strike_price) || 0;
       const optionType = row.option_type;
@@ -348,8 +397,15 @@ export class HoldingService {
       marketValue = quantity * currentPrice;
     }
     
-    // 正确的盈亏计算：(当前价格 - 平均成本) × 持仓数量
-    const unrealizedPnL = (currentPrice - averageCost) * quantity;
+    // 盈亏计算：根据产品类型使用不同的计算方式
+    let unrealizedPnL = 0;
+    if (row.product_mode === 'BALANCE') {
+      // 余额型产品：当前余额 - 总成本
+      unrealizedPnL = marketValue - totalCost;
+    } else {
+      // 其他产品：(当前价格 - 平均成本) × 持仓数量
+      unrealizedPnL = (currentPrice - averageCost) * quantity;
+    }
     const unrealizedPnLPercent = totalCost > 0 ? (unrealizedPnL / totalCost) * 100 : 0;
 
     // 使用 position_currency 获取汇率
@@ -395,7 +451,13 @@ export class HoldingService {
       lastTransactionDate: row.last_transaction_date,
       isActive: row.is_active,
       createdAt: row.created_at,
-      updatedAt: row.updated_at
+      updatedAt: row.updated_at,
+      
+      // 理财产品相关字段
+      productMode: row.product_mode as 'QUANTITY' | 'BALANCE' | undefined,
+      netAssetValue: row.net_asset_value ? parseFloat(row.net_asset_value) : undefined,
+      balance: row.balance ? parseFloat(row.balance) : undefined,
+      lastNavUpdate: row.last_nav_update
     };
   }
 

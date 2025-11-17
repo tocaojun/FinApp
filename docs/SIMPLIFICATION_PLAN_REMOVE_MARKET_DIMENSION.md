@@ -472,7 +472,8 @@ const assetTypes = [
   { code: 'ETF', name: 'ETF', category: 'Equity', locationDimension: 'country' },
   { code: 'BOND', name: 'Bond', category: 'Fixed Income', locationDimension: 'country' },
   { code: 'FUND', name: 'Mutual Fund', category: 'Fund', locationDimension: 'country' },
-  { code: 'BANK_WEALTH', name: 'Bank Wealth Product', category: 'Fund', locationDimension: 'country' },
+  { code: 'WEALTH_NAV', name: 'NAV Wealth Product', category: 'Wealth', locationDimension: 'country' },
+  { code: 'WEALTH_BALANCE', name: 'Balance Wealth Product', category: 'Wealth', locationDimension: 'country' },
   
   // 全球维度资产（location_dimension = 'global'）
   { code: 'CRYPTO', name: 'Cryptocurrency', category: 'Digital Asset', locationDimension: 'global' },

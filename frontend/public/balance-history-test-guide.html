@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>余额历史功能测试指南</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .step {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .step h3 {
+            margin-top: 0;
+            color: #007bff;
+        }
+        .feature {
+            background: #e8f5e8;
+            border: 1px solid #28a745;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        .api-test {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        code {
+            background: #f1f3f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Consolas', monospace;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .info {
+            color: #17a2b8;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏦 余额历史功能测试指南</h1>
+        <p>完整的余额型理财产品历史查看和更新功能</p>
+    </div>
+
+    <div class="step">
+        <h3>📋 功能概述</h3>
+        <p>我们已经成功实现了余额型理财产品的历史余额查看和更新功能，包括：</p>
+        <ul>
+            <li>📊 历史记录表格显示</li>
+            <li>📈 余额变化趋势分析</li>
+            <li>🔍 数据筛选和搜索</li>
+            <li>📱 响应式界面设计</li>
+            <li>🔄 实时数据刷新</li>
+        </ul>
+    </div>
+
+    <div class="step">
+        <h3>🚀 测试步骤</h3>
+        
+        <h4>步骤 1: 登录系统</h4>
+        <div class="feature">
+            <p><strong>访问地址:</strong> <a href="http://localhost:3001" target="_blank">http://localhost:3001</a></p>
+            <p><strong>测试账户:</strong></p>
+            <ul>
+                <li>用户名: <code>testapi@finapp.com</code></li>
+                <li>密码: <code>testapi123</code></li>
+            </ul>
+        </div>
+
+        <h4>步骤 2: 进入投资组合页面</h4>
+        <div class="feature">
+            <p>登录后，点击左侧菜单的 <strong>"投资组合"</strong> 进入投资组合列表页面</p>
+        </div>
+
+        <h4>步骤 3: 查看持仓明细</h4>
+        <div class="feature">
+            <p>选择任意投资组合，进入详情页面，切换到 <strong>"持仓明细"</strong> 标签页</p>
+        </div>
+
+        <h4>步骤 4: 测试余额历史功能</h4>
+        <div class="feature">
+            <p>找到余额型理财产品（如 <strong>"招行月月宝"</strong>），有两种方式查看历史：</p>
+            
+            <h5>方式 1: 直接查看历史</h5>
+            <ul>
+                <li>点击该产品行右侧的 <strong>"更多操作"</strong> 按钮（三个点）</li>
+                <li>在下拉菜单中选择 <strong>"查看历史"</strong></li>
+            </ul>
+
+            <h5>方式 2: 通过更新余额查看</h5>
+            <ul>
+                <li>点击 <strong>"更多操作"</strong> → <strong>"编辑"</strong></li>
+                <li>在更新余额模态框中，点击 <strong>"查看历史"</strong> 按钮</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="step">
+        <h3>📊 历史记录功能特性</h3>
+        
+        <div class="feature">
+            <h4>📋 数据展示</h4>
+            <ul>
+                <li><strong>时间</strong>: 变更时间（精确到秒）</li>
+                <li><strong>变更前余额</strong>: 更新前的余额金额</li>
+                <li><strong>变更后余额</strong>: 更新后的余额金额</li>
+                <li><strong>变更金额</strong>: 增减金额（绿色为增加，红色为减少）</li>
+                <li><strong>变更类型</strong>: 手动更新、系统同步、交易变更等</li>
+                <li><strong>操作人</strong>: 执行更新的用户</li>
+                <li><strong>备注</strong>: 更新说明</li>
+            </ul>
+        </div>
+
+        <div class="feature">
+            <h4>🎛️ 交互功能</h4>
+            <ul>
+                <li><strong>分页显示</strong>: 支持每页10/20/50条记录</li>
+                <li><strong>排序功能</strong>: 按时间、金额等字段排序</li>
+                <li><strong>快速跳转</strong>: 支持跳转到指定页面</li>
+                <li><strong>数据刷新</strong>: 点击"刷新"按钮获取最新数据</li>
+                <li><strong>统计信息</strong>: 显示当前余额和记录总数</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="api-test">
+        <h3>🔧 API 测试验证</h3>
+        <p><span class="success">✅ 后端API测试通过</span></p>
+        <p><strong>测试的API端点:</strong></p>
+        <ul>
+            <li><code>POST /api/auth/login</code> - 用户登录 ✅</li>
+            <li><code>GET /api/holdings/{id}/balance-history</code> - 获取余额历史 ✅</li>
+        </ul>
+        
+        <p><strong>测试数据:</strong></p>
+        <ul>
+            <li>持仓ID: <code>fe4c34cd-cfc0-4225-87f2-4a4e76eb87f0</code></li>
+            <li>产品名称: 招行月月宝</li>
+            <li>当前余额: ¥1,560,000.00</li>
+            <li>历史记录: 2条变更记录</li>
+        </ul>
+    </div>
+
+    <div class="step">
+        <h3>🎯 预期结果</h3>
+        
+        <div class="feature">
+            <h4>界面显示</h4>
+            <ul>
+                <li>模态框标题显示: <strong>"余额历史记录 - 招行月月宝"</strong></li>
+                <li>当前余额显示: <strong>¥1,560,000.00</strong></li>
+                <li>历史记录表格正常显示，包含所有字段</li>
+                <li>变更金额颜色正确（增加为绿色，减少为红色）</li>
+                <li>分页控件正常工作</li>
+            </ul>
+        </div>
+
+        <div class="feature">
+            <h4>数据内容</h4>
+            <ul>
+                <li>最新记录: 从 ¥1,555,717.22 增加到 ¥1,560,000.00</li>
+                <li>变更金额: +¥4,282.78</li>
+                <li>变更类型: 手动更新</li>
+                <li>备注: "测试余额更新"</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="step">
+        <h3>🔍 故障排除</h3>
+        
+        <h4>如果功能不工作，请检查：</h4>
+        <ul>
+            <li><strong>服务状态</strong>: 确保前后端服务都在运行</li>
+            <li><strong>网络连接</strong>: 检查浏览器开发者工具的Network标签</li>
+            <li><strong>控制台错误</strong>: 查看浏览器Console是否有JavaScript错误</li>
+            <li><strong>数据权限</strong>: 确保登录用户有查看该持仓的权限</li>
+        </ul>
+
+        <h4>服务地址检查：</h4>
+        <ul>
+            <li>前端: <a href="http://localhost:3001" target="_blank">http://localhost:3001</a></li>
+            <li>后端: <a href="http://localhost:8000/health" target="_blank">http://localhost:8000/health</a></li>
+            <li>API文档: <a href="http://localhost:8000/api/docs" target="_blank">http://localhost:8000/api/docs</a></li>
+        </ul>
+    </div>
+
+    <div class="step">
+        <h3>🎉 功能完成状态</h3>
+        
+        <div class="success">
+            <h4>✅ 已完成的功能</h4>
+            <ul>
+                <li>✅ 余额历史查看组件 (BalanceHistoryModal)</li>
+                <li>✅ HoldingsTable 中的查看历史菜单项</li>
+                <li>✅ UpdateNavModal 中的历史查看按钮</li>
+                <li>✅ 后端API集成和数据获取</li>
+                <li>✅ 响应式界面设计</li>
+                <li>✅ 数据分页和排序</li>
+                <li>✅ 实时数据刷新</li>
+                <li>✅ 错误处理和用户反馈</li>
+            </ul>
+        </div>
+
+        <div class="info">
+            <p><strong>🎯 核心价值:</strong> 用户现在可以完整地查看余额型理财产品的历史变化，包括每次更新的详细信息、变更金额、操作时间等，为投资决策提供重要的历史数据支持。</p>
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+        <h3>🚀 开始测试</h3>
+        <p>点击下方链接开始测试余额历史功能：</p>
+        <a href="http://localhost:3001" target="_blank" style="display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">打开 FinApp 应用</a>
+    </div>
+</body>
+</html>

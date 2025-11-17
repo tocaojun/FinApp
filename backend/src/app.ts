@@ -23,7 +23,9 @@ import exchangeRatesRouter from './routes/exchangeRates';
 import tagRoutes from './routes/tagRoutes';
 import holdingsRouter from './routes/holdings';
 import priceSyncRouter from './routes/priceSync';
-import wealthRouter from './routes/wealth';
+import depositsRouter from './routes/deposits';
+
+
 import { reportsRouter } from './routes/reports';
 import { databaseService } from './services/DatabaseService';
 import { CacheService } from './services/CacheService';
@@ -162,8 +164,14 @@ class App {
     // 价格同步管理路由（需要认证）
     this.app.use('/api/price-sync', authenticateToken, priceSyncRouter);
 
+    // 存款产品管理路由（需要认证）
+    this.app.use('/api/deposits', depositsRouter);
+
     // 财富产品管理路由（需要认证）
-    this.app.use('/api/wealth', authenticateToken, wealthRouter);
+
+
+    // 理财产品管理路由（需要认证）
+
 
     // 报表管理路由（需要认证）
     this.app.use('/api/reports', reportsRouter);

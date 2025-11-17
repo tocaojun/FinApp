@@ -22,7 +22,7 @@ export interface Holding {
   assetId: string;
   assetSymbol: string;
   assetName: string;
-  assetType: 'STOCK' | 'FUND' | 'BOND' | 'CRYPTO' | 'OPTION';
+  assetType: 'STOCK' | 'FUND' | 'BOND' | 'CRYPTO' | 'OPTION' | 'WEALTH_NAV' | 'WEALTH_BALANCE' | 'DEPOSIT' | 'CASH_MGMT';
   quantity: number;
   averagePrice: number;
   currentPrice: number;
@@ -37,6 +37,12 @@ export interface Holding {
   convertedTotalCost?: number; // 转换后的总成本
   convertedUnrealizedPnL?: number; // 转换后的未实现盈亏
   lastUpdated: string;
+  
+  // 理财产品相关字段
+  productMode?: 'QUANTITY' | 'BALANCE';
+  netAssetValue?: number; // 净值型产品的单位净值
+  balance?: number; // 余额型产品的余额
+  lastNavUpdate?: string; // 最后净值更新时间
 }
 
 export interface Account {
@@ -58,6 +64,53 @@ export interface AssetAllocation {
   value: number;
   percentage: number;
   color: string;
+}
+
+// 理财产品相关类型
+export interface WealthProduct {
+  id: string;
+  portfolioId: string;
+  tradingAccountId: string;
+  productName: string;
+  productCode: string;
+  productMode: 'QUANTITY' | 'BALANCE';
+  currentValue: number;
+  unrealizedPnl: number;
+  quantity?: number;
+  netAssetValue?: number;
+  balance?: number;
+  totalCost: number;
+  currency: string;
+  lastNavUpdate?: string;
+  firstPurchaseDate?: string;
+  lastTransactionDate?: string;
+  accountName: string;
+  assetCategory: string;
+}
+
+export interface WealthProductType {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  description: string;
+}
+
+export interface CreateWealthProductRequest {
+  portfolioId: string;
+  tradingAccountId: string;
+  assetId: string;
+  productMode: 'QUANTITY' | 'BALANCE';
+  initialAmount: number;
+  currency: string;
+  netAssetValue?: number;
+}
+
+export interface WealthProductUpdate {
+  positionId: string;
+  productMode: 'QUANTITY' | 'BALANCE';
+  netAssetValue?: number;
+  balance?: number;
 }
 
 export interface PortfolioPerformance {

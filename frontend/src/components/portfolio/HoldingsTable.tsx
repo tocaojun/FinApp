@@ -22,10 +22,14 @@ import {
   DollarOutlined,
   EditOutlined,
   DeleteOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  HistoryOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { Holding } from '../../types/portfolio';
+import { BalanceManagementModal } from './BalanceManagementModal';
+import { UpdateNavModal } from './UpdateNavModal';
+import { HoldingService } from '../../services/holdingService';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -51,6 +55,9 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
   const [searchText, setSearchText] = useState('');
   const [assetTypeFilter, setAssetTypeFilter] = useState<string>('');
   const [sortedInfo, setSortedInfo] = useState<any>({});
+  const [balanceManagementModalOpen, setBalanceManagementModalOpen] = useState(false);
+  const [updateNavModalOpen, setUpdateNavModalOpen] = useState(false);
+  const [selectedHolding, setSelectedHolding] = useState<Holding | null>(null);
 
   useEffect(() => {
     if (portfolioId) {
@@ -61,8 +68,7 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
   const loadHoldings = async () => {
     setLoading(true);
     try {
-      // 导入HoldingService
-      const { HoldingService } = await import('../../services/holdingService');
+      // 获取持仓数据
       const data = await HoldingService.getHoldingsByPortfolio(portfolioId);
       
       // 转换数据格式以匹配组件需要的类型
@@ -86,7 +92,12 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
         convertedMarketValue: holding.convertedMarketValue,
         convertedTotalCost: holding.convertedTotalCost,
         convertedUnrealizedPnL: holding.convertedUnrealizedPnL,
-        lastUpdated: holding.updatedAt
+        lastUpdated: holding.updatedAt,
+        // 理财产品相关字段
+        productMode: holding.productMode,
+        netAssetValue: holding.netAssetValue,
+        balance: holding.balance,
+        lastNavUpdate: holding.lastNavUpdate
       }));
       
       setHoldings(convertedHoldings);
@@ -96,6 +107,35 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
       setHoldings([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 处理更新净值/余额
+  const handleUpdateValue = async (holdingId: string, newValue: number) => {
+    try {
+      const holding = selectedHolding;
+      
+      if (!holding) return;
+      
+      if (holding.productMode === 'BALANCE') {
+        // 更新余额
+        await HoldingService.updateWealthProductBalance(holdingId, newValue);
+        message.success('余额更新成功');
+      } else {
+        // 更新净值
+        await HoldingService.updateWealthProductNav(holdingId, newValue);
+        message.success('净值更新成功');
+      }
+      
+      // 重新加载数据
+      await loadHoldings();
+      
+      // 关闭模态框
+      setUpdateNavModalOpen(false);
+      setSelectedHolding(null);
+    } catch (error) {
+      console.error('更新失败:', error);
+      message.error('更新失败');
     }
   };
 
@@ -133,8 +173,8 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
     setSortedInfo(sorter);
   };
 
-  const getActionMenu = (holding: Holding) => ({
-    items: [
+  const getActionMenu = (holding: Holding) => {
+    const menuItems = [
       {
         key: 'buy',
         icon: <ShoppingCartOutlined />,
@@ -146,7 +186,25 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
         icon: <DollarOutlined />,
         label: '卖出',
         onClick: () => onSell?.(holding),
-      },
+      }
+    ];
+
+    // 为余额型理财产品添加特殊选项
+    if (holding.productMode === 'BALANCE') {
+      menuItems.push(
+        {
+          key: 'balanceManagement',
+          icon: <HistoryOutlined />,
+          label: '历史余额管理',
+          onClick: () => {
+            setSelectedHolding(holding);
+            setBalanceManagementModalOpen(true);
+          },
+        }
+      );
+    }
+
+    menuItems.push(
       {
         type: 'divider' as const,
       },
@@ -168,9 +226,11 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
             onOk: () => onDelete?.(holding)
           });
         },
-      },
-    ],
-  });
+      }
+    );
+
+    return { items: menuItems };
+  };
 
   const columns: ColumnsType<Holding> = [
     {
@@ -419,6 +479,40 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
           </div>
         </div>
       )}
+
+      {/* 历史余额管理模态框 */}
+      <BalanceManagementModal
+        open={balanceManagementModalOpen}
+        onClose={() => {
+          setBalanceManagementModalOpen(false);
+          setSelectedHolding(null);
+        }}
+        holding={selectedHolding ? {
+          id: selectedHolding.id,
+          assetName: selectedHolding.assetName,
+          currentBalance: selectedHolding.balance || 0,
+          productMode: selectedHolding.productMode || ''
+        } : null}
+        onBalanceUpdated={loadHoldings}
+      />
+
+      {/* 更新净值/余额模态框 */}
+      <UpdateNavModal
+        open={updateNavModalOpen}
+        onClose={() => {
+          setUpdateNavModalOpen(false);
+          setSelectedHolding(null);
+        }}
+        holding={selectedHolding ? {
+          id: selectedHolding.id,
+          assetName: selectedHolding.assetName,
+          currentNav: selectedHolding.netAssetValue || 0,
+          currentBalance: selectedHolding.balance || 0,
+          quantity: selectedHolding.quantity || 0,
+          productMode: selectedHolding.productMode || ''
+        } : null}
+        onUpdate={handleUpdateValue}
+      />
     </Card>
   );
 };

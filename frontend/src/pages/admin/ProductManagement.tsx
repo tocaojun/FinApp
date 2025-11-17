@@ -263,9 +263,29 @@ const ProductManagement: React.FC = () => {
       message.success('产品删除成功');
       fetchAssets();
       fetchStatistics();
-    } catch (error) {
-      message.error('删除产品失败');
+    } catch (error: any) {
       console.error('Error deleting asset:', error);
+      
+      // 提取错误信息
+      let errorMessage = '删除产品失败';
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      // 针对特定错误类型提供更友好的提示
+      if (errorMessage.includes('transaction record')) {
+        message.error('无法删除该产品：存在交易记录，请先删除相关交易记录后再试');
+      } else if (errorMessage.includes('position record')) {
+        message.error('无法删除该产品：存在持仓记录，请先清空相关持仓后再试');
+      } else if (errorMessage.includes('Asset not found')) {
+        message.error('产品不存在或已被删除');
+      } else {
+        message.error(`删除产品失败：${errorMessage}`);
+      }
     }
   };
 

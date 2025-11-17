@@ -51,6 +51,12 @@ const AccountsTab: React.FC<AccountsTabProps> = ({ portfolioId }) => {
   }, [portfolioId]);
 
   const loadAccounts = async () => {
+    // 检查是否有认证token
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      console.warn('未登录，跳过加载交易账户');
+      return;
+    }
 
     setLoading(true);
     try {

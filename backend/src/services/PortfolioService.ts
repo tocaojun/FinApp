@@ -229,7 +229,7 @@ export class PortfolioService {
     const accountsData = Array.isArray(accountsResult) ? accountsResult[0] : { account_count: 0, total_balance: 0 };
 
     // 获取持仓统计和市值计算（需要考虑汇率转换）
-    // 注意：股票期权需要计算内在价值，而不是使用成交价
+    // 注意：股票期权需要计算内在价值，余额型产品使用余额作为市值
     const positionsQuery = `
       SELECT 
         COUNT(DISTINCT p.id) as position_count,
@@ -237,6 +237,12 @@ export class PortfolioService {
         COALESCE(SUM(p.total_cost), 0) as total_cost,
         COALESCE(SUM(
           CASE 
+            -- 余额型理财产品：使用余额作为市值
+            WHEN p.product_mode = 'BALANCE' THEN COALESCE(p.balance, 0)
+            -- 数量型净值产品：使用净值计算
+            WHEN p.product_mode = 'QUANTITY' AND p.net_asset_value IS NOT NULL THEN
+              p.quantity * COALESCE(p.net_asset_value, 0)
+            -- 股票期权：计算内在价值
             WHEN at.code = 'STOCK_OPTION' THEN
               p.quantity * (
                 CASE 
@@ -247,6 +253,7 @@ export class PortfolioService {
                   ELSE COALESCE(ap.close_price, 0)
                 END
               )
+            -- 其他资产：数量 × 价格
             ELSE
               p.quantity * COALESCE(ap.close_price, 0)
           END
@@ -270,7 +277,13 @@ export class PortfolioService {
         ORDER BY price_date DESC
         LIMIT 1
       ) asp ON at.code = 'STOCK_OPTION'
-      WHERE p.portfolio_id = $1::uuid AND p.is_active = true
+      WHERE p.portfolio_id = $1::uuid 
+        AND p.is_active = true
+        AND (
+          (p.product_mode = 'BALANCE' AND COALESCE(p.balance, 0) > 0)
+          OR (p.product_mode != 'BALANCE' AND p.quantity != 0)
+          OR (p.product_mode IS NULL AND p.quantity != 0)
+        )
       GROUP BY p.currency
     `;
     
