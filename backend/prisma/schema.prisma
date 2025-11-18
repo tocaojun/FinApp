@@ -247,6 +247,7 @@ model AssetType {
   description       String?
   locationDimension String?            @default("market") @map("location_dimension") @db.VarChar(20) // market|country|global
   isActive          Boolean?           @default(true) @map("is_active")
+  sortOrder         Int?               @default(0) @map("sort_order")
   createdAt         DateTime?          @default(now()) @map("created_at") @db.Timestamptz(6)
   assets            Asset[]
   price_sync_tasks  price_sync_tasks[]
@@ -255,6 +256,7 @@ model AssetType {
   @@index([code], map: "idx_asset_types_code")
   @@index([isActive], map: "idx_asset_types_is_active")
   @@index([locationDimension], map: "idx_asset_types_location_dimension")
+  @@index([sortOrder], map: "idx_asset_types_sort_order")
   @@map("asset_types")
 }
 

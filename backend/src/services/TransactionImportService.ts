@@ -419,35 +419,38 @@ export class TransactionImportService {
 
   /**
    * 导入后更新持仓数据
+   * 批量导入时，重新计算整个持仓，而不是逐笔累加
    */
   private async updatePositionsAfterImport(
     transactions: EnrichedTransaction[]
   ): Promise<void> {
     console.log(`开始更新持仓数据，共${transactions.length}条交易记录`);
     
-    let successCount = 0;
-    let failureCount = 0;
+    // 获取所有唯一的持仓组合（portfolioId, tradingAccountId, assetId）
+    const positionKeys = new Set<string>();
+    transactions.forEach(t => {
+      const key = `${t.portfolioId}|${t.tradingAccountId}|${t.assetId}`;
+      positionKeys.add(key);
+    });
     
-    for (const transaction of transactions) {
+    console.log(`需要更新${positionKeys.size}个不同的持仓`);
+    
+    // 对每个持仓，重新计算所有交易的总和
+    for (const key of positionKeys) {
+      const [portfolioId, tradingAccountId, assetId] = key.split('|');
+      
       try {
-        await positionService.updatePositionFromTransaction(
-          transaction.portfolioId,
-          transaction.tradingAccountId,
-          transaction.assetId,
-          transaction.type,
-          transaction.quantity,
-          transaction.price,
-          transaction.currency,
-          transaction.executedAt
+        await positionService.recalculatePositionFromAllTransactions(
+          portfolioId,
+          tradingAccountId,
+          assetId
         );
-        successCount++;
+        console.log(`✓ 持仓重新计算成功: ${key}`);
       } catch (error: any) {
-        console.error(`更新持仓失败 - 交易ID: ${transaction.assetId}`, error.message);
-        failureCount++;
-        // 不抛出错误，继续处理其他交易
+        console.error(`✗ 持仓重新计算失败: ${key}`, error.message);
       }
     }
     
-    console.log(`持仓更新完成 - 成功: ${successCount}, 失败: ${failureCount}`);
+    console.log(`持仓更新完成`);
   }
 }

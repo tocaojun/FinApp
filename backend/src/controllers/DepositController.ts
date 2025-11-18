@@ -1,43 +1,43 @@
 import { Request, Response } from 'express';
 import { DepositService, DepositDetails, MaturityAlert } from '../services/DepositService';
-import { DatabaseService } from '../services/DatabaseService';
+import { databaseService } from '../services/DatabaseService';
+import { AuthenticatedRequest } from '../types/auth';
 
 export class DepositController {
   private depositService: DepositService;
 
   constructor() {
-    const dbService = new DatabaseService();
-    this.depositService = new DepositService(dbService);
+    this.depositService = new DepositService(databaseService);
   }
 
   /**
    * 获取存款产品列表
    */
-  getDepositProducts = async (req: Request, res: Response) => {
+  getDepositProducts = async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { bank, depositType, minRate, maxRate } = req.query;
 
-      let whereConditions = ['at.code = \'DEPOSIT\'', 'a.is_active = true'];
+      let whereConditions = ['is_active = true'];
       const params: any[] = [];
       let paramIndex = 1;
 
       if (bank) {
-        whereConditions.push(`dd.bank_name ILIKE $${paramIndex++}`);
+        whereConditions.push(`bank_name ILIKE $${paramIndex++}`);
         params.push(`%${bank}%`);
       }
 
       if (depositType) {
-        whereConditions.push(`dd.deposit_type = $${paramIndex++}`);
+        whereConditions.push(`deposit_type = $${paramIndex++}`);
         params.push(depositType);
       }
 
       if (minRate) {
-        whereConditions.push(`dd.interest_rate >= $${paramIndex++}`);
+        whereConditions.push(`interest_rate >= $${paramIndex++}`);
         params.push(parseFloat(minRate as string) / 100);
       }
 
       if (maxRate) {
-        whereConditions.push(`dd.interest_rate <= $${paramIndex++}`);
+        whereConditions.push(`interest_rate <= $${paramIndex++}`);
         params.push(parseFloat(maxRate as string) / 100);
       }
 
@@ -47,8 +47,7 @@ export class DepositController {
         ORDER BY bank_name, deposit_type, term_months NULLS FIRST
       `;
 
-      const dbService = new DatabaseService();
-      const result = await dbService.prisma.$queryRawUnsafe(query, ...params) as any[];
+      const result = await databaseService.prisma.$queryRawUnsafe(query, ...params) as any[];
 
       const products = result.map(row => ({
         assetId: row.asset_id,
@@ -98,16 +97,17 @@ export class DepositController {
   /**
    * 获取存款产品详情
    */
-  getDepositDetails = async (req: Request, res: Response) => {
+  getDepositDetails = async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { assetId } = req.params;
 
       const details = await this.depositService.getDepositDetails(assetId);
       if (!details) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           message: 'Deposit product not found'
         });
+        return;
       }
 
       res.json({
@@ -127,16 +127,17 @@ export class DepositController {
   /**
    * 创建存款产品详情
    */
-  createDepositDetails = async (req: Request, res: Response) => {
+  createDepositDetails = async (req: AuthenticatedRequest, res: Response) => {
     try {
       const details: DepositDetails = req.body;
 
       // 验证必填字段
       if (!details.assetId || !details.bankName || !details.depositType || details.interestRate === undefined) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           message: 'Missing required fields: assetId, bankName, depositType, interestRate'
         });
+        return;
       }
 
       const createdDetails = await this.depositService.createDepositDetails(details);
@@ -156,31 +157,81 @@ export class DepositController {
   };
 
   /**
+   * 更新存款产品详情
+   */
+  updateDepositDetails = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { assetId } = req.params;
+      const updates: Partial<DepositDetails> = req.body;
+
+      // 验证assetId
+      if (!assetId) {
+        res.status(400).json({
+          success: false,
+          message: 'Asset ID is required'
+        });
+        return;
+      }
+
+      const updatedDetails = await this.depositService.updateDepositDetails(assetId, updates);
+
+      if (!updatedDetails) {
+        res.status(404).json({
+          success: false,
+          message: 'Deposit details not found'
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: updatedDetails
+      });
+    } catch (error) {
+      console.error('Error updating deposit details:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update deposit details',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  /**
    * 获取用户存款持仓
    */
-  getUserDepositPositions = async (req: Request, res: Response) => {
+  getUserDepositPositions = async (req: AuthenticatedRequest, res: Response) => {
     try {
+      console.log('获取存款持仓 - 开始处理请求');
+      console.log('Request user:', req.user);
+      console.log('Query params:', req.query);
+      
       const userId = req.user?.id;
       if (!userId) {
-        return res.status(401).json({
+        console.error('用户未认证 - req.user:', req.user);
+        res.status(401).json({
           success: false,
           message: 'User not authenticated'
         });
+        return;
       }
 
       const { portfolioId } = req.query;
+      console.log('获取存款持仓 - userId:', userId, 'portfolioId:', portfolioId);
 
       const positions = await this.depositService.getUserDepositPositions(
         userId,
         portfolioId as string
       );
 
+      console.log('获取存款持仓 - 成功，返回', positions.length, '条记录');
       res.json({
         success: true,
         data: positions
       });
     } catch (error) {
-      console.error('Error fetching user deposit positions:', error);
+      console.error('获取用户存款持仓失败:', error);
+      console.error('错误堆栈:', error instanceof Error ? error.stack : 'No stack trace');
       res.status(500).json({
         success: false,
         message: 'Failed to fetch deposit positions',
@@ -192,7 +243,7 @@ export class DepositController {
   /**
    * 计算存款利息
    */
-  calculateInterest = async (req: Request, res: Response) => {
+  calculateInterest = async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { positionId } = req.params;
       const { calculationDate, calculationMethod } = req.body;
@@ -204,10 +255,11 @@ export class DepositController {
       );
 
       if (!calculation) {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           message: 'Position not found'
         });
+        return;
       }
 
       res.json({
@@ -227,7 +279,7 @@ export class DepositController {
   /**
    * 记录利息计算
    */
-  recordInterest = async (req: Request, res: Response) => {
+  recordInterest = async (req: AuthenticatedRequest, res: Response) => {
     try {
       const calculation = req.body;
 
@@ -250,14 +302,15 @@ export class DepositController {
   /**
    * 获取即将到期的存款
    */
-  getUpcomingMaturityDeposits = async (req: Request, res: Response) => {
+  getUpcomingMaturityDeposits = async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        return res.status(401).json({
+        res.status(401).json({
           success: false,
           message: 'User not authenticated'
         });
+        return;
       }
 
       const { daysAhead = 30 } = req.query;
@@ -284,14 +337,15 @@ export class DepositController {
   /**
    * 创建到期提醒
    */
-  createMaturityAlert = async (req: Request, res: Response) => {
+  createMaturityAlert = async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        return res.status(401).json({
+        res.status(401).json({
           success: false,
           message: 'User not authenticated'
         });
+        return;
       }
 
       const alert: MaturityAlert = {
@@ -318,16 +372,17 @@ export class DepositController {
   /**
    * 处理定期存款到期
    */
-  processMaturity = async (req: Request, res: Response) => {
+  processMaturity = async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { positionId } = req.params;
       const { action, newTermMonths } = req.body;
 
       if (!['RENEW', 'TRANSFER_TO_DEMAND', 'WITHDRAW'].includes(action)) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           message: 'Invalid action. Must be RENEW, TRANSFER_TO_DEMAND, or WITHDRAW'
         });
+        return;
       }
 
       await this.depositService.processMaturity(positionId, action, newTermMonths);
@@ -349,14 +404,15 @@ export class DepositController {
   /**
    * 获取存款统计信息
    */
-  getDepositStatistics = async (req: Request, res: Response) => {
+  getDepositStatistics = async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        return res.status(401).json({
+        res.status(401).json({
           success: false,
           message: 'User not authenticated'
         });
+        return;
       }
 
       const query = `
@@ -375,8 +431,7 @@ export class DepositController {
         WHERE p.user_id = $1::uuid AND at.code = 'DEPOSIT'
       `;
 
-      const dbService = new DatabaseService();
-      const result = await dbService.prisma.$queryRawUnsafe(query, userId) as any[];
+      const result = await databaseService.prisma.$queryRawUnsafe(query, userId) as any[];
 
       const stats = result[0] || {};
 

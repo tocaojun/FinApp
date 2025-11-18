@@ -8,6 +8,8 @@ interface SimpleAssetType {
   name: string;
   category: string;
   description?: string;
+  isActive?: boolean;
+  sortOrder?: number;
 }
 
 interface SimpleAsset {
@@ -76,11 +78,11 @@ export class AssetService {
     return mapping[assetTypeCode];
   }
 
-  // 获取资产类型
+  // 获取资产类型（仅返回激活的，按排序顺序）
   async getAssetTypes(): Promise<SimpleAssetType[]> {
     try {
       const result = await this.db.prisma.$queryRaw`
-        SELECT * FROM asset_types WHERE is_active = true ORDER BY name
+        SELECT * FROM asset_types WHERE is_active = true ORDER BY sort_order, name
       ` as any[];
 
       return result.map((row: any) => ({
@@ -88,10 +90,34 @@ export class AssetService {
         code: row.code,
         name: row.name,
         category: row.category,
-        description: row.description
+        description: row.description,
+        isActive: row.is_active,
+        sortOrder: row.sort_order
       }));
     } catch (error) {
       console.error('Error fetching asset types:', error);
+      return [];
+    }
+  }
+
+  // 获取所有资产类型（包括未激活的，用于管理界面）
+  async getAllAssetTypes(): Promise<SimpleAssetType[]> {
+    try {
+      const result = await this.db.prisma.$queryRaw`
+        SELECT * FROM asset_types ORDER BY sort_order, name
+      ` as any[];
+
+      return result.map((row: any) => ({
+        id: row.id,
+        code: row.code,
+        name: row.name,
+        category: row.category,
+        description: row.description,
+        isActive: row.is_active,
+        sortOrder: row.sort_order
+      }));
+    } catch (error) {
+      console.error('Error fetching all asset types:', error);
       return [];
     }
   }
@@ -102,6 +128,8 @@ export class AssetService {
     name: string;
     category: string;
     description?: string;
+    isActive?: boolean;
+    sortOrder?: number;
   }): Promise<SimpleAssetType> {
     try {
       // 检查代码是否已存在
@@ -113,9 +141,19 @@ export class AssetService {
         throw new Error('Asset type code or name already exists');
       }
 
+      // 如果没有指定排序顺序，设置为最大值+1
+      let sortOrder = data.sortOrder ?? 0;
+      if (sortOrder === 0) {
+        const maxResult = await this.db.prisma.$queryRaw`
+          SELECT COALESCE(MAX(sort_order), 0) + 1 as next_order FROM asset_types
+        ` as any[];
+        sortOrder = maxResult[0]?.next_order || 1;
+      }
+
       const result = await this.db.prisma.$queryRaw`
-        INSERT INTO asset_types (code, name, category, description)
-        VALUES (${data.code}, ${data.name}, ${data.category}, ${data.description || null})
+        INSERT INTO asset_types (code, name, category, description, is_active, sort_order)
+        VALUES (${data.code}, ${data.name}, ${data.category}, ${data.description || null}, 
+                ${data.isActive !== false}, ${sortOrder})
         RETURNING *
       ` as any[];
 
@@ -125,7 +163,9 @@ export class AssetService {
         code: row.code,
         name: row.name,
         category: row.category,
-        description: row.description
+        description: row.description,
+        isActive: row.is_active,
+        sortOrder: row.sort_order
       };
     } catch (error) {
       console.error('Error creating asset type:', error);
@@ -140,6 +180,7 @@ export class AssetService {
     category: string;
     description?: string;
     isActive: boolean;
+    sortOrder: number;
   }>): Promise<SimpleAssetType> {
     try {
       // 检查资产类型是否存在
@@ -169,7 +210,8 @@ export class AssetService {
           name = COALESCE(${data.name}, name),
           category = COALESCE(${data.category}, category),
           description = COALESCE(${data.description}, description),
-          is_active = COALESCE(${data.isActive}, is_active)
+          is_active = COALESCE(${data.isActive}, is_active),
+          sort_order = COALESCE(${data.sortOrder}, sort_order)
         WHERE id = ${id}::uuid
         RETURNING *
       ` as any[];
@@ -180,7 +222,9 @@ export class AssetService {
         code: row.code,
         name: row.name,
         category: row.category,
-        description: row.description
+        description: row.description,
+        isActive: row.is_active,
+        sortOrder: row.sort_order
       };
     } catch (error) {
       console.error('Error updating asset type:', error);

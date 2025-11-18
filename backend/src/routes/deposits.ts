@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { DepositController } from '../controllers/DepositController';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken } from '../middleware/authMiddleware';
 
 const router = Router();
 const depositController = new DepositController();
@@ -9,6 +9,7 @@ const depositController = new DepositController();
 router.get('/products', depositController.getDepositProducts);
 router.get('/products/:assetId/details', depositController.getDepositDetails);
 router.post('/products/:assetId/details', authenticateToken, depositController.createDepositDetails);
+router.put('/products/:assetId/details', authenticateToken, depositController.updateDepositDetails);
 
 // 用户存款持仓相关路由
 router.get('/positions', authenticateToken, depositController.getUserDepositPositions);

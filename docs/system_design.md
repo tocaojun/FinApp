@@ -278,11 +278,13 @@ PUT    /api/portfolios/:id          // 更新投资组合
 DELETE /api/portfolios/:id          // 删除投资组合
 
 // 交易管理 API
-GET    /api/transactions            // 获取交易记录
-POST   /api/transactions            // 创建交易记录
-PUT    /api/transactions/:id        // 更新交易记录
-DELETE /api/transactions/:id        // 删除交易记录
-POST   /api/transactions/import     // 批量导入交易
+GET    /api/transactions                    // 获取交易记录
+POST   /api/transactions                    // 创建交易记录
+PUT    /api/transactions/:id                // 更新交易记录
+DELETE /api/transactions/:id                // 删除交易记录
+POST   /api/transactions/import             // 批量导入交易
+GET    /api/transactions/summary/stats      // 获取交易汇总统计（修复路由）
+GET    /api/transactions/summary/stats-with-conversion  // 获取交易汇总统计（支持币种转换）
 
 // 持仓管理 API
 GET    /api/positions               // 获取持仓列表
@@ -1033,7 +1035,185 @@ class APIVersionManager {
 
 ---
 
-**文档版本**: v1.0  
+## 10. 最近修复和改进记录
+
+### 10.1 交易类型处理优化（2025-11-18）
+
+#### 问题描述
+- 前端"最近交易"列表中，交易金额符号显示不正确
+- "资产概览"中的"交易记录数量"始终显示为 0
+- 后端只统计 `BUY` 和 `SELL` 类型，遗漏了其他交易类型
+
+#### 修复内容
+
+**1. 前端交易类型判断优化**
+
+文件：`frontend/src/components/dashboard/RecentTransactions.tsx`
+
+```typescript
+// 新增辅助函数，支持所有买入/申购类型
+const isBuyType = (type: string): boolean => {
+  const buyTypes = ['buy', 'apply', 'stock_buy', 'etf_buy', 'bond_buy', 'fund_buy'];
+  return buyTypes.includes(type.toLowerCase());
+};
+
+// 新增辅助函数，支持所有卖出/赎回类型
+const isSellType = (type: string): boolean => {
+  const sellTypes = ['sell', 'redeem', 'stock_sell', 'etf_sell', 'bond_sell', 'fund_sell'];
+  return sellTypes.includes(type.toLowerCase());
+};
+
+// 交易类型中文映射
+const typeMap: Record<string, string> = {
+  'buy': '买入',
+  'sell': '卖出',
+  'apply': '申购',
+  'redeem': '赎回',
+  'stock_buy': '股票买入',
+  'stock_sell': '股票卖出',
+  'etf_buy': 'ETF买入',
+  'etf_sell': 'ETF卖出',
+  'bond_buy': '债券买入',
+  'bond_sell': '债券卖出',
+  'fund_buy': '基金买入',
+  'fund_sell': '基金卖出',
+  'dividend': '分红',
+  'split': '拆股',
+  'transfer': '转账'
+};
+```
+
+**2. 后端交易统计SQL优化**
+
+文件：`backend/src/services/TransactionService.ts`
+
+```typescript
+async getTransactionSummary(userId: string, portfolioId?: string): Promise<TransactionSummary> {
+  // 买入类型：包含所有买入、申购相关的交易
+  const buyTypes = ['BUY', 'STOCK_BUY', 'ETF_BUY', 'BOND_BUY', 'FUND_BUY', 'FUND_SUBSCRIBE', 'APPLY', 'buy'];
+  // 卖出类型：包含所有卖出、赎回相关的交易
+  const sellTypes = ['SELL', 'STOCK_SELL', 'ETF_SELL', 'BOND_SELL', 'FUND_SELL', 'FUND_REDEEM', 'REDEEM', 'sell'];
+
+  const query = `
+    SELECT 
+      COUNT(*) as total_transactions,
+      SUM(CASE WHEN transaction_type IN (...) THEN total_amount ELSE 0 END) as total_buy_amount,
+      SUM(CASE WHEN transaction_type IN (...) THEN total_amount ELSE 0 END) as total_sell_amount,
+      SUM(fees) as total_fees,
+      COUNT(DISTINCT asset_id) as unique_assets,
+      AVG(total_amount) as avg_transaction_amount,
+      MAX(total_amount) as max_transaction_amount
+    FROM finapp.transactions t
+    JOIN finapp.portfolios p ON t.portfolio_id = p.id
+    ${whereClause}
+  `;
+}
+```
+
+**3. 前端API路由修正**
+
+文件：`frontend/src/services/transactionService.ts`
+
+```typescript
+// 修改前：
+const response = await apiGet<...>('/transactions/summary');
+
+// 修改后：
+const response = await apiGet<...>('/transactions/summary/stats');
+```
+
+#### 影响范围
+- 仪表板页面
+- 最近交易列表
+- 资产概览卡片
+- 交易统计API
+
+#### 测试验证
+- [x] 买入交易显示为负数（红色）
+- [x] 卖出交易显示为正数（绿色）
+- [x] 申购交易显示为负数（红色）
+- [x] 交易记录数量正确显示（97笔）
+- [x] 所有交易类型正确识别和显示
+
+### 10.2 投资组合收益计算修复（2025-11-18）
+
+#### 问题描述
+仪表板的"投资组合概览"中，投资组合的收益和收益率计算错误，错误地将 `totalReturn`（收益）当作 `totalCost`（成本）使用。
+
+#### 修复内容
+
+文件：`frontend/src/components/dashboard/PortfolioOverview.tsx`
+
+```typescript
+// 更新接口定义
+interface PortfolioSummary {
+  totalValue: number;
+  totalCost: number;    // 新增字段
+  totalReturn: number;
+  totalAssets: number;
+}
+
+// 修正计算逻辑
+const totalValue = record.summary?.totalValue || 0;
+const totalCost = record.summary?.totalCost || 0;  // 修复：之前错误使用 totalReturn
+const gainLoss = record.summary?.totalReturn || (totalValue - totalCost);
+const percentage = totalCost > 0 ? (gainLoss / totalCost) * 100 : 0;
+
+// 更新数据映射
+summary: {
+  totalValue: portfolio.totalValue || 0,
+  totalCost: portfolio.totalCost || 0,      // 新增
+  totalReturn: portfolio.totalGainLoss || 0,
+  totalAssets: 0
+}
+```
+
+### 10.3 字段命名一致性修复（2025-11-18）
+
+#### 问题描述
+前端使用 snake_case（`asset_name`, `asset_symbol`），后端返回 camelCase（`assetName`, `assetSymbol`），导致显示"Unknown Asset"。
+
+#### 修复内容
+
+文件：`frontend/src/components/dashboard/RecentTransactions.tsx`
+
+```typescript
+// 修复字段映射，添加兼容性fallback
+type: transaction.transactionType || transaction.type || 'buy',
+assetSymbol: transaction.assetSymbol || 'N/A',  // 统一使用 camelCase
+assetName: transaction.assetName || 'Unknown Asset',
+totalAmount: transaction.totalAmount || transaction.amount || 0,
+fee: transaction.fee || transaction.fees || 0,
+currency: transaction.currency || 'CNY',
+executedAt: transaction.transactionDate || transaction.executedAt || new Date().toISOString()
+```
+
+### 10.4 UI交互优化（2025-11-18）
+
+#### 修复内容
+
+文件：`frontend/src/components/dashboard/AssetSummaryCard.tsx`
+
+```typescript
+// "查看分布"按钮导航修正
+// 修改前：onClick={() => onNavigate?.('dashboard')} // 已经在dashboard页面
+// 修改后：onClick={() => onNavigate?.('assets')}    // 跳转到资产页面
+```
+
+### 10.5 数据库备份规范
+
+#### 备份策略
+- **定期备份**：每次重要数据操作前必须备份
+- **备份位置**：`/Users/caojun/code/FinApp/backups/`
+- **备份命名**：`finapp_test_backup_YYYYMMDD_HHMMSS.sql.gz`
+- **压缩格式**：gzip压缩以节省空间
+
+#### 最近备份记录
+- 2025-11-18 16:21:55 - 548KB - 修复前完整备份
+
+---
+
+**文档版本**: v1.1  
 **创建日期**: 2025年9月8日  
-**最后更新**: 2025年9月8日  
-**文档状态**: 待评审
+**最后更新**: 2025年11月18日  
+**文档状态**: 已评审

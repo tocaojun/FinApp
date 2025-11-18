@@ -1,4 +1,4 @@
-import { DatabaseService } from './DatabaseService';
+import { databaseService } from './DatabaseService';
 import { DepositService, MaturityAlert } from './DepositService';
 
 export interface MaturityNotification {
@@ -17,8 +17,8 @@ export interface MaturityNotification {
 
 export class DepositMaturityService {
   constructor(
-    private db: DatabaseService,
-    private depositService: DepositService
+    private db: any = databaseService,
+    private depositService: DepositService = new DepositService(databaseService)
   ) {}
 
   /**

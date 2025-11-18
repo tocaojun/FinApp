@@ -32,6 +32,212 @@ export interface WealthProductUpdate {
 export class PositionService {
   
   /**
+   * 重新计算持仓（基于所有交易记录）
+   * 用于批量导入后刷新持仓数据
+   */
+  async recalculatePositionFromAllTransactions(
+    portfolioId: string,
+    tradingAccountId: string,
+    assetId: string
+  ): Promise<Position> {
+    console.log(`重新计算持仓: portfolio=${portfolioId}, account=${tradingAccountId}, asset=${assetId}`);
+    
+    // 1. 获取该持仓的所有交易记录
+    const query = `
+      SELECT 
+        transaction_type,
+        side,
+        quantity,
+        price,
+        currency,
+        transaction_date,
+        executed_at
+      FROM finapp.transactions
+      WHERE portfolio_id = $1::uuid
+        AND trading_account_id = $2::uuid
+        AND asset_id = $3::uuid
+        AND status = 'EXECUTED'
+      ORDER BY transaction_date ASC, executed_at ASC
+    `;
+    
+    const transactions = await databaseService.executeRawQuery(query, [
+      portfolioId,
+      tradingAccountId,
+      assetId
+    ]);
+    
+    if (!Array.isArray(transactions) || transactions.length === 0) {
+      console.log('没有找到交易记录，删除持仓');
+      // 没有交易记录，删除持仓
+      await this.deletePosition(portfolioId, tradingAccountId, assetId);
+      throw new Error('No transactions found for this position');
+    }
+    
+    // 2. 计算总持仓
+    let totalQuantity = 0;
+    let totalCost = 0;
+    let buyQuantity = 0;
+    let buyAmount = 0;
+    let firstPurchaseDate: Date | null = null;
+    let lastTransactionDate: Date | null = null;
+    const currency = transactions[0].currency;
+    
+    for (const tx of transactions) {
+      const isBuy = tx.side === 'BUY';
+      const qty = parseFloat(tx.quantity);
+      const price = parseFloat(tx.price);
+      const txDate = new Date(tx.transaction_date || tx.executed_at);
+      
+      if (isBuy) {
+        totalQuantity += qty;
+        buyQuantity += qty;
+        buyAmount += qty * price;
+        
+        if (!firstPurchaseDate || txDate < firstPurchaseDate) {
+          firstPurchaseDate = txDate;
+        }
+      } else {
+        totalQuantity -= qty;
+      }
+      
+      if (!lastTransactionDate || txDate > lastTransactionDate) {
+        lastTransactionDate = txDate;
+      }
+    }
+    
+    // 3. 计算加权平均成本
+    const averageCost = buyQuantity > 0 ? buyAmount / buyQuantity : 0;
+    totalCost = totalQuantity * averageCost;
+    
+    console.log(`持仓计算结果: 数量=${totalQuantity}, 平均成本=${averageCost}, 总成本=${totalCost}`);
+    
+    // 4. 获取资产信息
+    const assetQuery = `
+      SELECT a.currency, at.code as asset_type_code 
+      FROM finapp.assets a 
+      LEFT JOIN finapp.asset_types at ON a.asset_type_id = at.id 
+      WHERE a.id = $1::uuid
+    `;
+    const assetResult = await databaseService.executeRawQuery(assetQuery, [assetId]);
+    
+    if (!Array.isArray(assetResult) || assetResult.length === 0) {
+      throw new Error(`Asset not found: ${assetId}`);
+    }
+    
+    const correctCurrency = assetResult[0].currency;
+    const assetTypeCode = assetResult[0].asset_type_code;
+    
+    // 5. 查找现有持仓
+    const existingPosition = await this.getPosition(portfolioId, tradingAccountId, assetId);
+    
+    // 6. 确定产品模式
+    const isBalanceType = assetTypeCode === 'WEALTH_BALANCE';
+    const isDepositType = assetTypeCode === 'DEPOSIT' || assetTypeCode?.includes('DEPOSIT');
+    const productMode = isBalanceType ? 'BALANCE' : 'QUANTITY';
+    const balance = isBalanceType ? totalQuantity : null;
+    const netAssetValue = isDepositType ? 1.0 : null;
+    
+    if (existingPosition) {
+      // 更新现有持仓
+      const updateQuery = `
+        UPDATE finapp.positions 
+        SET 
+          quantity = $2,
+          average_cost = $3,
+          total_cost = $4,
+          currency = $5,
+          first_purchase_date = $6::date,
+          last_transaction_date = $7::date,
+          updated_at = $8::timestamp,
+          product_mode = $9,
+          balance = $10,
+          net_asset_value = $11
+        WHERE id = $1::uuid
+        RETURNING *
+      `;
+      
+      const result = await databaseService.executeRawQuery(updateQuery, [
+        existingPosition.id,
+        totalQuantity,
+        averageCost,
+        totalCost,
+        correctCurrency,
+        firstPurchaseDate,
+        lastTransactionDate,
+        new Date(),
+        productMode,
+        balance,
+        netAssetValue
+      ]);
+      
+      if (Array.isArray(result) && result.length > 0) {
+        return this.mapRowToPosition(result[0]);
+      }
+      throw new Error('Failed to update position');
+    } else {
+      // 创建新持仓
+      const positionId = uuidv4();
+      const now = new Date();
+      
+      const insertQuery = `
+        INSERT INTO finapp.positions (
+          id, portfolio_id, trading_account_id, asset_id,
+          quantity, average_cost, total_cost, currency,
+          first_purchase_date, last_transaction_date,
+          is_active, created_at, updated_at,
+          product_mode, balance, net_asset_value
+        ) VALUES (
+          $1::uuid, $2::uuid, $3::uuid, $4::uuid,
+          $5, $6, $7, $8, $9::date, $10::date,
+          true, $11::timestamp, $12::timestamp,
+          $13, $14, $15
+        ) RETURNING *
+      `;
+      
+      const result = await databaseService.executeRawQuery(insertQuery, [
+        positionId,
+        portfolioId,
+        tradingAccountId,
+        assetId,
+        totalQuantity,
+        averageCost,
+        totalCost,
+        correctCurrency,
+        firstPurchaseDate,
+        lastTransactionDate,
+        now,
+        now,
+        productMode,
+        balance,
+        netAssetValue
+      ]);
+      
+      if (Array.isArray(result) && result.length > 0) {
+        return this.mapRowToPosition(result[0]);
+      }
+      throw new Error('Failed to create position');
+    }
+  }
+
+  /**
+   * 删除持仓
+   */
+  private async deletePosition(
+    portfolioId: string,
+    tradingAccountId: string,
+    assetId: string
+  ): Promise<void> {
+    const query = `
+      DELETE FROM finapp.positions
+      WHERE portfolio_id = $1::uuid
+        AND trading_account_id = $2::uuid
+        AND asset_id = $3::uuid
+    `;
+    
+    await databaseService.executeRawQuery(query, [portfolioId, tradingAccountId, assetId]);
+  }
+
+  /**
    * 根据交易更新持仓
    * @param portfolioId 投资组合ID
    * @param tradingAccountId 交易账户ID
@@ -143,10 +349,13 @@ export class PositionService {
     const totalCost = positionQuantity * price;
     const averageCost = price;
 
-    // 根据资产类型确定product_mode和balance
+    // 根据资产类型确定product_mode、balance和net_asset_value
     const isBalanceType = assetTypeCode === 'WEALTH_BALANCE';
+    const isDepositType = assetTypeCode === 'DEPOSIT' || assetTypeCode?.includes('DEPOSIT');
     const productMode = isBalanceType ? 'BALANCE' : 'QUANTITY';
     const balance = isBalanceType ? positionQuantity : null;
+    // 存款产品的净值固定为1.0（按面值计价）
+    const netAssetValue = isDepositType ? 1.0 : null;
 
     const positionId = uuidv4();
     const now = new Date();
@@ -157,12 +366,12 @@ export class PositionService {
         quantity, average_cost, total_cost, currency,
         first_purchase_date, last_transaction_date,
         is_active, created_at, updated_at,
-        product_mode, balance
+        product_mode, balance, net_asset_value
       ) VALUES (
         $1::uuid, $2::uuid, $3::uuid, $4::uuid,
         $5, $6, $7, $8, $9::date, $10::date,
         $11, $12::timestamp, $13::timestamp,
-        $14, $15
+        $14, $15, $16
       ) RETURNING *
     `;
 
@@ -181,7 +390,8 @@ export class PositionService {
       now,
       now,
       productMode,
-      balance
+      balance,
+      netAssetValue
     ];
 
     const result = await databaseService.executeRawQuery(query, values);

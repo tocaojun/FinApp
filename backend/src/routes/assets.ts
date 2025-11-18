@@ -11,6 +11,7 @@ router.post('/', requirePermission('asset', 'create'), assetController.createAss
 
 // 具体路由必须在 /:id 之前定义
 router.get('/types', assetController.getAssetTypes);
+router.get('/types/all', requirePermission('asset', 'read'), assetController.getAllAssetTypes);
 router.post('/types', requirePermission('asset', 'create'), assetController.createAssetType);
 router.get('/types/:id/usage', requirePermission('asset', 'read'), assetController.getAssetTypeUsage);
 router.put('/types/:id', requirePermission('asset', 'update'), assetController.updateAssetType);

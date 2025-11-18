@@ -61,7 +61,7 @@ const AssetSummaryCard: React.FC<AssetSummaryCardProps> = ({
               </Button>
               <Button 
                 icon={<PieChartOutlined />}
-                onClick={() => onNavigate?.('dashboard')}
+                onClick={() => onNavigate?.('assets')}
                 block
               >
                 查看分布

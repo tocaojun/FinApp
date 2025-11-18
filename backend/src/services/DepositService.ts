@@ -1,4 +1,4 @@
-import { DatabaseService } from './DatabaseService';
+import { databaseService } from './DatabaseService';
 
 export interface DepositDetails {
   id?: string;
@@ -70,7 +70,7 @@ export interface MaturityAlert {
 }
 
 export class DepositService {
-  constructor(private db: DatabaseService) {}
+  constructor(private db: any) {}
 
   /**
    * 创建存款产品详情
@@ -131,6 +131,124 @@ export class DepositService {
   }
 
   /**
+   * 更新存款产品详情
+   */
+  async updateDepositDetails(assetId: string, updates: Partial<DepositDetails>): Promise<DepositDetails | null> {
+    // 首先检查记录是否存在
+    const existing = await this.getDepositDetails(assetId);
+    if (!existing) {
+      return null;
+    }
+
+    // 构建更新字段
+    const updateFields: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (updates.depositType !== undefined) {
+      updateFields.push(`deposit_type = $${paramIndex++}`);
+      values.push(updates.depositType);
+    }
+    if (updates.bankName !== undefined) {
+      updateFields.push(`bank_name = $${paramIndex++}`);
+      values.push(updates.bankName);
+    }
+    if (updates.accountNumber !== undefined) {
+      updateFields.push(`account_number = $${paramIndex++}`);
+      values.push(updates.accountNumber);
+    }
+    if (updates.branchName !== undefined) {
+      updateFields.push(`branch_name = $${paramIndex++}`);
+      values.push(updates.branchName);
+    }
+    if (updates.interestRate !== undefined) {
+      updateFields.push(`interest_rate = $${paramIndex++}`);
+      values.push(updates.interestRate);
+    }
+    if (updates.rateType !== undefined) {
+      updateFields.push(`rate_type = $${paramIndex++}`);
+      values.push(updates.rateType);
+    }
+    if (updates.compoundFrequency !== undefined) {
+      updateFields.push(`compound_frequency = $${paramIndex++}`);
+      values.push(updates.compoundFrequency);
+    }
+    if (updates.termMonths !== undefined) {
+      updateFields.push(`term_months = $${paramIndex++}`);
+      values.push(updates.termMonths);
+    }
+    if (updates.startDate !== undefined) {
+      updateFields.push(`start_date = $${paramIndex++}::date`);
+      values.push(updates.startDate);
+    }
+    if (updates.maturityDate !== undefined) {
+      updateFields.push(`maturity_date = $${paramIndex++}::date`);
+      values.push(updates.maturityDate);
+    }
+    if (updates.autoRenewal !== undefined) {
+      updateFields.push(`auto_renewal = $${paramIndex++}`);
+      values.push(updates.autoRenewal);
+    }
+    if (updates.minDepositAmount !== undefined) {
+      updateFields.push(`min_deposit_amount = $${paramIndex++}`);
+      values.push(updates.minDepositAmount);
+    }
+    if (updates.maxDepositAmount !== undefined) {
+      updateFields.push(`max_deposit_amount = $${paramIndex++}`);
+      values.push(updates.maxDepositAmount);
+    }
+    if (updates.depositIncrement !== undefined) {
+      updateFields.push(`deposit_increment = $${paramIndex++}`);
+      values.push(updates.depositIncrement);
+    }
+    if (updates.earlyWithdrawalAllowed !== undefined) {
+      updateFields.push(`early_withdrawal_allowed = $${paramIndex++}`);
+      values.push(updates.earlyWithdrawalAllowed);
+    }
+    if (updates.earlyWithdrawalPenaltyRate !== undefined) {
+      updateFields.push(`early_withdrawal_penalty_rate = $${paramIndex++}`);
+      values.push(updates.earlyWithdrawalPenaltyRate);
+    }
+    if (updates.noticePeriodDays !== undefined) {
+      updateFields.push(`notice_period_days = $${paramIndex++}`);
+      values.push(updates.noticePeriodDays);
+    }
+    if (updates.depositInsuranceCovered !== undefined) {
+      updateFields.push(`deposit_insurance_covered = $${paramIndex++}`);
+      values.push(updates.depositInsuranceCovered);
+    }
+    if (updates.insuranceAmount !== undefined) {
+      updateFields.push(`insurance_amount = $${paramIndex++}`);
+      values.push(updates.insuranceAmount);
+    }
+    if (updates.specialFeatures !== undefined) {
+      updateFields.push(`special_features = $${paramIndex++}::jsonb`);
+      values.push(updates.specialFeatures ? JSON.stringify(updates.specialFeatures) : null);
+    }
+
+    // 如果没有任何更新字段，直接返回现有数据
+    if (updateFields.length === 0) {
+      return existing;
+    }
+
+    // 添加 updated_at
+    updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+    
+    // 添加 assetId 作为 WHERE 条件
+    values.push(assetId);
+
+    const query = `
+      UPDATE finapp.deposit_details 
+      SET ${updateFields.join(', ')}
+      WHERE asset_id = $${paramIndex}::uuid
+      RETURNING *
+    `;
+
+    const result = await this.db.prisma.$queryRawUnsafe(query, ...values) as any[];
+    return result.length > 0 ? this.mapRowToDepositDetails(result[0]) : null;
+  }
+
+  /**
    * 获取用户的存款持仓列表
    */
   async getUserDepositPositions(userId: string, portfolioId?: string): Promise<DepositPosition[]> {
@@ -149,16 +267,16 @@ export class DepositService {
         a.name as product_name,
         dd.bank_name,
         dd.deposit_type,
-        COALESCE(pos.balance, 0) as current_balance,
+        COALESCE(pos.balance, pos.total_cost) as current_balance,
         pos.total_cost as principal_amount,
-        COALESCE(pos.balance, 0) - pos.total_cost as accrued_interest,
+        COALESCE(pos.balance, pos.total_cost) - pos.total_cost as accrued_interest,
         dd.interest_rate,
         dd.term_months,
         dd.start_date,
         dd.maturity_date,
         CASE 
           WHEN dd.maturity_date IS NOT NULL THEN 
-            EXTRACT(DAYS FROM dd.maturity_date - CURRENT_DATE)
+            (dd.maturity_date - CURRENT_DATE)::integer
           ELSE NULL 
         END as days_to_maturity,
         dd.auto_renewal,
@@ -330,14 +448,14 @@ export class DepositService {
         a.name as product_name,
         dd.bank_name,
         dd.deposit_type,
-        COALESCE(pos.balance, 0) as current_balance,
+        COALESCE(pos.balance, pos.total_cost) as current_balance,
         pos.total_cost as principal_amount,
-        COALESCE(pos.balance, 0) - pos.total_cost as accrued_interest,
+        COALESCE(pos.balance, pos.total_cost) - pos.total_cost as accrued_interest,
         dd.interest_rate,
         dd.term_months,
         dd.start_date,
         dd.maturity_date,
-        EXTRACT(DAYS FROM dd.maturity_date - CURRENT_DATE) as days_to_maturity,
+        (dd.maturity_date - CURRENT_DATE)::integer as days_to_maturity,
         dd.auto_renewal,
         dd.early_withdrawal_allowed,
         dd.interest_rate * 100 as effective_annual_rate

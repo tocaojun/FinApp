@@ -389,6 +389,23 @@ export class AssetController {
     }
   };
 
+  // 获取所有资产类型（包括未激活的，用于管理界面）
+  getAllAssetTypes = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const assetTypes = await this.assetService.getAllAssetTypes();
+      
+      res.json({
+        success: true,
+        data: assetTypes
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get all asset types'
+      });
+    }
+  };
+
 
 
   getCountries = async (req: Request, res: Response): Promise<void> => {

@@ -95,7 +95,10 @@ export class TransactionService {
 
   static async getTransactionSummary(): Promise<TransactionSummary> {
     try {
-      const response = await apiGet<{ success: boolean; data: TransactionSummary }>('/transactions/summary');
+      console.log('[TransactionService] Calling /transactions/summary/stats');
+      const response = await apiGet<{ success: boolean; data: TransactionSummary }>('/transactions/summary/stats');
+      console.log('[TransactionService] getTransactionSummary response:', response);
+      console.log('[TransactionService] response.data:', response.data);
       return response.data || {
         totalTransactions: 0,
         totalBuyAmount: 0,

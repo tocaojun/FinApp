@@ -17,13 +17,15 @@ import {
   EditOutlined, 
   PlusOutlined,
   HomeOutlined,
-  FolderOutlined
+  FolderOutlined,
+  BankOutlined
 } from '@ant-design/icons';
 import PortfolioSelector from '../../components/portfolio/PortfolioSelector';
 import HoldingsTable from '../../components/portfolio/HoldingsTable';
 import AccountsTab from '../../components/portfolio/AccountsTab';
 import AllocationChart from '../../components/portfolio/AllocationChart';
 import WealthProductsTable from '../../components/portfolio/WealthProductsTable';
+import DepositPositionsTab from '../../components/portfolio/DepositPositionsTab';
 import { Portfolio } from '../../types/portfolio';
 import { PortfolioService } from '../../services/portfolioService';
 
@@ -234,6 +236,18 @@ const PortfolioDetail: React.FC = () => {
                   
                   <TabPane tab="交易账户" key="accounts">
                     <AccountsTab portfolioId={selectedPortfolio.id} />
+                  </TabPane>
+
+                  <TabPane 
+                    tab={
+                      <span>
+                        <BankOutlined />
+                        存款持仓
+                      </span>
+                    } 
+                    key="deposits"
+                  >
+                    <DepositPositionsTab portfolioId={selectedPortfolio.id} />
                   </TabPane>
                 </Tabs>
               </div>

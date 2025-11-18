@@ -1,4 +1,4 @@
-import { DatabaseService } from './DatabaseService';
+import { databaseService } from './DatabaseService';
 
 export interface InterestCalculationConfig {
   calculationMethod: 'ACTUAL_365' | 'ACTUAL_360' | '30_360';
@@ -31,7 +31,7 @@ export interface InterestPaymentRecord {
 }
 
 export class DepositInterestService {
-  constructor(private db: DatabaseService) {}
+  constructor(private db: any) {}
 
   /**
    * 计算存款利息（支持多种计息方法）

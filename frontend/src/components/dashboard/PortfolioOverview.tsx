@@ -19,6 +19,7 @@ interface Portfolio {
 
 interface PortfolioSummary {
   totalValue: number;
+  totalCost: number;
   totalReturn: number;
   totalAssets: number;
 }
@@ -67,6 +68,7 @@ const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({ onNavigate }) => 
         isActive: true, // 假设所有投资组合都是活跃的
         summary: {
           totalValue: portfolio.totalValue || 0,
+          totalCost: portfolio.totalCost || 0,
           totalReturn: portfolio.totalGainLoss || 0,
           totalAssets: 0 // 暂时设为0，后续可以通过API获取
         }
@@ -132,8 +134,8 @@ const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({ onNavigate }) => 
       key: 'gainLoss',
       render: (_, record) => {
         const totalValue = record.summary?.totalValue || 0;
-        const totalCost = record.summary?.totalReturn || 0;
-        const gainLoss = totalValue - totalCost;
+        const totalCost = record.summary?.totalCost || 0;
+        const gainLoss = record.summary?.totalReturn || (totalValue - totalCost);
         const percentage = totalCost > 0 ? (gainLoss / totalCost) * 100 : 0;
         
         return (

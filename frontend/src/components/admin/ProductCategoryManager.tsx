@@ -13,14 +13,21 @@ import {
   Card,
   Row,
   Col,
-  Statistic
+  Statistic,
+  Switch,
+  InputNumber,
+  Tooltip
 } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
   FolderOutlined,
-  TagOutlined
+  TagOutlined,
+  ArrowUpOutlined,
+  ArrowDownOutlined,
+  VerticalAlignTopOutlined,
+  VerticalAlignBottomOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { AssetService, AssetType } from '../../services/assetService';
@@ -50,7 +57,8 @@ const ProductCategoryManager: React.FC<ProductCategoryManagerProps> = ({
   const fetchAssetTypes = async () => {
     setLoading(true);
     try {
-      const types = await AssetService.getAssetTypes();
+      // 使用 getAllAssetTypes 获取所有分类（包括未激活的）
+      const types = await AssetService.getAllAssetTypes();
       setAssetTypes(types);
       
       // 计算分类统计
@@ -153,7 +161,122 @@ const ProductCategoryManager: React.FC<ProductCategoryManagerProps> = ({
     }
   };
 
+  // 移动排序位置
+  const handleMove = async (record: AssetType, direction: 'up' | 'down' | 'top' | 'bottom') => {
+    try {
+      // 获取当前排序列表（按sortOrder升序）
+      const sortedList = [...assetTypes].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      const currentIndex = sortedList.findIndex(item => item.id === record.id);
+      
+      if (currentIndex === -1) return;
+
+      let targetIndex = currentIndex;
+      
+      // 确定目标位置
+      switch (direction) {
+        case 'up':
+          if (currentIndex === 0) return;
+          targetIndex = currentIndex - 1;
+          break;
+        case 'down':
+          if (currentIndex === sortedList.length - 1) return;
+          targetIndex = currentIndex + 1;
+          break;
+        case 'top':
+          if (currentIndex === 0) return;
+          targetIndex = 0;
+          break;
+        case 'bottom':
+          if (currentIndex === sortedList.length - 1) return;
+          targetIndex = sortedList.length - 1;
+          break;
+      }
+
+      // 交换位置
+      const newList = [...sortedList];
+      const [movedItem] = newList.splice(currentIndex, 1);
+      newList.splice(targetIndex, 0, movedItem);
+
+      // 重新分配排序号（从10开始，每次增加10，便于后续插入）
+      const updates = newList.map((item, index) => ({
+        id: item.id,
+        sortOrder: (index + 1) * 10
+      }));
+
+      // 批量更新排序
+      await Promise.all(
+        updates.map(update => 
+          AssetService.updateAssetType(update.id, { sortOrder: update.sortOrder })
+        )
+      );
+
+      message.success('排序更新成功');
+      fetchAssetTypes();
+      onRefresh?.();
+    } catch (error) {
+      message.error('排序更新失败');
+      console.error('Error updating sort order:', error);
+    }
+  };
+
   const columns: ColumnsType<AssetType> = [
+    {
+      title: '排序',
+      dataIndex: 'sortOrder',
+      key: 'sortOrder',
+      width: 180,
+      align: 'center',
+      sorter: (a, b) => (a.sortOrder || 0) - (b.sortOrder || 0),
+      defaultSortOrder: 'ascend',
+      render: (sortOrder: number, record: AssetType, index: number) => {
+        const sortedList = [...assetTypes].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        const currentIndex = sortedList.findIndex(item => item.id === record.id);
+        const isFirst = currentIndex === 0;
+        const isLast = currentIndex === sortedList.length - 1;
+        
+        return (
+          <Space size="small">
+            <span style={{ minWidth: '30px', display: 'inline-block', textAlign: 'right' }}>
+              {sortOrder || 0}
+            </span>
+            <Button.Group size="small">
+              <Tooltip title="置顶">
+                <Button 
+                  icon={<VerticalAlignTopOutlined />} 
+                  onClick={() => handleMove(record, 'top')}
+                  disabled={isFirst}
+                  size="small"
+                />
+              </Tooltip>
+              <Tooltip title="上移">
+                <Button 
+                  icon={<ArrowUpOutlined />} 
+                  onClick={() => handleMove(record, 'up')}
+                  disabled={isFirst}
+                  size="small"
+                />
+              </Tooltip>
+              <Tooltip title="下移">
+                <Button 
+                  icon={<ArrowDownOutlined />} 
+                  onClick={() => handleMove(record, 'down')}
+                  disabled={isLast}
+                  size="small"
+                />
+              </Tooltip>
+              <Tooltip title="置底">
+                <Button 
+                  icon={<VerticalAlignBottomOutlined />} 
+                  onClick={() => handleMove(record, 'bottom')}
+                  disabled={isLast}
+                  size="small"
+                />
+              </Tooltip>
+            </Button.Group>
+          </Space>
+        );
+      },
+    },
     {
       title: '分类代码',
       dataIndex: 'code',
@@ -187,6 +310,18 @@ const ProductCategoryManager: React.FC<ProductCategoryManagerProps> = ({
         };
         return <Tag color={categoryColors[category] || 'default'}>{category}</Tag>;
       },
+    },
+    {
+      title: '状态',
+      dataIndex: 'isActive',
+      key: 'isActive',
+      width: 80,
+      align: 'center',
+      render: (isActive: boolean) => (
+        <Tag color={isActive ? 'success' : 'default'}>
+          {isActive ? '启用' : '停用'}
+        </Tag>
+      ),
     },
     {
       title: '描述',
@@ -309,6 +444,7 @@ const ProductCategoryManager: React.FC<ProductCategoryManagerProps> = ({
           form={form}
           layout="vertical"
           onFinish={handleSave}
+          initialValues={{ isActive: true, sortOrder: 0 }}
         >
           <Form.Item
             name="code"
@@ -347,6 +483,36 @@ const ProductCategoryManager: React.FC<ProductCategoryManagerProps> = ({
               <Option value="CRYPTO">加密货币 (CRYPTO)</Option>
             </Select>
           </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="sortOrder"
+                label="排序顺序"
+                tooltip="数值越小越靠前，建议使用10的倍数便于后续调整"
+              >
+                <InputNumber 
+                  min={0} 
+                  max={9999}
+                  step={10}
+                  placeholder="自动分配"
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="isActive"
+                label="启用状态"
+                valuePropName="checked"
+              >
+                <Switch 
+                  checkedChildren="启用" 
+                  unCheckedChildren="停用"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
           
           <Form.Item name="description" label="描述">
             <Input.TextArea 

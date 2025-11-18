@@ -20,7 +20,8 @@ import {
   TagOutlined,
   ShopOutlined,
   DollarOutlined,
-  SyncOutlined
+  SyncOutlined,
+  BankOutlined
 } from '@ant-design/icons';
 
 import Breadcrumb from './Breadcrumb';
@@ -132,7 +133,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         icon: <WalletOutlined />,
         label: '交易记录'
       },
-
+      {
+        key: '/deposits',
+        icon: <BankOutlined />,
+        label: '存款管理'
+      },
       {
         key: '/reports',
         icon: <BarChartOutlined />,
@@ -262,6 +267,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     if (path.startsWith('/admin/products')) return '产品管理';
     if (path.startsWith('/admin/exchange-rates')) return '汇率管理';
     if (path.startsWith('/admin/price-management')) return '价格管理中心';
+    if (path.startsWith('/deposits')) return '存款管理';
     if (path.startsWith('/auth/login')) return '用户登录';
     
     // 查找菜单项中的标题
@@ -289,7 +295,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     if (path.startsWith('/portfolio')) return ['/portfolios'];
     if (path.startsWith('/dashboard')) return ['/dashboard'];
     if (path.startsWith('/transactions')) return ['/transactions'];
-
+    if (path.startsWith('/deposits')) return ['/deposits'];
     if (path.startsWith('/reports')) return ['/reports'];
     if (path.startsWith('/analytics')) return ['/analytics'];
     if (path.startsWith('/settings')) return ['/settings'];

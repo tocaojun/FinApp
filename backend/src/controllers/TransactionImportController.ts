@@ -77,7 +77,7 @@ export class TransactionImportController {
       }
       
       // 2. 验证文件格式
-      const fileFormat = validateFileFormat(file.mimetype);
+      const fileFormat = validateFileFormat(file.mimetype, file.originalname);
       if (!fileFormat) {
         return res.status(400).json({ 
           error: '不支持的文件格式，请上传Excel(.xlsx)或JSON(.json)文件' 
@@ -134,7 +134,7 @@ export class TransactionImportController {
       }
       
       // 验证文件格式
-      const fileFormat = validateFileFormat(file.mimetype);
+      const fileFormat = validateFileFormat(file.mimetype, file.originalname);
       if (!fileFormat) {
         return res.status(400).json({ 
           error: '不支持的文件格式' 

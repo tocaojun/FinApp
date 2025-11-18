@@ -28,9 +28,25 @@ import {
 } from '@ant-design/icons';
 import { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import AddDepositProductModal from './AddDepositProductModal';
+import EditDepositProductModal from './EditDepositProductModal';
+import { PortfolioService } from '../../services/PortfolioService';
 
 const { Search } = Input;
 const { Option } = Select;
+
+interface Portfolio {
+  id: string;
+  name: string;
+  description?: string;
+  isDefault?: boolean;
+}
+
+interface TradingAccount {
+  id: string;
+  name: string;
+  accountType: string;
+}
 
 interface DepositProduct {
   assetId: string;
@@ -70,7 +86,15 @@ const DepositProductList: React.FC = () => {
   const [filters, setFilters] = useState<DepositFilters>({});
   const [selectedProduct, setSelectedProduct] = useState<DepositProduct | null>(null);
   const [depositModalVisible, setDepositModalVisible] = useState(false);
+  const [addProductModalVisible, setAddProductModalVisible] = useState(false);
+  const [editProductModalVisible, setEditProductModalVisible] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<DepositProduct | null>(null);
   const [form] = Form.useForm();
+  
+  // 新增：投资组合和交易账户状态
+  const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
+  const [tradingAccounts, setTradingAccounts] = useState<TradingAccount[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
 
   // 获取存款产品列表
   const fetchProducts = async () => {
@@ -83,7 +107,8 @@ const DepositProductList: React.FC = () => {
         }
       });
 
-      const response = await fetch(`/api/deposits/products?${queryParams}`);
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+      const response = await fetch(`${API_BASE_URL}/deposits/products?${queryParams}`);
       const data = await response.json();
 
       if (data.success) {
@@ -101,7 +126,49 @@ const DepositProductList: React.FC = () => {
 
   useEffect(() => {
     fetchProducts();
+    fetchPortfolios(); // 新增：获取投资组合列表
   }, [filters]);
+
+  // 新增：获取投资组合列表
+  const fetchPortfolios = async () => {
+    try {
+      const data = await PortfolioService.getPortfolios();
+      setPortfolios(data);
+      
+      // 如果有默认投资组合，自动加载其交易账户
+      const defaultPortfolio = data.find(p => p.isDefault);
+      if (defaultPortfolio) {
+        fetchTradingAccounts(defaultPortfolio.id);
+      }
+    } catch (error) {
+      console.error('获取投资组合失败:', error);
+    }
+  };
+
+  // 新增：获取交易账户列表
+  const fetchTradingAccounts = async (portfolioId: string) => {
+    setLoadingAccounts(true);
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+      const token = localStorage.getItem('auth_token');
+      
+      const response = await fetch(`${API_BASE_URL}/trading-accounts?portfolioId=${portfolioId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setTradingAccounts(data.data || []);
+      }
+    } catch (error) {
+      console.error('获取交易账户失败:', error);
+      setTradingAccounts([]);
+    } finally {
+      setLoadingAccounts(false);
+    }
+  };
 
   // 存款类型标签颜色
   const getDepositTypeColor = (type: string) => {
@@ -214,7 +281,7 @@ const DepositProductList: React.FC = () => {
     {
       title: '操作',
       key: 'actions',
-      width: 120,
+      width: 180,
       render: (_, record) => (
         <Space>
           <Button
@@ -223,6 +290,12 @@ const DepositProductList: React.FC = () => {
             onClick={() => handleDeposit(record)}
           >
             存入
+          </Button>
+          <Button
+            size="small"
+            onClick={() => handleEdit(record)}
+          >
+            编辑
           </Button>
           <Button
             size="small"
@@ -239,12 +312,29 @@ const DepositProductList: React.FC = () => {
   const handleDeposit = (product: DepositProduct) => {
     setSelectedProduct(product);
     setDepositModalVisible(true);
+    
+    // 设置默认值
+    const defaultPortfolio = portfolios.find(p => p.isDefault);
+    
     form.resetFields();
     form.setFieldsValue({
+      portfolioId: defaultPortfolio?.id,
       depositAmount: product.minDepositAmount || 1000,
+      startDate: dayjs(), // 默认为今天
       termMonths: product.termMonths,
       autoRenewal: product.autoRenewal
     });
+    
+    // 如果有默认投资组合，加载其交易账户
+    if (defaultPortfolio) {
+      fetchTradingAccounts(defaultPortfolio.id);
+    }
+  };
+
+  // 处理编辑产品
+  const handleEdit = (product: DepositProduct) => {
+    setEditingProduct(product);
+    setEditProductModalVisible(true);
   };
 
   // 查看产品详情
@@ -323,17 +413,79 @@ const DepositProductList: React.FC = () => {
     try {
       const values = await form.validateFields();
       
-      // 这里应该调用存款API
-      console.log('Deposit values:', {
-        product: selectedProduct,
-        ...values
+      if (!selectedProduct) {
+        message.error('请选择存款产品');
+        return;
+      }
+
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+      const token = localStorage.getItem('auth_token');
+
+      // 准备交易数据
+      const transactionData = {
+        portfolioId: values.portfolioId,
+        tradingAccountId: values.tradingAccountId,
+        assetId: selectedProduct.assetId,
+        transactionType: 'DEPOSIT',
+        side: 'BUY',
+        quantity: values.depositAmount,
+        price: 1, // 存款价格为1
+        fees: 0,
+        currency: selectedProduct.currency,
+        transactionDate: values.startDate.format('YYYY-MM-DD'),
+        executedAt: values.startDate.format('YYYY-MM-DD HH:mm:ss'),
+        notes: values.notes || `存入${selectedProduct.productName}`,
+        tags: ['存款']
+      };
+
+      console.log('创建存款交易:', transactionData);
+
+      // 调用交易API创建交易记录（会自动创建持仓）
+      const response = await fetch(`${API_BASE_URL}/transactions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(transactionData)
       });
 
-      message.success('存款申请提交成功');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || '创建交易失败');
+      }
+
+      const result = await response.json();
+      console.log('交易创建成功:', result);
+
+      message.success('存款成功！交易记录已创建，持仓已更新');
       setDepositModalVisible(false);
+      form.resetFields();
+      
+      // 提示用户可以在哪里查看
+      Modal.success({
+        title: '存款成功',
+        content: (
+          <div>
+            <p>✅ 存款金额: ¥{values.depositAmount.toLocaleString()}</p>
+            <p>✅ 起存日期: {values.startDate.format('YYYY-MM-DD')}</p>
+            {selectedProduct.depositType === 'TIME' && values.termMonths && (
+              <p>✅ 到期日期: {values.startDate.add(values.termMonths, 'months').format('YYYY-MM-DD')}</p>
+            )}
+            <p style={{ marginTop: 16, color: '#666' }}>
+              您可以在以下位置查看：
+            </p>
+            <ul style={{ color: '#666' }}>
+              <li>交易记录 - 查看此次存款的交易详情</li>
+              <li>投资组合 - 查看存款持仓和资产分布</li>
+              <li>我的存款 - 查看所有存款产品的持仓情况</li>
+            </ul>
+          </div>
+        ),
+      });
     } catch (error) {
       console.error('Deposit submission error:', error);
-      message.error('存款申请提交失败');
+      message.error(error instanceof Error ? error.message : '存款申请提交失败');
     }
   };
 
@@ -384,10 +536,14 @@ const DepositProductList: React.FC = () => {
           <Col span={6}>
             <Space>
               <Button onClick={() => setFilters({})}>
-                清除筛选
+                清空筛选
               </Button>
-              <Button type="primary" icon={<PlusOutlined />}>
-                添加自定义产品
+              <Button 
+                type="primary" 
+                icon={<PlusOutlined />}
+                onClick={() => setAddProductModalVisible(true)}
+              >
+                添加产品
               </Button>
             </Space>
           </Col>
@@ -437,6 +593,52 @@ const DepositProductList: React.FC = () => {
 
             <Form form={form} layout="vertical">
               <Form.Item
+                name="portfolioId"
+                label="投资组合"
+                rules={[{ required: true, message: '请选择投资组合' }]}
+                tooltip="选择要存入的投资组合"
+              >
+                <Select
+                  placeholder="选择投资组合"
+                  onChange={(portfolioId) => {
+                    form.setFieldsValue({ tradingAccountId: undefined });
+                    fetchTradingAccounts(portfolioId);
+                  }}
+                >
+                  {portfolios.map(portfolio => (
+                    <Option key={portfolio.id} value={portfolio.id}>
+                      {portfolio.name}
+                      {portfolio.isDefault && <Tag color="blue" style={{ marginLeft: 8 }}>默认</Tag>}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              <Form.Item
+                name="tradingAccountId"
+                label="交易账户"
+                rules={[{ required: true, message: '请选择交易账户' }]}
+                tooltip="选择用于存款的银行账户"
+              >
+                <Select
+                  placeholder="选择交易账户"
+                  loading={loadingAccounts}
+                  disabled={!form.getFieldValue('portfolioId') || loadingAccounts}
+                  notFoundContent={
+                    form.getFieldValue('portfolioId') 
+                      ? "该投资组合下暂无交易账户，请先创建" 
+                      : "请先选择投资组合"
+                  }
+                >
+                  {tradingAccounts.map(account => (
+                    <Option key={account.id} value={account.id}>
+                      {account.name} ({account.accountType})
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              <Form.Item
                 name="depositAmount"
                 label="存款金额"
                 rules={[
@@ -458,6 +660,23 @@ const DepositProductList: React.FC = () => {
                 />
               </Form.Item>
 
+              <Form.Item
+                name="startDate"
+                label="起存日期"
+                rules={[{ required: true, message: '请选择起存日期' }]}
+                tooltip="存款开始计息的日期"
+              >
+                <DatePicker
+                  style={{ width: '100%' }}
+                  format="YYYY-MM-DD"
+                  placeholder="选择起存日期"
+                  disabledDate={(current) => {
+                    // 不能选择未来的日期
+                    return current && current > dayjs().endOf('day');
+                  }}
+                />
+              </Form.Item>
+
               {selectedProduct.depositType === 'TIME' && (
                 <Form.Item
                   name="termMonths"
@@ -468,6 +687,32 @@ const DepositProductList: React.FC = () => {
                       {selectedProduct.termMonths}个月
                     </Option>
                   </Select>
+                </Form.Item>
+              )}
+
+              {selectedProduct.depositType === 'TIME' && selectedProduct.termMonths && (
+                <Form.Item
+                  noStyle
+                  shouldUpdate={(prevValues, currentValues) => 
+                    prevValues.startDate !== currentValues.startDate
+                  }
+                >
+                  {({ getFieldValue }) => {
+                    const startDate = getFieldValue('startDate');
+                    const maturityDate = startDate 
+                      ? dayjs(startDate).add(selectedProduct.termMonths!, 'months')
+                      : null;
+                    
+                    return maturityDate ? (
+                      <Form.Item label="到期日期">
+                        <Input
+                          value={maturityDate.format('YYYY-MM-DD')}
+                          disabled
+                          style={{ color: '#1890ff', fontWeight: 'bold' }}
+                        />
+                      </Form.Item>
+                    ) : null;
+                  }}
                 </Form.Item>
               )}
 
@@ -494,6 +739,30 @@ const DepositProductList: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      {/* 添加产品Modal */}
+      <AddDepositProductModal
+        visible={addProductModalVisible}
+        onCancel={() => setAddProductModalVisible(false)}
+        onSuccess={() => {
+          setAddProductModalVisible(false);
+          fetchProducts(); // 刷新产品列表
+        }}
+      />
+
+      <EditDepositProductModal
+        visible={editProductModalVisible}
+        product={editingProduct}
+        onCancel={() => {
+          setEditProductModalVisible(false);
+          setEditingProduct(null);
+        }}
+        onSuccess={() => {
+          setEditProductModalVisible(false);
+          setEditingProduct(null);
+          fetchProducts(); // 刷新产品列表
+        }}
+      />
     </div>
   );
 };

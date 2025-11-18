@@ -11,6 +11,8 @@ import {
   ReportsPage,
   SettingsPage
 } from './pages';
+import { DepositManagement } from './pages/deposits';
+import DashboardTest from './pages/DashboardTest';
 import ChartsPage from './pages/charts/ChartsPage';
 import LoginPage from './pages/auth/LoginPage';
 import PermissionDemo from './pages/PermissionDemo';
@@ -27,14 +29,16 @@ import PriceManagement from './pages/admin/PriceManagement';
 
 import { AppLayout } from './components/layout';
 import { AuthProvider } from './contexts/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const { Title, Paragraph } = Typography;
 
 // 主布局包装组件
 const AppLayoutWrapper: React.FC = () => {
   return (
-    <AppLayout>
-      <Routes>
+    <ErrorBoundary>
+      <AppLayout>
+        <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/auth/login" element={<LoginPage />} />
@@ -42,6 +46,7 @@ const AppLayoutWrapper: React.FC = () => {
         <Route path="/portfolios" element={<PortfolioList />} />
         <Route path="/portfolio/:id" element={<PortfolioDetail />} />
         <Route path="/transactions" element={<TransactionManagement />} />
+        <Route path="/deposits" element={<DepositManagement />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/permission-demo" element={<PermissionDemo />} />
@@ -60,6 +65,7 @@ const AppLayoutWrapper: React.FC = () => {
         <Route path="/admin/price-management" element={<PriceManagement />} />
       </Routes>
     </AppLayout>
+    </ErrorBoundary>
   );
 };
 

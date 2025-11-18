@@ -164,7 +164,7 @@ class App {
     // 价格同步管理路由（需要认证）
     this.app.use('/api/price-sync', authenticateToken, priceSyncRouter);
 
-    // 存款产品管理路由（需要认证）
+    // 存款产品管理路由（产品列表公开，其他需要认证）
     this.app.use('/api/deposits', depositsRouter);
 
     // 财富产品管理路由（需要认证）

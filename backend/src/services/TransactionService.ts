@@ -652,11 +652,16 @@ export class TransactionService {
 
     const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
+    // 买入类型：包含所有买入、申购相关的交易
+    const buyTypes = ['BUY', 'STOCK_BUY', 'ETF_BUY', 'BOND_BUY', 'FUND_BUY', 'FUND_SUBSCRIBE', 'APPLY', 'buy'];
+    // 卖出类型：包含所有卖出、赎回相关的交易
+    const sellTypes = ['SELL', 'STOCK_SELL', 'ETF_SELL', 'BOND_SELL', 'FUND_SELL', 'FUND_REDEEM', 'REDEEM', 'sell'];
+
     const query = `
       SELECT 
         COUNT(*) as total_transactions,
-        SUM(CASE WHEN transaction_type = 'BUY' THEN total_amount ELSE 0 END) as total_buy_amount,
-        SUM(CASE WHEN transaction_type = 'SELL' THEN total_amount ELSE 0 END) as total_sell_amount,
+        SUM(CASE WHEN transaction_type IN (${buyTypes.map((_, i) => `$${paramIndex + i}`).join(', ')}) THEN total_amount ELSE 0 END) as total_buy_amount,
+        SUM(CASE WHEN transaction_type IN (${sellTypes.map((_, i) => `$${paramIndex + buyTypes.length + i}`).join(', ')}) THEN total_amount ELSE 0 END) as total_sell_amount,
         SUM(fees) as total_fees,
         COUNT(DISTINCT asset_id) as unique_assets,
         AVG(total_amount) as avg_transaction_amount,
@@ -666,7 +671,8 @@ export class TransactionService {
       ${whereClause}
     `;
 
-    const results = await databaseService.executeRawQuery<any[]>(query, values);
+    const allValues = [...values, ...buyTypes, ...sellTypes];
+    const results = await databaseService.executeRawQuery<any[]>(query, allValues);
     const row = results[0];
 
     return {

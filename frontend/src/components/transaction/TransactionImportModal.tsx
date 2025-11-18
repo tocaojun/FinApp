@@ -130,8 +130,7 @@ export const TransactionImportModal: React.FC<TransactionImportModalProps> = ({
       url: ''
     }]);
 
-    // 自动预览
-    handlePreview(file);
+    message.success(`文件 ${file.name} 上传成功`);
 
     return false; // 阻止自动上传
   };
@@ -155,6 +154,8 @@ export const TransactionImportModal: React.FC<TransactionImportModalProps> = ({
 
       message.destroy();
 
+      console.log('预览结果:', result);
+
       if (result.success && result.data) {
         setPreviewData(result.data);
         setValidationErrors([]);
@@ -163,10 +164,29 @@ export const TransactionImportModal: React.FC<TransactionImportModalProps> = ({
       } else if (result.errors) {
         setValidationErrors(result.errors);
         message.error(`发现${result.errors.length}个错误`);
+      } else {
+        // 处理没有明确错误信息的情况
+        const errorMsg = result.error || result.summary || '解析失败，请检查文件格式';
+        message.error(errorMsg);
+        console.error('解析失败详情:', result);
       }
-    } catch (error) {
+    } catch (error: any) {
       message.destroy();
-      message.error('文件解析失败');
+      console.error('文件解析失败:', error);
+      
+      // 提取更详细的错误信息
+      const errorMsg = error.response?.data?.error || 
+                       error.response?.data?.details ||
+                       error.response?.data?.message ||
+                       error.message || 
+                       '文件解析失败';
+      
+      message.error(errorMsg);
+      
+      // 如果有详细错误，也在控制台输出
+      if (error.response?.data) {
+        console.error('服务器返回:', error.response.data);
+      }
     }
   };
 
@@ -397,6 +417,15 @@ export const TransactionImportModal: React.FC<TransactionImportModalProps> = ({
           <div style={{ marginTop: 16, textAlign: 'right' }}>
             <Space>
               <Button onClick={() => setCurrentStep(0)}>上一步</Button>
+              {uploadedFile && (
+                <Button 
+                  type="primary"
+                  onClick={() => handlePreview(uploadedFile as any)}
+                  icon={<CheckCircleOutlined />}
+                >
+                  开始解析
+                </Button>
+              )}
             </Space>
           </div>
         </div>

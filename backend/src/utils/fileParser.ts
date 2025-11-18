@@ -74,7 +74,8 @@ export function parseJsonFile(buffer: Buffer): ImportTransaction[] {
 /**
  * 验证文件格式
  */
-export function validateFileFormat(mimetype: string): 'excel' | 'json' | null {
+export function validateFileFormat(mimetype: string, filename?: string): 'excel' | 'json' | null {
+  // 优先检查 MIME 类型
   if (mimetype.includes('excel') || 
       mimetype.includes('spreadsheet') || 
       mimetype.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') ||
@@ -84,6 +85,24 @@ export function validateFileFormat(mimetype: string): 'excel' | 'json' | null {
   
   if (mimetype.includes('json') || mimetype.includes('application/json')) {
     return 'json';
+  }
+  
+  // 如果 MIME 类型是 text/plain，根据文件扩展名判断
+  if (mimetype === 'text/plain' && filename) {
+    if (filename.toLowerCase().endsWith('.json')) {
+      return 'json';
+    }
+  }
+  
+  // 最后尝试根据文件扩展名判断
+  if (filename) {
+    const lower = filename.toLowerCase();
+    if (lower.endsWith('.xlsx') || lower.endsWith('.xls')) {
+      return 'excel';
+    }
+    if (lower.endsWith('.json')) {
+      return 'json';
+    }
   }
   
   return null;

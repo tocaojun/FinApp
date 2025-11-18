@@ -47,15 +47,15 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({ onNavigate }) =
         .slice(0, 5)
         .map(transaction => ({
           id: transaction.id,
-          type: transaction.transaction_type || 'buy',
-          assetSymbol: transaction.asset_symbol || 'N/A',
-          assetName: transaction.asset_name || 'Unknown Asset',
+          type: transaction.transactionType || transaction.type || 'buy',
+          assetSymbol: transaction.assetSymbol || 'N/A',
+          assetName: transaction.assetName || 'Unknown Asset',
           quantity: transaction.quantity,
           price: transaction.price,
-          totalAmount: transaction.total_amount,
-          fee: 0, // 暂时设为0，后续可以从API获取
-          currency: 'CNY', // 暂时设为CNY，后续可以从API获取
-          executedAt: transaction.transaction_date || new Date().toISOString()
+          totalAmount: transaction.totalAmount || transaction.amount || 0,
+          fee: transaction.fee || transaction.fees || 0,
+          currency: transaction.currency || 'CNY',
+          executedAt: transaction.transactionDate || transaction.executedAt || new Date().toISOString()
         }));
       
       setTransactions(recentTransactions);
@@ -67,51 +67,65 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({ onNavigate }) =
     }
   };
 
+  // 判断是否为买入/申购类型（资金流出）
+  const isBuyType = (type: string): boolean => {
+    const buyTypes = ['buy', 'apply', 'stock_buy', 'etf_buy', 'bond_buy', 'fund_buy'];
+    return buyTypes.includes(type.toLowerCase());
+  };
+
+  // 判断是否为卖出/赎回类型（资金流入）
+  const isSellType = (type: string): boolean => {
+    const sellTypes = ['sell', 'redeem', 'stock_sell', 'etf_sell', 'bond_sell', 'fund_sell'];
+    return sellTypes.includes(type.toLowerCase());
+  };
+
   const getTransactionIcon = (type: string) => {
-    switch (type.toLowerCase()) {
-      case 'buy':
-        return <ArrowUpOutlined style={{ color: '#52c41a' }} />;
-      case 'sell':
-        return <ArrowDownOutlined style={{ color: '#f5222d' }} />;
-      case 'dividend':
-        return <DollarOutlined style={{ color: '#1890ff' }} />;
-      default:
-        return <DollarOutlined />;
+    if (isBuyType(type)) {
+      return <ArrowUpOutlined style={{ color: '#52c41a' }} />;
+    } else if (isSellType(type)) {
+      return <ArrowDownOutlined style={{ color: '#f5222d' }} />;
+    } else if (type.toLowerCase() === 'dividend') {
+      return <DollarOutlined style={{ color: '#1890ff' }} />;
+    } else {
+      return <DollarOutlined />;
     }
   };
 
   const getTransactionTypeColor = (type: string) => {
-    switch (type.toLowerCase()) {
-      case 'buy':
-        return 'green';
-      case 'sell':
-        return 'red';
-      case 'dividend':
-        return 'blue';
-      case 'split':
-        return 'orange';
-      case 'transfer':
-        return 'purple';
-      default:
-        return 'default';
+    if (isBuyType(type)) {
+      return 'green';
+    } else if (isSellType(type)) {
+      return 'red';
+    } else if (type.toLowerCase() === 'dividend') {
+      return 'blue';
+    } else if (type.toLowerCase() === 'split') {
+      return 'orange';
+    } else if (type.toLowerCase() === 'transfer') {
+      return 'purple';
+    } else {
+      return 'default';
     }
   };
 
   const getTransactionTypeText = (type: string) => {
-    switch (type.toLowerCase()) {
-      case 'buy':
-        return '买入';
-      case 'sell':
-        return '卖出';
-      case 'dividend':
-        return '分红';
-      case 'split':
-        return '拆股';
-      case 'transfer':
-        return '转账';
-      default:
-        return type;
-    }
+    const typeMap: Record<string, string> = {
+      'buy': '买入',
+      'sell': '卖出',
+      'apply': '申购',
+      'redeem': '赎回',
+      'stock_buy': '股票买入',
+      'stock_sell': '股票卖出',
+      'etf_buy': 'ETF买入',
+      'etf_sell': 'ETF卖出',
+      'bond_buy': '债券买入',
+      'bond_sell': '债券卖出',
+      'fund_buy': '基金买入',
+      'fund_sell': '基金卖出',
+      'dividend': '分红',
+      'split': '拆股',
+      'transfer': '转账'
+    };
+    return typeMap[type.toLowerCase()] || type;
   };
 
   const formatCurrency = (value: number, currency: string = 'CNY') => {
@@ -188,12 +202,12 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({ onNavigate }) =
                   <Text 
                     strong 
                     style={{ 
-                      color: transaction.type.toLowerCase() === 'buy'
-                        ? '#f5222d' 
-                        : '#52c41a' 
+                      color: isBuyType(transaction.type)
+                        ? '#f5222d'  // 买入/申购显示红色（资金流出）
+                        : '#52c41a'  // 卖出/赎回显示绿色（资金流入）
                     }}
                   >
-                    {transaction.type.toLowerCase() === 'buy' ? '-' : '+'}
+                    {isBuyType(transaction.type) ? '-' : '+'}
                     {formatCurrency(Math.abs(transaction.totalAmount), transaction.currency)}
                   </Text>
                 </div>

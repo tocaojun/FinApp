@@ -102,9 +102,9 @@ const AccountsTab: React.FC<AccountsTabProps> = ({ portfolioId }) => {
   const getAccountTypeTag = (type: string) => {
     const typeMap = {
       'BROKERAGE': { color: 'blue', text: '券商账户' },
-      'RETIREMENT': { color: 'green', text: '退休账户' },
-      'SAVINGS': { color: 'orange', text: '储蓄账户' },
-      'CHECKING': { color: 'purple', text: '支票账户' }
+      'BANK': { color: 'green', text: '银行账户' },
+      'CRYPTO': { color: 'orange', text: '加密货币账户' },
+      'OTHER': { color: 'purple', text: '其他账户' }
     };
     const config = typeMap[type as keyof typeof typeMap] || { color: 'default', text: type };
     return <Tag color={config.color}>{config.text}</Tag>;
@@ -445,9 +445,9 @@ const AccountsTab: React.FC<AccountsTabProps> = ({ portfolioId }) => {
           >
             <Select placeholder="请选择账户类型">
               <Option value="BROKERAGE">券商账户</Option>
-              <Option value="RETIREMENT">退休账户</Option>
-              <Option value="SAVINGS">储蓄账户</Option>
-              <Option value="CHECKING">支票账户</Option>
+              <Option value="BANK">银行账户</Option>
+              <Option value="CRYPTO">加密货币账户</Option>
+              <Option value="OTHER">其他账户</Option>
             </Select>
           </Form.Item>
 

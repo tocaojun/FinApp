@@ -35,6 +35,8 @@ export interface AssetType {
   name: string;
   category: string;
   description?: string;
+  isActive?: boolean;
+  sortOrder?: number;
 }
 
 // @deprecated 市场维度已移除，改用国家维度
@@ -153,9 +155,15 @@ interface PaginatedResponse<T> {
 
 // 资产服务类
 export class AssetService {
-  // 获取资产类型列表
+  // 获取资产类型列表（仅激活的，用于选择器）
   static async getAssetTypes(): Promise<AssetType[]> {
     const response = await apiGet<ApiResponse<AssetType[]>>('/assets/types');
+    return response.data;
+  }
+
+  // 获取所有资产类型（包括未激活的，用于管理界面）
+  static async getAllAssetTypes(): Promise<AssetType[]> {
+    const response = await apiGet<ApiResponse<AssetType[]>>('/assets/types/all');
     return response.data;
   }
 
@@ -323,6 +331,8 @@ export class AssetService {
     name: string;
     category: string;
     description?: string;
+    isActive?: boolean;
+    sortOrder?: number;
   }): Promise<AssetType> {
     const response = await apiPost<ApiResponse<AssetType>>('/assets/types', data);
     return response.data;
@@ -334,6 +344,7 @@ export class AssetService {
     category: string;
     description?: string;
     isActive: boolean;
+    sortOrder: number;
   }>): Promise<AssetType> {
     const response = await apiPut<ApiResponse<AssetType>>(`/assets/types/${id}`, data);
     return response.data;
@@ -345,7 +356,7 @@ export class AssetService {
 
   // 获取资产类型使用情况
   static async getAssetTypeUsage(id: string): Promise<{
-    count: number;
+    usageCount: number;
     assets: Array<{
       id: string;
       name: string;
@@ -353,7 +364,7 @@ export class AssetService {
     }>;
   }> {
     const response = await apiGet<ApiResponse<{
-      count: number;
+      usageCount: number;
       assets: Array<{
         id: string;
         name: string;

@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Statistic, Typography, Spin, message, Grid } from 'antd';
+import { Card, Statistic, Typography, Spin, message, Grid, List, Button, Space, Tag } from 'antd';
 import {
   DollarOutlined,
   TrophyOutlined,
   RiseOutlined,
   FallOutlined,
-  BarChartOutlined
+  BarChartOutlined,
+  BankOutlined,
+  ClockCircleOutlined
 } from '@ant-design/icons';
-const { useBreakpoint } = Grid;
 import AssetSummaryCard from '../components/dashboard/AssetSummaryCard';
 import PortfolioOverview from '../components/dashboard/PortfolioOverview';
 import RecentTransactions from '../components/dashboard/RecentTransactions';
@@ -16,8 +17,10 @@ import QuickActions from '../components/dashboard/QuickActions';
 import { PortfolioService } from '../services/portfolioService';
 import { TransactionService } from '../services/transactionService';
 import { HoldingService } from '../services/holdingService';
+import { depositService, DepositStatistics, UpcomingMaturityDeposit } from '../services/depositService';
 
 const { Title } = Typography;
+const { useBreakpoint } = Grid;
 
 interface DashboardData {
   totalValue: number;
@@ -37,6 +40,9 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const navigate = useNavigate();
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
+  
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     totalValue: 0,
@@ -49,6 +55,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     assetCount: 0,
     transactionCount: 0
   });
+  const [depositStats, setDepositStats] = useState<DepositStatistics | null>(null);
+  const [upcomingDeposits, setUpcomingDeposits] = useState<UpcomingMaturityDeposit[]>([]);
 
   // 处理导航的统一函数
   const handleNavigate = (page: string) => {
@@ -86,7 +94,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       }
 
       // 并行获取所有数据
-      const [portfolioSummary, portfolios, holdingAssetCount, transactionSummary] = await Promise.all([
+      const [portfolioSummary, portfolios, holdingAssetCount, transactionSummary, depositStatistics, upcomingMaturity] = await Promise.all([
         PortfolioService.getPortfolioSummary().catch((error) => {
           console.warn('获取投资组合汇总失败:', error);
           return null;
@@ -102,6 +110,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         TransactionService.getTransactionSummary().catch((error) => {
           console.warn('获取交易统计失败:', error);
           return null;
+        }),
+        depositService.getStatistics().catch((error) => {
+          console.warn('获取存款统计失败:', error);
+          return null;
+        }),
+        depositService.getUpcomingMaturityDeposits(30).catch((error) => {
+          console.warn('获取即将到期存款失败:', error);
+          return [];
         })
       ]);
 
@@ -133,6 +149,18 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
 
       if (transactionSummary) {
         transactionCount = transactionSummary.totalTransactions || 0;
+        console.log('[Dashboard] transactionSummary:', transactionSummary);
+        console.log('[Dashboard] transactionCount:', transactionCount);
+      } else {
+        console.warn('[Dashboard] transactionSummary is null or undefined');
+      }
+
+      // 设置存款数据
+      if (depositStatistics) {
+        setDepositStats(depositStatistics);
+      }
+      if (upcomingMaturity) {
+        setUpcomingDeposits(upcomingMaturity.slice(0, 5)); // 只显示前5条
       }
 
       // 使用真实数据，即使为0也显示真实值
@@ -190,9 +218,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       </div>
     );
   }
-
-  const screens = useBreakpoint();
-  const isMobile = !screens.md;
 
   return (
     <div className="responsive-padding">
@@ -282,6 +307,29 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             valueStyle={{ fontSize: isMobile ? '20px' : '24px' }}
           />
         </Card>
+
+        {/* 新增：存款摘要卡片 */}
+        <Card 
+          size={isMobile ? 'small' : 'default'}
+          bodyStyle={{ padding: isMobile ? '16px 12px' : '24px' }}
+          hoverable
+          onClick={() => handleNavigate('deposits')}
+          style={{ cursor: 'pointer' }}
+        >
+          <Statistic
+            title="存款总额"
+            value={depositStats?.totalBalance || 0}
+            precision={2}
+            prefix={<BankOutlined />}
+            formatter={(value) => formatCurrency(Number(value))}
+            valueStyle={{ fontSize: isMobile ? '20px' : '24px', color: '#1890ff' }}
+          />
+          {depositStats && (
+            <div style={{ marginTop: 8, fontSize: 12, color: '#8c8c8c' }}>
+              平均利率: {depositStats.averageInterestRate.toFixed(2)}% | 即将到期: {depositStats.maturingSoon}笔
+            </div>
+          )}
+        </Card>
       </div>
 
       {/* 主要组件区域 */}
@@ -290,6 +338,64 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         gap: isMobile ? '12px' : '16px',
         gridTemplateColumns: '1fr'
       }}>
+        {/* 新增：即将到期的存款提醒 */}
+        {upcomingDeposits.length > 0 && (
+          <Card 
+            title={
+              <Space>
+                <ClockCircleOutlined style={{ color: '#faad14' }} />
+                <span>即将到期提醒</span>
+                <Tag color="warning">{upcomingDeposits.length}笔</Tag>
+              </Space>
+            }
+            extra={
+              <Button 
+                type="link" 
+                onClick={() => handleNavigate('deposits')}
+              >
+                查看全部
+              </Button>
+            }
+            size={isMobile ? 'small' : 'default'}
+          >
+            <List
+              dataSource={upcomingDeposits}
+              renderItem={deposit => (
+                <List.Item
+                  actions={[
+                    <Button 
+                      type="primary"
+                      size="small"
+                      onClick={() => handleNavigate(`deposits?highlight=${deposit.positionId}`)}
+                    >
+                      处理
+                    </Button>
+                  ]}
+                >
+                  <List.Item.Meta
+                    avatar={<BankOutlined style={{ fontSize: 24, color: '#1890ff' }} />}
+                    title={
+                      <Space>
+                        <span>{deposit.bankName} - {deposit.productName}</span>
+                        <Tag color={deposit.daysToMaturity <= 7 ? 'error' : 'warning'}>
+                          {deposit.daysToMaturity}天后到期
+                        </Tag>
+                        {deposit.autoRenewal && <Tag color="blue">自动续存</Tag>}
+                      </Space>
+                    }
+                    description={
+                      <Space direction="vertical" size="small">
+                        <span>本金: {formatCurrency(deposit.principalAmount)}</span>
+                        <span>预计利息: {formatCurrency(deposit.estimatedInterest)}</span>
+                      </Space>
+                    }
+                  />
+                </List.Item>
+              )}
+            />
+          </Card>
+        )}
+
         <AssetSummaryCard 
           assetCount={dashboardData.assetCount}
           transactionCount={dashboardData.transactionCount}

@@ -639,7 +639,42 @@ export class PortfolioService {
   }
 
   async getAllTradingAccounts(userId: string): Promise<TradingAccount[]> {
-    return [];
+    const query = `
+      SELECT 
+        ta.id,
+        ta.portfolio_id,
+        ta.name,
+        ta.broker_name,
+        ta.account_number,
+        ta.account_type,
+        ta.currency,
+        ta.initial_balance,
+        ta.current_balance,
+        ta.is_active,
+        ta.created_at,
+        ta.updated_at
+      FROM finapp.trading_accounts ta
+      INNER JOIN finapp.portfolios p ON ta.portfolio_id = p.id
+      WHERE p.user_id = $1::uuid AND ta.is_active = true
+      ORDER BY ta.created_at ASC
+    `;
+
+    const result = await databaseService.executeRawQuery(query, [userId]);
+    const rows = Array.isArray(result) ? result : [];
+
+    return rows.map(row => ({
+      id: row.id,
+      portfolioId: row.portfolio_id,
+      name: row.name,
+      broker: row.broker_name || '',
+      accountNumber: row.account_number || '',
+      accountType: row.account_type,
+      currency: row.currency,
+      balance: parseFloat(row.current_balance) || 0,
+      availableBalance: parseFloat(row.current_balance) || 0,
+      createdAt: new Date(row.created_at),
+      updatedAt: new Date(row.updated_at)
+    }));
   }
 
   private mapRowToPortfolio(row: any): Portfolio {
