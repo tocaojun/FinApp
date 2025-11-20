@@ -69,13 +69,13 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({ onNavigate }) =
 
   // 判断是否为买入/申购类型（资金流出）
   const isBuyType = (type: string): boolean => {
-    const buyTypes = ['buy', 'apply', 'stock_buy', 'etf_buy', 'bond_buy', 'fund_buy'];
+    const buyTypes = ['buy', 'apply', 'stock_buy', 'etf_buy', 'bond_buy', 'fund_buy', 'fund_subscribe'];
     return buyTypes.includes(type.toLowerCase());
   };
 
   // 判断是否为卖出/赎回类型（资金流入）
   const isSellType = (type: string): boolean => {
-    const sellTypes = ['sell', 'redeem', 'stock_sell', 'etf_sell', 'bond_sell', 'fund_sell'];
+    const sellTypes = ['sell', 'redeem', 'stock_sell', 'etf_sell', 'bond_sell', 'fund_sell', 'fund_redeem'];
     return sellTypes.includes(type.toLowerCase());
   };
 
@@ -121,6 +121,8 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({ onNavigate }) =
       'bond_sell': '债券卖出',
       'fund_buy': '基金买入',
       'fund_sell': '基金卖出',
+      'fund_subscribe': '基金申购',
+      'fund_redeem': '基金赎回',
       'dividend': '分红',
       'split': '拆股',
       'transfer': '转账'

@@ -228,6 +228,23 @@ export class PortfolioService {
     const accountsResult = await databaseService.executeRawQuery(accountsQuery, [portfolioId]);
     const accountsData = Array.isArray(accountsResult) ? accountsResult[0] : { account_count: 0, total_balance: 0 };
 
+    // 获取多币种现金余额统计（按币种分组）
+    const cashBalancesQuery = `
+      SELECT 
+        acb.currency,
+        COALESCE(SUM(acb.cash_balance), 0) as total_cash_balance,
+        COALESCE(SUM(acb.frozen_balance), 0) as total_frozen_balance,
+        COUNT(DISTINCT acb.trading_account_id) as accounts_with_cash
+      FROM finapp.account_cash_balances acb
+      INNER JOIN finapp.trading_accounts ta ON acb.trading_account_id = ta.id
+      WHERE ta.portfolio_id = $1::uuid 
+        AND (acb.cash_balance > 0 OR acb.frozen_balance > 0)
+      GROUP BY acb.currency
+    `;
+    
+    const cashBalancesResult = await databaseService.executeRawQuery(cashBalancesQuery, [portfolioId]);
+    const cashBalancesArray = Array.isArray(cashBalancesResult) ? cashBalancesResult : [];
+
     // 获取持仓统计和市值计算（需要考虑汇率转换）
     // 注意：股票期权需要计算内在价值，余额型产品使用余额作为市值
     const positionsQuery = `
@@ -290,7 +307,10 @@ export class PortfolioService {
     const positionsResult = await databaseService.executeRawQuery(positionsQuery, [portfolioId]);
     const positionsDataArray = Array.isArray(positionsResult) ? positionsResult : [];
 
-    // 获取汇率并计算转换后的总成本和市值
+    // 获取汇率服务实例
+    const exchangeRateService = new ExchangeRateService();
+
+    // 计算持仓资产总成本和市值（按基础货币）
     let totalCost = 0;
     let totalValue = 0;
 
@@ -306,7 +326,6 @@ export class PortfolioService {
       } else {
         // 不同币种，需要转换
         try {
-          const exchangeRateService = new ExchangeRateService();
           const rateData = await exchangeRateService.getLatestRate(currency, portfolio.baseCurrency);
           const rate = rateData?.rate || 1.0;
           totalCost += cost * rate;
@@ -320,16 +339,51 @@ export class PortfolioService {
       }
     }
 
+    // 计算多币种现金余额（按基础货币统计）
+    let totalCashValue = 0;
+
+    for (const cashData of cashBalancesArray) {
+      const cashBalance = parseFloat(cashData.total_cash_balance) || 0;
+      const currency = cashData.currency || 'CNY';
+
+      if (currency === portfolio.baseCurrency) {
+        // 同币种，直接相加
+        totalCashValue += cashBalance;
+      } else {
+        // 不同币种，需要转换
+        try {
+          const rateData = await exchangeRateService.getLatestRate(currency, portfolio.baseCurrency);
+          const rate = rateData?.rate || 1.0;
+          totalCashValue += cashBalance * rate;
+        } catch (error) {
+          console.warn(`Failed to get exchange rate for cash ${currency}/${portfolio.baseCurrency}:`, error);
+          // 如果获取汇率失败，使用 1.0 作为默认汇率
+          totalCashValue += cashBalance;
+        }
+      }
+    }
+
+    // 总价值 = 持仓市值 + 现金余额
+    const totalPortfolioValue = totalValue + totalCashValue;
+    
+    // 总成本 = 持仓成本 + 现金余额（现金成本等于面值）
+    const totalPortfolioCost = totalCost + totalCashValue;
+    
+    // 总收益 = 总价值 - 总成本（现金部分收益为0）
     const totalReturn = totalValue - totalCost;
     const totalReturnPercent = totalCost > 0 ? (totalReturn / totalCost) * 100 : 0;
 
-    // 计算总持仓数和唯一资产数
+    // 计算总持仓数和唯一资产数（包括现金资产）
     let totalPositions = 0;
     let uniqueAssets = 0;
     for (const posData of positionsDataArray) {
       totalPositions += parseInt(posData.position_count) || 0;
       uniqueAssets += parseInt(posData.unique_assets) || 0;
     }
+
+    // 现金余额作为资产计入统计
+    const cashAssetCount = cashBalancesArray.length; // 每种币种的现金算作一种资产
+    uniqueAssets += cashAssetCount;
 
     return {
       portfolio,
@@ -338,10 +392,11 @@ export class PortfolioService {
       totalPositions,
       uniqueAssets,
       totalPositionValue: totalCost,
-      totalValue,
-      totalCost,
+      totalValue: totalPortfolioValue, // 包含现金的总价值
+      totalCost: totalPortfolioCost,   // 包含现金的总成本
       totalReturn,
       totalReturnPercent,
+      totalCashValue,  // 新增：总现金价值
       lastUpdated: portfolio.updatedAt
     };
   }

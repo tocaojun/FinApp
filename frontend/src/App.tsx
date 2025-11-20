@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
-import { Typography, Card, Row, Col, Button } from 'antd';
+import { Typography, Card, Row, Col, Button, App as AntdApp } from 'antd';
 import { FolderOutlined, WalletOutlined, BarChartOutlined } from '@ant-design/icons';
 import { 
   Dashboard, 
@@ -12,7 +12,10 @@ import {
   SettingsPage
 } from './pages';
 import { DepositManagement } from './pages/deposits';
-import DashboardTest from './pages/DashboardTest';
+import InsuranceManagement from './pages/InsuranceManagement';
+import CashManagement from './pages/CashManagement';
+import MultiCurrencyCashManagement from './pages/MultiCurrencyCashManagement';
+
 import ChartsPage from './pages/charts/ChartsPage';
 import LoginPage from './pages/auth/LoginPage';
 import PermissionDemo from './pages/PermissionDemo';
@@ -47,6 +50,9 @@ const AppLayoutWrapper: React.FC = () => {
         <Route path="/portfolio/:id" element={<PortfolioDetail />} />
         <Route path="/transactions" element={<TransactionManagement />} />
         <Route path="/deposits" element={<DepositManagement />} />
+        <Route path="/insurance" element={<InsuranceManagement />} />
+        <Route path="/cash" element={<CashManagement />} />
+        <Route path="/multi-currency-cash" element={<MultiCurrencyCashManagement />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/permission-demo" element={<PermissionDemo />} />
@@ -148,14 +154,16 @@ const HomePage: React.FC = () => {
 
 
 
-// 主应用组件
+// 主应用组件 - 使用Antd的App组件包装以支持静态方法
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <AppLayoutWrapper />
-      </Router>
-    </AuthProvider>
+    <AntdApp>
+      <AuthProvider>
+        <Router>
+          <AppLayoutWrapper />
+        </Router>
+      </AuthProvider>
+    </AntdApp>
   );
 }
 

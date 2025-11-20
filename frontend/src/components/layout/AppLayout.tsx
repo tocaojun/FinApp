@@ -13,6 +13,7 @@ import {
   SettingOutlined,
   QuestionCircleOutlined,
   SafetyOutlined,
+  SafetyCertificateOutlined,
   TeamOutlined,
   KeyOutlined,
   FileTextOutlined,
@@ -21,7 +22,8 @@ import {
   ShopOutlined,
   DollarOutlined,
   SyncOutlined,
-  BankOutlined
+  BankOutlined,
+  GlobalOutlined
 } from '@ant-design/icons';
 
 import Breadcrumb from './Breadcrumb';
@@ -134,9 +136,24 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         label: '交易记录'
       },
       {
+        key: '/cash',
+        icon: <DollarOutlined />,
+        label: '现金管理'
+      },
+      {
+        key: '/multi-currency-cash',
+        icon: <GlobalOutlined />,
+        label: '多币种现金'
+      },
+      {
         key: '/deposits',
         icon: <BankOutlined />,
         label: '存款管理'
+      },
+      {
+        key: '/insurance',
+        icon: <SafetyCertificateOutlined />,
+        label: '保险管理'
       },
       {
         key: '/reports',
@@ -268,6 +285,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     if (path.startsWith('/admin/exchange-rates')) return '汇率管理';
     if (path.startsWith('/admin/price-management')) return '价格管理中心';
     if (path.startsWith('/deposits')) return '存款管理';
+    if (path.startsWith('/multi-currency-cash')) return '多币种现金管理';
     if (path.startsWith('/auth/login')) return '用户登录';
     
     // 查找菜单项中的标题
@@ -296,6 +314,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     if (path.startsWith('/dashboard')) return ['/dashboard'];
     if (path.startsWith('/transactions')) return ['/transactions'];
     if (path.startsWith('/deposits')) return ['/deposits'];
+    if (path.startsWith('/multi-currency-cash')) return ['/multi-currency-cash'];
     if (path.startsWith('/reports')) return ['/reports'];
     if (path.startsWith('/analytics')) return ['/analytics'];
     if (path.startsWith('/settings')) return ['/settings'];

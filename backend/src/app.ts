@@ -24,7 +24,9 @@ import tagRoutes from './routes/tagRoutes';
 import holdingsRouter from './routes/holdings';
 import priceSyncRouter from './routes/priceSync';
 import depositsRouter from './routes/deposits';
-
+import insuranceRouter from './routes/insurance';
+import cashRouter from './routes/cash';
+import multiCurrencyCashRouter from './routes/multiCurrencyCash';
 
 import { reportsRouter } from './routes/reports';
 import { databaseService } from './services/DatabaseService';
@@ -167,11 +169,14 @@ class App {
     // 存款产品管理路由（产品列表公开，其他需要认证）
     this.app.use('/api/deposits', depositsRouter);
 
-    // 财富产品管理路由（需要认证）
+    // 保险产品管理路由（资产类型公开，其他需要认证）
+    this.app.use('/api/insurance', insuranceRouter);
 
+    // 现金管理路由（需要认证）
+    this.app.use('/api/cash', cashRouter);
 
-    // 理财产品管理路由（需要认证）
-
+    // 多币种现金管理路由（需要认证）
+    this.app.use('/api/multi-currency-cash', authenticateToken, multiCurrencyCashRouter);
 
     // 报表管理路由（需要认证）
     this.app.use('/api/reports', reportsRouter);

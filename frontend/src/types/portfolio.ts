@@ -127,6 +127,7 @@ export interface PortfolioSummary {
   todayChangePercent: number;
   totalReturn: number;
   totalReturnPercent: number;
+  totalCashValue?: number; // 总现金价值（按基础货币计算）
   allocations: AssetAllocation[];
   performance: PortfolioPerformance[];
 }
