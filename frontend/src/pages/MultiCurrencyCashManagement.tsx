@@ -101,6 +101,8 @@ const MultiCurrencyCashManagement: React.FC<MultiCurrencyCashManagementProps> = 
     try {
       // 如果没有选择具体账户，获取所有账户的余额
       const data = await MultiCurrencyCashService.getMultiCurrencyBalances(selectedAccount || undefined);
+      console.log('🔍 加载的余额数据:', data);
+      console.log('🔍 有余额的账户:', data.filter(b => b.cashBalance > 0));
       setBalanceData(data);
     } catch (error) {
       console.error('加载多币种余额失败:', error);

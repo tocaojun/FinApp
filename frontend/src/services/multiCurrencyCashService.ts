@@ -77,9 +77,15 @@ export class MultiCurrencyCashService {
         totalCurrencies: item.currencyCount || item.currencyBalances?.length || 0,
         balances: (item.currencyBalances || []).map((balance: any) => ({
           currency: balance.currency,
-          cashBalance: balance.cash_balance || 0,
-          availableBalance: balance.available_balance || 0,
-          frozenBalance: balance.frozen_balance || 0
+          cashBalance: typeof balance.cash_balance === 'number' 
+            ? balance.cash_balance 
+            : (typeof balance.cash_balance === 'string' ? parseFloat(balance.cash_balance) : 0),
+          availableBalance: typeof balance.available_balance === 'number' 
+            ? balance.available_balance 
+            : (typeof balance.available_balance === 'string' ? parseFloat(balance.available_balance) : 0),
+          frozenBalance: typeof balance.frozen_balance === 'number' 
+            ? balance.frozen_balance 
+            : (typeof balance.frozen_balance === 'string' ? parseFloat(balance.frozen_balance) : 0)
         }))
       }));
     } catch (error) {
@@ -96,19 +102,48 @@ export class MultiCurrencyCashService {
       const endpoint = tradingAccountId 
         ? `/multi-currency-cash/balances/${tradingAccountId}`
         : '/multi-currency-cash/balances';
+      console.log('🔧 调用API端点:', endpoint);
+      console.log('🔧 认证Token:', localStorage.getItem('auth_token') ? '已设置' : '未设置');
       const response = await apiGet(endpoint);
+      console.log('🔧 API完整响应:', response);
       const rawData = response.data || [];
+      console.log('🔧 原始数据长度:', rawData.length);
+      console.log('🔧 原始数据前3条:', rawData.slice(0, 3));
       
       // 转换API返回的数据结构为前端期望的格式
-      return rawData.map((item: any) => ({
-        tradingAccountId: item.trading_account_id || item.tradingAccountId,
-        accountName: item.account_name || item.accountName,
-        currency: item.currency,
-        cashBalance: item.cash_balance || 0,
-        availableBalance: item.available_balance || 0,
-        frozenBalance: item.frozen_balance || 0,
-        lastUpdated: item.last_updated || item.lastUpdated
-      }));
+      const transformedData = rawData.map((item: any) => {
+        // 后端现在返回camelCase字段，优先使用camelCase，fallback到snake_case
+        const cashBalance = typeof item.cashBalance === 'number' 
+          ? item.cashBalance 
+          : (typeof item.cash_balance === 'number' 
+            ? item.cash_balance
+            : parseFloat(item.cashBalance || item.cash_balance || '0'));
+        const availableBalance = typeof item.availableBalance === 'number' 
+          ? item.availableBalance 
+          : (typeof item.available_balance === 'number' 
+            ? item.available_balance
+            : parseFloat(item.availableBalance || item.available_balance || '0'));
+        const frozenBalance = typeof item.frozenBalance === 'number' 
+          ? item.frozenBalance 
+          : (typeof item.frozen_balance === 'number' 
+            ? item.frozen_balance
+            : parseFloat(item.frozenBalance || item.frozen_balance || '0'));
+        
+        return {
+          tradingAccountId: item.tradingAccountId || item.trading_account_id,
+          accountName: item.accountName || item.account_name,
+          currency: item.currency,
+          cashBalance: cashBalance,
+          availableBalance: availableBalance,
+          frozenBalance: frozenBalance,
+          lastUpdated: item.lastUpdated || item.last_updated
+        };
+      });
+      
+      console.log('🔧 转换后的数据示例:', transformedData.slice(0, 3));
+      console.log('🔧 有余额的记录:', transformedData.filter(item => item.cashBalance > 0));
+      
+      return transformedData;
     } catch (error) {
       console.error('获取多币种余额失败:', error);
       throw error;
