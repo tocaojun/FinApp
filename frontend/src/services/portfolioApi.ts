@@ -107,6 +107,24 @@ export const getPortfolioHoldings = async (portfolioId: string): Promise<Holding
   return response.data || [];
 };
 
+// 获取投资组合余额历史数据
+export const getPortfolioBalanceHistory = async (portfolioId: string, days: number = 30): Promise<Array<{
+  date: string;
+  total_balance: number;
+  transaction_count: number;
+}>> => {
+  const response = await apiRequest<{
+    success: boolean;
+    data: Array<{
+      date: string;
+      total_balance: number;
+      transaction_count: number;
+    }>;
+  }>(`/holdings/portfolio/${portfolioId}/balance-history-summary?days=${days}`);
+  
+  return response.data || [];
+};
+
 // 获取所有投资组合汇总
 export const getAllPortfoliosSummary = async (): Promise<PortfolioSummary> => {
   try {
@@ -179,38 +197,187 @@ export const convertHoldingsToChartData = (holdings: Holding[]) => {
   }));
 };
 
-// 生成模拟的流动性分布数据（基于实际持仓）
-export const generateLiquidityData = (holdings: Holding[]) => {
+// 转换余额历史数据为收益率趋势数据
+export const convertBalanceHistoryToReturnTrend = (
+  balanceHistory: Array<{
+    date: string;
+    total_balance: number;
+    transaction_count: number;
+  }>
+): Array<{
+  date: string;
+  portfolioReturn: number;
+  benchmarkReturn?: number;
+  cumulativeReturn: number;
+  cumulativeBenchmark?: number;
+}> => {
+  if (balanceHistory.length === 0) return [];
+
+  // 按日期排序（从早到晚）
+  const sortedHistory = [...balanceHistory].sort((a, b) => 
+    new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
+  const initialBalance = sortedHistory[0].total_balance;
+  
+  return sortedHistory.map((item, index) => {
+    const currentBalance = item.total_balance;
+    const previousBalance = index > 0 ? sortedHistory[index - 1].total_balance : initialBalance;
+    
+    // 计算日收益率
+    const dailyReturn = previousBalance > 0 
+      ? ((currentBalance - previousBalance) / previousBalance) * 100 
+      : 0;
+    
+    // 计算累计收益率
+    const cumulativeReturn = initialBalance > 0 
+      ? ((currentBalance - initialBalance) / initialBalance) * 100 
+      : 0;
+
+    return {
+      date: item.date,
+      portfolioReturn: dailyReturn,
+      benchmarkReturn: 0, // 暂时设为0，后续可以添加基准数据
+      cumulativeReturn: cumulativeReturn,
+      cumulativeBenchmark: 0, // 暂时设为0，后续可以添加基准数据
+    };
+  });
+};
+// 流动性数据接口（与组件接口匹配）
+export interface LiquidityData {
+  category: string;
+  value: number;
+  percentage: number;
+  liquidityLevel: 'high' | 'medium' | 'low';
+  avgLiquidationDays: number;
+  assets: Array<{
+    name: string;
+    value: number;
+    liquidityScore: number;
+  }>;
+}
+
+// 根据资产类型和市场判断流动性等级
+const getLiquidityLevel = (holding: Holding): 'high' | 'medium' | 'low' => {
+  const symbol = holding.assetSymbol;
+  const assetType = holding.assetType;
+  
+  // 现金类资产 - 高流动性
+  if (assetType === 'CASH' || symbol === 'CASH') {
+    return 'high';
+  }
+  
+  // 港股 (5位数字) - 高流动性
+  if (symbol.match(/^[0-9]{5}$/)) {
+    return 'high';
+  }
+  
+  // 美股主要股票 (1-4位字母) - 高流动性
+  if (symbol.match(/^[A-Z]{1,4}$/)) {
+    return 'high';
+  }
+  
+  // A股 (6位数字) - 中等流动性
+  if (symbol.match(/^[0-9]{6}$/)) {
+    return 'medium';
+  }
+  
+  // 基金、ETF - 中等流动性
+  if (assetType === 'FUND' || assetType === 'ETF' || symbol.includes('ETF')) {
+    return 'medium';
+  }
+  
+  // 债券 - 中等流动性
+  if (assetType === 'BOND' || symbol.includes('BOND')) {
+    return 'medium';
+  }
+  
+  // 其他复杂产品 - 低流动性
+  return 'low';
+};
+
+// 根据流动性等级获取平均变现天数
+const getAvgLiquidationDays = (level: 'high' | 'medium' | 'low'): number => {
+  switch (level) {
+    case 'high': return 1;
+    case 'medium': return 7;
+    case 'low': return 30;
+  }
+};
+
+// 计算流动性评分 (0-100)
+const getLiquidityScore = (holding: Holding): number => {
+  const level = getLiquidityLevel(holding);
+  const marketValue = holding.convertedMarketValue || holding.marketValue;
+  
+  // 基础分数
+  let baseScore = 0;
+  switch (level) {
+    case 'high': baseScore = 90; break;
+    case 'medium': baseScore = 60; break;
+    case 'low': baseScore = 30; break;
+  }
+  
+  // 根据市值调整（市值越大，流动性可能越好）
+  const valueBonus = Math.min(10, Math.log10(marketValue) * 2);
+  
+  return Math.min(100, baseScore + valueBonus);
+};
+
+export const generateLiquidityData = (holdings: Holding[]): LiquidityData[] => {
   // 使用转换后的市值（考虑汇率），如果没有则使用原市值
   const totalValue = holdings.reduce((sum, holding) => sum + (holding.convertedMarketValue || holding.marketValue), 0);
   
-  // 简单的流动性分类逻辑（可以根据资产类型进一步优化）
-  const highLiquidity = holdings.filter(h => h.assetSymbol.match(/^[0-9]{5}$/)); // 港股
-  const mediumLiquidity = holdings.filter(h => !h.assetSymbol.match(/^[0-9]{5}$/) && h.assetSymbol.length <= 4); // 美股等
-  const lowLiquidity = holdings.filter(h => h.assetSymbol.length > 4 && !h.assetSymbol.match(/^[0-9]{5}$/)); // 其他
+  // 按流动性等级分类持仓
+  const highLiquidityHoldings = holdings.filter(h => getLiquidityLevel(h) === 'high');
+  const mediumLiquidityHoldings = holdings.filter(h => getLiquidityLevel(h) === 'medium');
+  const lowLiquidityHoldings = holdings.filter(h => getLiquidityLevel(h) === 'low');
   
-  const highValue = highLiquidity.reduce((sum, h) => sum + (h.convertedMarketValue || h.marketValue), 0);
-  const mediumValue = mediumLiquidity.reduce((sum, h) => sum + (h.convertedMarketValue || h.marketValue), 0);
-  const lowValue = lowLiquidity.reduce((sum, h) => sum + (h.convertedMarketValue || h.marketValue), 0);
+  // 计算各类别的总价值
+  const highValue = highLiquidityHoldings.reduce((sum, h) => sum + (h.convertedMarketValue || h.marketValue), 0);
+  const mediumValue = mediumLiquidityHoldings.reduce((sum, h) => sum + (h.convertedMarketValue || h.marketValue), 0);
+  const lowValue = lowLiquidityHoldings.reduce((sum, h) => sum + (h.convertedMarketValue || h.marketValue), 0);
   
-  return [
+  // 构建符合接口的数据结构
+  const result: LiquidityData[] = [
     {
-      category: '高流动性',
-      amount: highValue,
+      category: '高流动性资产',
+      value: highValue,
       percentage: totalValue > 0 ? Math.round((highValue / totalValue) * 100) : 0,
-      description: '可在1天内变现'
+      liquidityLevel: 'high',
+      avgLiquidationDays: getAvgLiquidationDays('high'),
+      assets: highLiquidityHoldings.map(h => ({
+        name: h.assetName || h.assetSymbol,
+        value: h.convertedMarketValue || h.marketValue,
+        liquidityScore: getLiquidityScore(h)
+      }))
     },
     {
-      category: '中等流动性',
-      amount: mediumValue,
+      category: '中等流动性资产',
+      value: mediumValue,
       percentage: totalValue > 0 ? Math.round((mediumValue / totalValue) * 100) : 0,
-      description: '可在1周内变现'
+      liquidityLevel: 'medium',
+      avgLiquidationDays: getAvgLiquidationDays('medium'),
+      assets: mediumLiquidityHoldings.map(h => ({
+        name: h.assetName || h.assetSymbol,
+        value: h.convertedMarketValue || h.marketValue,
+        liquidityScore: getLiquidityScore(h)
+      }))
     },
     {
-      category: '低流动性',
-      amount: lowValue,
+      category: '低流动性资产',
+      value: lowValue,
       percentage: totalValue > 0 ? Math.round((lowValue / totalValue) * 100) : 0,
-      description: '需要1个月以上变现'
+      liquidityLevel: 'low',
+      avgLiquidationDays: getAvgLiquidationDays('low'),
+      assets: lowLiquidityHoldings.map(h => ({
+        name: h.assetName || h.assetSymbol,
+        value: h.convertedMarketValue || h.marketValue,
+        liquidityScore: getLiquidityScore(h)
+      }))
     }
   ];
+  
+  // 过滤掉价值为0的类别
+  return result.filter(item => item.value > 0);
 };

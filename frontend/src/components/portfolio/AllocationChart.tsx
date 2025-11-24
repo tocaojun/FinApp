@@ -36,8 +36,8 @@ const AllocationChart: React.FC<AllocationChartProps> = ({ portfolioId }) => {
 
     setLoading(true);
     try {
-      // 获取持仓数据
-      const holdings = await HoldingService.getHoldingsByPortfolio(portfolioId);
+      // 使用包含现金的持仓数据
+      const holdings = await HoldingService.getHoldingsWithCashByPortfolio(portfolioId);
       
       // 根据选择的分配方式计算配置
       const calculatedAllocations = calculateAllocations(holdings, allocationBy);
@@ -69,14 +69,29 @@ const AllocationChart: React.FC<AllocationChartProps> = ({ portfolioId }) => {
       let key: string;
       switch (type) {
         case 'assetType':
-          key = holding.assetType || '未知类型';
+          // 处理现金类型和其他资产类型
+          if (holding.assetType === '现金') {
+            key = '现金';
+          } else {
+            // 将英文资产类型转换为中文
+            const typeMap: Record<string, string> = {
+              'STOCK': '股票',
+              'FUND': '基金',
+              'BOND': '债券',
+              'CRYPTO': '加密货币',
+              'OPTION': '期权'
+            };
+            key = typeMap[holding.assetType] || holding.assetType || '未知类型';
+          }
           break;
         case 'currency':
           key = holding.currency || 'CNY';
           break;
         case 'region':
           // 根据资产符号判断地区（简化逻辑）
-          if (holding.assetSymbol?.includes('.SZ') || holding.assetSymbol?.includes('.SS')) {
+          if (holding.assetType === '现金') {
+            key = '现金';
+          } else if (holding.assetSymbol?.includes('.SZ') || holding.assetSymbol?.includes('.SS')) {
             key = '中国';
           } else if (holding.assetSymbol?.includes('.HK')) {
             key = '香港';
@@ -85,8 +100,12 @@ const AllocationChart: React.FC<AllocationChartProps> = ({ portfolioId }) => {
           }
           break;
         case 'sector':
-          // 这里需要从资产数据中获取行业信息，暂时使用默认值
-          key = '其他';
+          // 现金归为现金类别，其他资产暂时使用默认值
+          if (holding.assetType === '现金') {
+            key = '现金';
+          } else {
+            key = '其他';
+          }
           break;
         default:
           key = '其他';
@@ -97,8 +116,9 @@ const AllocationChart: React.FC<AllocationChartProps> = ({ portfolioId }) => {
       groupedData[key] = (groupedData[key] || 0) + value;
     });
 
-    // 颜色配置
+    // 颜色配置，为现金分配特定颜色
     const colors = ['#1890ff', '#52c41a', '#faad14', '#722ed1', '#eb2f96', '#13c2c2', '#fa541c'];
+    const cashColor = '#ffc53d'; // 金色代表现金
     
     // 转换为配置数组
     return Object.entries(groupedData)
@@ -106,7 +126,7 @@ const AllocationChart: React.FC<AllocationChartProps> = ({ portfolioId }) => {
         assetType: key,
         value,
         percentage: totalValue > 0 ? (value / totalValue) * 100 : 0,
-        color: colors[index % colors.length]
+        color: key === '现金' ? cashColor : colors[index % colors.length]
       }))
       .sort((a, b) => b.value - a.value); // 按价值降序排列
   };

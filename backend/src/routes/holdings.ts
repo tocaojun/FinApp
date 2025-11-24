@@ -14,6 +14,7 @@ router.use(authenticateToken);
 // 2. GET /api/holdings/portfolio/xxx (路径参数)
 router.get('/', holdingController.getHoldingsByPortfolio);
 router.get('/portfolio/:portfolioId', holdingController.getHoldingsByPortfolio);
+router.get('/portfolio/:portfolioId/with-cash', holdingController.getHoldingsWithCashByPortfolio);
 router.get('/portfolio/:portfolioId/summary', holdingController.getPortfolioHoldingSummary);
 
 // 理财产品相关路由 (兼容旧API)

@@ -101,7 +101,7 @@ export class MultiCurrencyCashService {
       brokerName: row.broker_name,
       portfolioName: row.portfolio_name,
       portfolioBaseCurrency: row.portfolio_base_currency,
-      currencyBalances: row.currency_balances || [],
+      currencyBalances: Array.isArray(row.currency_balances) ? row.currency_balances : (row.currency_balances ? JSON.parse(row.currency_balances) : []),
       currencyCount: parseInt(row.currency_count) || 0,
       mainCurrencyBalance: parseFloat(row.main_currency_balance) || 0,
       mainCurrency: row.main_currency

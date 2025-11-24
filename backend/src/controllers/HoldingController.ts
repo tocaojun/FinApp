@@ -479,4 +479,41 @@ export class HoldingController {
       });
     }
   };
+
+  // 获取投资组合的所有持仓（包含现金）
+  getHoldingsWithCashByPortfolio = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const portfolioId = req.params.portfolioId || req.query.portfolioId as string;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          message: 'User not authenticated'
+        });
+        return;
+      }
+
+      if (!portfolioId) {
+        res.status(400).json({
+          success: false,
+          message: 'Portfolio ID is required'
+        });
+        return;
+      }
+
+      const holdings = await this.holdingService.getHoldingsWithCashByPortfolio(userId, portfolioId);
+      
+      res.status(200).json({
+        success: true,
+        data: holdings
+      });
+    } catch (error) {
+      console.error('Error getting holdings with cash by portfolio:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get holdings with cash'
+      });
+    }
+  };
 }

@@ -1,5 +1,6 @@
 import { databaseService } from './DatabaseService';
 import { ExchangeRateService } from './ExchangeRateService';
+import { MultiCurrencyCashService } from './MultiCurrencyCashService';
 
 export interface Holding {
   id: string;
@@ -510,5 +511,101 @@ export class HoldingService {
       assetCount: holdings.length,
       currency: holdings[0].portfolioCurrency || 'CNY'
     };
+  }
+
+  // 获取投资组合的所有持仓（包含现金）
+  async getHoldingsWithCashByPortfolio(userId: string, portfolioId: string): Promise<Holding[]> {
+    console.log(`[HoldingService] Getting holdings with cash for user ${userId}, portfolio ${portfolioId}`);
+    
+    // 1. 获取常规投资持仓
+    const investmentHoldings = await this.getHoldingsByPortfolio(userId, portfolioId);
+    console.log(`[HoldingService] Found ${investmentHoldings.length} investment holdings`);
+    
+    // 2. 获取多币种现金余额
+    const multiCurrencyCashService = new MultiCurrencyCashService(databaseService);
+    const cashSummary = await multiCurrencyCashService.getAccountCashSummary(userId, portfolioId);
+    console.log(`[HoldingService] Found ${cashSummary.length} cash accounts`);
+    
+    // 3. 获取投资组合基础币种
+    const portfolioCheck = await databaseService.prisma.$queryRaw<Array<{base_currency: string}>>`
+      SELECT base_currency FROM portfolios WHERE id = ${portfolioId}::uuid AND user_id = ${userId}::uuid
+    `;
+    const portfolioCurrency = (portfolioCheck && portfolioCheck[0]?.base_currency) || 'CNY';
+    console.log(`[HoldingService] Portfolio currency: ${portfolioCurrency}`);
+    
+    // 4. 将现金余额转换为持仓格式
+    const cashHoldings: Holding[] = [];
+    
+    for (const account of cashSummary) {
+      console.log(`[HoldingService] Processing account ${account.tradingAccountId} with ${account.currencyBalances.length} currencies`);
+      console.log(`[HoldingService] Raw currencyBalances:`, JSON.stringify(account.currencyBalances, null, 2));
+      
+      for (const currencyBalance of account.currencyBalances) {
+        console.log(`[HoldingService] Processing ${currencyBalance.currency} balance:`, JSON.stringify(currencyBalance, null, 2));
+        
+        // 处理数据库字段名和接口字段名的差异
+        const cashBalance = (currencyBalance as any).cash_balance || currencyBalance.cashBalance || 0;
+        
+        if (cashBalance > 0) {
+          // 获取汇率
+          let exchangeRate = 1.0;
+          if (currencyBalance.currency !== portfolioCurrency) {
+            try {
+              const rateData = await this.exchangeRateService.getLatestRate(
+                currencyBalance.currency, 
+                portfolioCurrency
+              );
+              if (rateData) {
+                exchangeRate = rateData.rate;
+              }
+            } catch (error) {
+              console.warn(`Failed to get exchange rate for ${currencyBalance.currency}/${portfolioCurrency}:`, error);
+            }
+          }
+          
+          const convertedValue = cashBalance * exchangeRate;
+          
+          // 创建现金"持仓"记录
+          const cashHolding: Holding = {
+            id: `cash-${account.tradingAccountId}-${currencyBalance.currency}`,
+            portfolioId: portfolioId,
+            tradingAccountId: account.tradingAccountId,
+            assetId: `cash-${currencyBalance.currency}`,
+            assetSymbol: currencyBalance.currency,
+            assetName: `${currencyBalance.currency} 现金`,
+            assetType: '现金',
+            quantity: cashBalance,
+            averageCost: 1.0, // 现金的成本价为1
+            totalCost: cashBalance,
+            currentPrice: 1.0, // 现金的当前价格为1
+            marketValue: cashBalance,
+            unrealizedPnL: 0, // 现金没有未实现盈亏
+            unrealizedPnLPercent: 0,
+            currency: currencyBalance.currency,
+            portfolioCurrency: portfolioCurrency,
+            exchangeRate: exchangeRate,
+            convertedMarketValue: convertedValue,
+            convertedTotalCost: convertedValue,
+            convertedUnrealizedPnL: 0,
+            firstPurchaseDate: undefined,
+            lastTransactionDate: (currencyBalance as any).last_updated || currencyBalance.lastUpdated,
+            isActive: true,
+            createdAt: (currencyBalance as any).last_updated || currencyBalance.lastUpdated,
+            updatedAt: (currencyBalance as any).last_updated || currencyBalance.lastUpdated
+          };
+          
+          cashHoldings.push(cashHolding);
+          console.log(`[HoldingService] Added cash holding: ${currencyBalance.currency} ${cashBalance}`);
+        }
+      }
+    }
+    
+    console.log(`[HoldingService] Created ${cashHoldings.length} cash holdings`);
+    
+    // 5. 合并投资持仓和现金持仓
+    const allHoldings = [...investmentHoldings, ...cashHoldings];
+    console.log(`[HoldingService] Total holdings: ${allHoldings.length} (${investmentHoldings.length} investments + ${cashHoldings.length} cash)`);
+    
+    return allHoldings;
   }
 }

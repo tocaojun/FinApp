@@ -68,8 +68,8 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
   const loadHoldings = async () => {
     setLoading(true);
     try {
-      // 获取持仓数据
-      const data = await HoldingService.getHoldingsByPortfolio(portfolioId);
+      // 使用新的API获取包含现金的持仓数据
+      const data = await HoldingService.getHoldingsWithCashByPortfolio(portfolioId);
       
       // 转换数据格式以匹配组件需要的类型
       const convertedHoldings: Holding[] = data.map(holding => ({
@@ -163,7 +163,8 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
       'FUND': { color: 'green', text: '基金' },
       'BOND': { color: 'orange', text: '债券' },
       'CRYPTO': { color: 'purple', text: '加密货币' },
-      'OPTION': { color: 'red', text: '期权' }
+      'OPTION': { color: 'red', text: '期权' },
+      '现金': { color: 'gold', text: '现金' }
     };
     const config = typeMap[type as keyof typeof typeMap] || { color: 'default', text: type };
     return <Tag color={config.color}>{config.text}</Tag>;
@@ -263,7 +264,8 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
         { text: '基金', value: 'FUND' },
         { text: '债券', value: 'BOND' },
         { text: '加密货币', value: 'CRYPTO' },
-        { text: '期权', value: 'OPTION' }
+        { text: '期权', value: 'OPTION' },
+        { text: '现金', value: '现金' }
       ],
       filteredValue: assetTypeFilter ? [assetTypeFilter] : null,
       onFilter: (value, record) => record.assetType === value
@@ -406,6 +408,7 @@ const HoldingsTable: React.FC<HoldingsTableProps> = ({
             <Option value="BOND">债券</Option>
             <Option value="CRYPTO">加密货币</Option>
             <Option value="OPTION">期权</Option>
+            <Option value="现金">现金</Option>
           </Select>
         </Space>
       </div>

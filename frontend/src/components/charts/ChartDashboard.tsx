@@ -16,7 +16,7 @@ import LiquidityDistributionChart from './LiquidityDistributionChart';
 import IRRAnalysisChart from './IRRAnalysisChart';
 import RiskMetricsChart from './RiskMetricsChart';
 import InteractiveChartWrapper from './InteractiveChartWrapper';
-import { getPortfolioSummary, getAllPortfoliosSummary, getPortfolioHoldings, convertHoldingsToChartData, generateLiquidityData } from '../../services/portfolioApi';
+import { getPortfolioSummary, getAllPortfoliosSummary, getPortfolioHoldings, getPortfolioBalanceHistory, convertHoldingsToChartData, generateLiquidityData, convertBalanceHistoryToReturnTrend } from '../../services/portfolioApi';
 import { apiRequest } from '../../services/api';
 
 const { Title, Text } = Typography;
@@ -79,6 +79,18 @@ interface ChartDataType {
   }>;
 }
 
+// 时间段转换函数
+const getTimeFrameDays = (timeFrame: '1M' | '3M' | '6M' | '1Y' | 'ALL'): number => {
+  switch (timeFrame) {
+    case '1M': return 30;
+    case '3M': return 90;
+    case '6M': return 180;
+    case '1Y': return 365;
+    case 'ALL': return 3650; // 10年
+    default: return 30;
+  }
+};
+
 // 生成默认的空数据结构
 const getEmptyData = (): ChartDataType => ({
   portfolioData: [],
@@ -133,6 +145,9 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
       try {
         setLoading(true);
         
+        // 根据时间段计算天数
+        const days = getTimeFrameDays(timeFrame);
+        
         if (!portfolioId) {
           // 如果没有指定投资组合ID，加载所有投资组合的汇总数据
           try {
@@ -183,9 +198,41 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
                 // 生成流动性分布数据
                 const liquidityData = generateLiquidityData(allHoldings);
 
+                // 获取所有投资组合的余额历史数据并合并（使用动态天数）
+                let allReturnTrendData: any[] = [];
+                try {
+                  const balanceHistoryPromises = portfoliosList.map(p => 
+                    getPortfolioBalanceHistory(p.id, days).catch(err => {
+                      console.error(`Failed to load balance history for portfolio ${p.id}:`, err);
+                      return [];
+                    })
+                  );
+                  
+                  const allBalanceHistories = await Promise.all(balanceHistoryPromises);
+                  
+                  // 合并所有投资组合的余额历史数据
+                  const mergedBalanceHistory = new Map<string, number>();
+                  allBalanceHistories.forEach(history => {
+                    history.forEach(item => {
+                      const currentTotal = mergedBalanceHistory.get(item.date) || 0;
+                      mergedBalanceHistory.set(item.date, currentTotal + item.total_balance);
+                    });
+                  });
+                  
+                  // 转换为数组格式
+                  const mergedHistory = Array.from(mergedBalanceHistory.entries())
+                    .map(([date, total_balance]) => ({ date, total_balance, transaction_count: 0 }))
+                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                  
+                  allReturnTrendData = convertBalanceHistoryToReturnTrend(mergedHistory);
+                } catch (error) {
+                  console.error('Failed to load balance history for all portfolios:', error);
+                  allReturnTrendData = [];
+                }
+
                 setChartData({
                   portfolioData,
-                  returnTrendData: [],
+                  returnTrendData: allReturnTrendData,
                   liquidityData,
                   irrData: {
                     cashFlows: [],
@@ -207,10 +254,11 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
             setChartData(getEmptyData());
           }
         } else {
-          // 加载指定投资组合的数据
-          const [summary, holdings] = await Promise.all([
+          // 加载指定投资组合的数据（使用动态天数）
+          const [summary, holdings, balanceHistory] = await Promise.all([
             getPortfolioSummary(portfolioId),
-            getPortfolioHoldings(portfolioId)
+            getPortfolioHoldings(portfolioId),
+            getPortfolioBalanceHistory(portfolioId, days) // 使用动态天数
           ]);
 
           // 转换持仓数据为图表数据
@@ -226,9 +274,12 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
           // 生成流动性分布数据
           const liquidityData = generateLiquidityData(holdings);
 
+          // 转换余额历史为收益率趋势数据
+          const returnTrendData = convertBalanceHistoryToReturnTrend(balanceHistory);
+
           setChartData({
             portfolioData,
-            returnTrendData: summary.performanceData || [],
+            returnTrendData, // 使用实际的收益率趋势数据
             liquidityData,
             irrData: {
               cashFlows: [],
@@ -250,7 +301,7 @@ const ChartDashboard: React.FC<ChartDashboardProps> = ({
     };
 
     loadPortfolioData();
-  }, [portfolioId]);
+  }, [portfolioId, timeFrame]); // 添加 timeFrame 作为依赖项
 
 
 

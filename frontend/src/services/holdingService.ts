@@ -56,6 +56,12 @@ export class HoldingService {
     return response.data;
   }
 
+  // 获取投资组合的所有持仓（包含现金）
+  static async getHoldingsWithCashByPortfolio(portfolioId: string): Promise<Holding[]> {
+    const response = await apiGet<ApiResponse<Holding[]>>(`/holdings/portfolio/${portfolioId}/with-cash`);
+    return response.data;
+  }
+
   // 获取单个持仓详情
   static async getHoldingById(holdingId: string): Promise<Holding> {
     const response = await apiGet<ApiResponse<Holding>>(`/holdings/${holdingId}`);

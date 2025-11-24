@@ -842,18 +842,22 @@ export class PositionService {
     const query = `
       SELECT 
         DATE(bh.created_at) as date,
-        SUM(bh.balance) as total_balance,
-        COUNT(*) as transaction_count
+        SUM(bh.balance)::numeric as total_balance,
+        COUNT(*)::integer as transaction_count
       FROM finapp.balance_history bh
       JOIN finapp.positions p ON bh.position_id = p.id
-      WHERE p.portfolio_id = $1
+      WHERE p.portfolio_id = $1::uuid
         AND bh.created_at >= NOW() - INTERVAL '${days} days'
       GROUP BY DATE(bh.created_at)
       ORDER BY date DESC
     `;
     
     const result = await databaseService.executeRawQuery(query, [portfolioId]);
-    return Array.isArray(result) ? result : [];
+    return Array.isArray(result) ? result.map(row => ({
+      date: row.date,
+      total_balance: parseFloat(row.total_balance) || 0,
+      transaction_count: parseInt(row.transaction_count) || 0
+    })) : [];
   }
 
   async deleteBalanceHistoryRecord(recordId: string, userId: string): Promise<void> {
