@@ -44,12 +44,12 @@ else
     exit 1
 fi
 
-# 3. 检查生产数据库是否存在
+# 3. 检查生产数据库是否存在（检查 finapp_test）
 echo ""
 echo "🔍 检查生产数据库..."
-DB_EXISTS=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='finapp_production'")
+DB_EXISTS=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='finapp_test'")
 if [ "$DB_EXISTS" = "1" ]; then
-    echo -e "${GREEN}✅ 数据库 finapp_production 已存在${NC}"
+    echo -e "${GREEN}✅ 数据库 finapp_test 已存在${NC}"
 else
     echo -e "${YELLOW}⚠️  数据库不存在，请先运行数据库迁移脚本${NC}"
     echo "   sudo bash scripts/production-restore-guide.sh"
@@ -60,6 +60,9 @@ fi
 echo ""
 echo "🔧 启动后端服务..."
 cd "$(dirname "$0")/.." || exit 1
+
+# 创建日志目录
+mkdir -p logs
 
 # 检查后端目录
 if [ ! -d "backend" ]; then
@@ -88,11 +91,13 @@ if [ ! -f ".env.production" ]; then
     fi
 fi
 
-# 更新生产环境配置
-echo "🔧 更新生产环境配置..."
-sed -i 's/finapp_test/finapp_production/g' .env.production
+# 更新生产环境配置（注释掉自动替换数据库名的逻辑）
+echo "🔧 检查生产环境配置..."
+# 不再自动修改数据库名，保持用户配置
+# sed -i 's/finapp_test/finapp_production/g' .env.production
 sed -i 's/NODE_ENV="development"/NODE_ENV="production"/g' .env.production
-sed -i 's/ENABLE_WEALTH_MONITORING=false/ENABLE_WEALTH_MONITORING=true/g' .env.production
+# 保持 ENABLE_WEALTH_MONITORING 的原有配置，不强制修改
+# sed -i 's/ENABLE_WEALTH_MONITORING=false/ENABLE_WEALTH_MONITORING=true/g' .env.production
 
 # 构建生产版本
 echo "📦 构建生产版本..."
@@ -104,12 +109,20 @@ fi
 
 # 停止旧的后端进程
 echo "🛑 停止旧的后端进程..."
+if [ -f ../logs/backend.pid ]; then
+    OLD_PID=$(cat ../logs/backend.pid 2>/dev/null)
+    if [ -n "$OLD_PID" ] && kill -0 $OLD_PID 2>/dev/null; then
+        kill $OLD_PID
+        echo "已停止旧进程 (PID: $OLD_PID)"
+    fi
+    rm ../logs/backend.pid
+fi
 pkill -f "node.*backend" || true
 sleep 2
 
 # 启动后端服务
 echo "🚀 启动后端服务..."
-NODE_ENV=production nohup npm start > ../logs/backend.log 2>&1 &
+NODE_ENV=production nohup node dist/server.js > ../logs/backend.log 2>&1 &
 BACKEND_PID=$!
 echo $BACKEND_PID > ../logs/backend.pid
 echo -e "${GREEN}✅ 后端服务已启动 (PID: $BACKEND_PID)${NC}"
@@ -174,7 +187,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "   🌐 前端应用:    http://localhost:3001"
 echo "   🔧 后端API:     http://localhost:8000"
 echo "   ❤️  健康检查:    http://localhost:8000/health"
-echo "   📊 数据库:      postgresql://localhost:5432/finapp_production"
+echo "   📊 数据库:      postgresql://localhost:5432/finapp_test"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "📊 服务状态："
@@ -208,5 +221,5 @@ echo "   查看后端日志: tail -f logs/backend.log"
 echo "   查看前端日志: tail -f logs/frontend.log"
 echo "   停止所有服务: bash scripts/stop-all-services-ubuntu.sh"
 echo "   重启后端:     bash scripts/restart-backend-ubuntu.sh"
-echo "   数据库连接:   sudo -u postgres psql -d finapp_production"
+echo "   数据库连接:   sudo -u postgres psql -d finapp_test"
 echo ""

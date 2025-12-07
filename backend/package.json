@@ -52,6 +52,7 @@
     "express-validator": "^7.2.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
+    "module-alias": "^2.2.3",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "node-cache": "^5.1.2",
@@ -62,5 +63,17 @@
     "swagger-ui-express": "^5.0.1",
     "uuid": "^13.0.0",
     "xlsx": "^0.18.5"
+  },
+  "_moduleAliases": {
+    "@": "./dist",
+    "@/config": "./dist/config",
+    "@/controllers": "./dist/controllers",
+    "@/services": "./dist/services",
+    "@/models": "./dist/models",
+    "@/middleware": "./dist/middleware",
+    "@/utils": "./dist/utils",
+    "@/types": "./dist/types",
+    "@/routes": "./dist/routes",
+    "@/jobs": "./dist/jobs"
   }
 }

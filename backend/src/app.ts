@@ -5,7 +5,6 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
-import dotenv from 'dotenv';
 
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
@@ -35,8 +34,8 @@ import { exchangeRateUpdateService } from './services/ExchangeRateUpdateService'
 import { wealthMonitoringService } from './jobs/wealthMonitoring';
 import { logger } from './utils/logger';
 
-// 加载环境变量
-dotenv.config();
+// 环境变量已在 server.ts 中加载，此处不再重复加载
+// dotenv.config();
 
 class App {
   public app: express.Application;

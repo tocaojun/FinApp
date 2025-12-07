@@ -1,3 +1,15 @@
+// 优先加载环境变量
+import dotenv from 'dotenv';
+import path from 'path';
+
+// 确保在项目根目录加载 .env
+dotenv.config({ path: path.join(__dirname, '../.env') });
+
+// 生产环境路径别名支持
+if (process.env.NODE_ENV === 'production') {
+  require('module-alias/register');
+}
+
 import App from './app';
 import { logger } from './utils/logger';
 
