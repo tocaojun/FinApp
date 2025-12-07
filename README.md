@@ -2,6 +2,79 @@
 
 一个功能完整的个人资产管理应用，支持多币种投资组合管理、交易记录、IRR分析和流动性分析。
 
+## ✨ 最新更新
+
+### 🎉 富途证券数据源集成 (2025-12-02)
+
+✅ **同步功能已上线!** 成功实现香港股票历史价格同步!
+
+**核心功能**:
+- ✅ 香港股票历史价格同步 (通过Python SDK)
+- ✅ 日K线数据获取 (最多1000天)
+- ✅ 自动去重和更新
+- ✅ 批量同步所有香港股票
+
+**快速开始**:
+```bash
+# 1. 安装依赖
+./scripts/install-futu-deps.sh
+
+# 2. 启动富途OpenD程序并登录
+
+# 3. 同步数据 (最近30天)
+python3 scripts/futu-sync-prices.py 30
+```
+
+**验证同步结果**:
+```sql
+SELECT a.symbol, a.name, COUNT(*) as prices, MAX(ap.price_date) as latest
+FROM finapp.asset_prices ap
+JOIN finapp.assets a ON ap.asset_id = a.id
+WHERE ap.price_source = 'FUTU_API'
+GROUP BY a.symbol, a.name;
+```
+
+**同步成功示例**:
+```
+ symbol |    name     | prices | latest
+--------+-------------+--------+------------
+ 00700  | 腾讯控股    |     22 | 2025-12-02
+ 03690  | 美团-W      |     22 | 2025-12-02
+ 06186  | 中国飞鹤    |     22 | 2025-12-02
+ 09618  | 京东集团-SW |     22 | 2025-12-02
+```
+
+**详细文档**:
+- [富途同步使用指南](docs/FUTU_SYNC_GUIDE.md) - **推荐阅读**
+- [富途集成总结](docs/FUTU_INTEGRATION_SUMMARY.md)
+- [富途数据源指南](docs/FUTU_DATA_SOURCE_GUIDE.md)
+
+**重要提示**:
+⚠️ 富途OpenD使用**TCP协议**而非HTTP,需要通过Python SDK连接
+
+### 🔧 价格同步修复 (2025-12-02)
+
+**已修复的问题**:
+1. ✅ **香港股票同步显示0条记录** - 移除了不存在的 `updated_at` 字段引用
+2. ✅ **中国ETF同步失败** - 修正了富途市场代码映射逻辑
+   - 上海交易所: `6xxxxx` (A股), `51xxxx` (ETF), `9xxxxx` (债券) → `SH.xxxxxx`
+   - 深圳交易所: `0xxxxx`, `3xxxxx` (股票), `15xxxx` (ETF) → `SZ.xxxxxx`
+
+**同步验证**:
+```
+今日成功同步价格记录:
+- 00700  腾讯控股        7条
+- 03690  美团-W          7条
+- 06186  中国飞鹤        7条
+- 09618  京东集团-SW     7条
+- 159338 中证500         6条
+- 515310 沪深300指数ETF  6条
+```
+
+详细修复文档: [docs/PRICE_SYNC_FIXES_20251202.md](docs/PRICE_SYNC_FIXES_20251202.md)
+
+---
+
 ## 🚀 快速开始
 
 ### 系统要求

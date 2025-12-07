@@ -979,6 +979,8 @@ export class PriceSyncService {
         return await this.fetchFromTushare(dataSource, asset, daysBack);
       case 'sina':
         return await this.fetchFromSina(asset, daysBack);
+      case 'futu':
+        return await this.fetchFromFutu(dataSource, asset, daysBack);
       default:
         throw new Error(`Unsupported provider: ${dataSource.provider}`);
     }
@@ -1268,21 +1270,185 @@ export class PriceSyncService {
     return await this.fetchFromYahooFinance(asset, daysBack);
   }
 
+  private async fetchFromFutu(
+    dataSource: DataSource,
+    asset: any,
+    daysBack: number
+  ): Promise<any[]> {
+    // 富途OpenAPI数据源 - 通过Python SDK调用
+    // 由于富途OpenD使用TCP协议而非HTTP，我们需要调用Python脚本
+    try {
+      console.log(`[Futu] Fetching historical data for ${asset.symbol} using Python SDK`);
+      
+      // 构建富途格式的股票代码
+      let futuSymbol = asset.symbol;
+      
+      // 如果资产有国家信息，构建完整的富途代码格式 (MARKET.SYMBOL)
+      if (asset.country_id) {
+        const countryResult = await this.db.prisma.$queryRaw`
+          SELECT code FROM finapp.countries WHERE id = ${asset.country_id}::uuid
+        ` as any[];
+        
+        if (countryResult.length > 0) {
+          const countryCode = countryResult[0].code;
+          // 如果symbol还没有包含市场前缀，添加它
+          if (!asset.symbol.includes('.')) {
+            // 富途API需要市场代码，而不是国家代码
+            // 对于中国资产，需要区分上海和深圳交易所
+            if (countryCode === 'CN') {
+              // 中国资产：根据股票代码判断市场
+              // 上海交易所 (SH):
+              // - 6xxxxx: 股票 (A股)
+              // - 51xxxx: ETF (如515310沪深300ETF)
+              // - 9xxxxx: 债券
+              // 深圳交易所 (SZ):
+              // - 0xxxxx: 股票 (主板)
+              // - 3xxxxx: 股票 (创业板)
+              // - 15xxxx: ETF (如159338中证500ETF)
+              // - 1xxxxx: 基金 (其他1开头)
+              // - 5xxxxx: ETF/基金 (其他5开头)
+              const code = asset.symbol;
+              
+              if (code.startsWith('6')) {
+                // 6xxxxx → 上海股票
+                futuSymbol = `SH.${asset.symbol}`;
+              } else if (code.startsWith('51')) {
+                // 51xxxx → 上海ETF
+                futuSymbol = `SH.${asset.symbol}`;
+              } else if (code.startsWith('9')) {
+                // 9xxxxx → 上海债券
+                futuSymbol = `SH.${asset.symbol}`;
+              } else if (code.startsWith('0') || code.startsWith('3')) {
+                // 0xxxxx, 3xxxxx → 深圳股票
+                futuSymbol = `SZ.${asset.symbol}`;
+              } else if (code.startsWith('15')) {
+                // 15xxxx → 深圳ETF
+                futuSymbol = `SZ.${asset.symbol}`;
+              } else if (code.startsWith('1') || code.startsWith('5')) {
+                // 其他1xxxxx, 5xxxxx → 深圳基金/ETF (默认)
+                futuSymbol = `SZ.${asset.symbol}`;
+              } else {
+                // 默认使用深圳
+                futuSymbol = `SZ.${asset.symbol}`;
+              }
+            } else {
+              // 其他国家直接使用国家代码作为市场代码
+              futuSymbol = `${countryCode}.${asset.symbol}`;
+            }
+          }
+        }
+      }
+      
+      console.log(`[Futu] Calling Python script for ${futuSymbol}, daysBack: ${daysBack}`);
+      
+      // 调用Python脚本同步单个资产
+      const { execSync } = require('child_process');
+      const path = require('path');
+      
+      // 脚本路径
+      const scriptPath = path.join(__dirname, '..', '..', '..', 'scripts', 'futu-sync-single.py');
+      
+      // 构建命令
+      const command = `python3 "${scriptPath}" "${asset.id}" "${futuSymbol}" ${daysBack}`;
+      
+      console.log(`[Futu] Executing: ${command}`);
+      
+      // 执行脚本，最多等待60秒
+      let output: string;
+      try {
+        output = execSync(command, {
+          encoding: 'utf-8',
+          timeout: 60000,
+          maxBuffer: 10 * 1024 * 1024, // 10MB
+        });
+      } catch (execError: any) {
+        console.error(`[Futu] Python script execution failed:`, execError.message);
+        
+        if (execError.stderr) {
+          console.error(`[Futu] stderr:`, execError.stderr);
+        }
+        
+        // 检查是否是连接错误
+        if (execError.stderr && execError.stderr.includes('ECONNREFUSED')) {
+          throw new Error(`无法连接到富途OpenD服务。请确保OpenD已启动并运行在端口11111。`);
+        }
+        
+        throw new Error(`富途Python脚本执行失败: ${execError.message}`);
+      }
+      
+      console.log(`[Futu] Python script output (first 500 chars):`, output.substring(0, 500));
+      
+      // 解析Python脚本的JSON输出
+      // 由于富途SDK会输出日志，我们需要找到包含JSON的行（以 { 开头）
+      let result: { success: boolean; data?: any[]; error?: string; message?: string };
+      try {
+        const lines = output.trim().split('\n');
+        let jsonLine: string | null = null;
+        
+        // 找到第一个以 { 开头的行
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('{')) {
+            jsonLine = trimmed;
+            break;
+          }
+        }
+        
+        if (!jsonLine) {
+          console.error(`[Futu] No JSON line found in output`);
+          console.error(`[Futu] Full output:`, output);
+          throw new Error('Python脚本未返回有效的JSON输出');
+        }
+        
+        result = JSON.parse(jsonLine);
+      } catch (parseError) {
+        console.error(`[Futu] Failed to parse Python script output:`, parseError);
+        console.error(`[Futu] Raw output:`, output);
+        throw new Error(`无法解析Python脚本输出: ${parseError instanceof Error ? parseError.message : '未知错误'}`);
+      }
+      
+      if (!result.success) {
+        console.error(`[Futu] Python script reported failure:`, result.error);
+        throw new Error(result.error || '富途数据同步失败');
+      }
+      
+      const prices = result.data || [];
+      console.log(`[Futu] Successfully fetched ${prices.length} price records for ${futuSymbol}`);
+      
+      // 价格数据已经由Python脚本直接保存到数据库
+      // 这里返回空数组，表示价格已处理（避免重复保存）
+      return [];
+      
+    } catch (error: any) {
+      const errorMsg = error.message || 'Unknown error';
+      
+      console.error(`[Futu] Error fetching data for ${asset.symbol}:`, {
+        message: errorMsg,
+        symbol: asset.symbol,
+      });
+      
+      throw new Error(`Futu同步失败 (${asset.symbol}): ${errorMsg}`);
+    }
+  }
+
   private async savePriceData(
     assetId: string,
     price: any,
     overwrite: boolean
   ): Promise<void> {
+    // 确定 price_source 值
+    const priceSource = price.source || 'API';
+    
     if (overwrite) {
-      // 使用 UPSERT
+      // 使用 UPSERT (注意: asset_prices 表没有 updated_at 字段)
       await this.db.prisma.$queryRaw`
         INSERT INTO finapp.asset_prices (
           asset_id, price_date, open_price, high_price, low_price, 
-          close_price, volume, currency, data_source
+          close_price, volume, currency, data_source, price_source
         ) VALUES (
           ${assetId}::uuid, ${price.date}::date, ${price.open || null},
           ${price.high || null}, ${price.low || null}, ${price.close},
-          ${price.volume || null}, ${price.currency || 'USD'}, 'api'
+          ${price.volume || null}, ${price.currency || 'USD'}, 'api', ${priceSource}
         )
         ON CONFLICT (asset_id, price_date) 
         DO UPDATE SET
@@ -1292,18 +1458,19 @@ export class PriceSyncService {
           close_price = EXCLUDED.close_price,
           volume = EXCLUDED.volume,
           currency = EXCLUDED.currency,
-          data_source = EXCLUDED.data_source
+          data_source = EXCLUDED.data_source,
+          price_source = EXCLUDED.price_source
       `;
     } else {
       // 只插入不存在的记录
       await this.db.prisma.$queryRaw`
         INSERT INTO finapp.asset_prices (
           asset_id, price_date, open_price, high_price, low_price, 
-          close_price, volume, currency, data_source
+          close_price, volume, currency, data_source, price_source
         ) VALUES (
           ${assetId}::uuid, ${price.date}::date, ${price.open || null},
           ${price.high || null}, ${price.low || null}, ${price.close},
-          ${price.volume || null}, ${price.currency || 'USD'}, 'api'
+          ${price.volume || null}, ${price.currency || 'USD'}, 'api', ${priceSource}
         )
         ON CONFLICT (asset_id, price_date) DO NOTHING
       `;
