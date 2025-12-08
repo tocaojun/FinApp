@@ -30,7 +30,7 @@ import { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import AddDepositProductModal from './AddDepositProductModal';
 import EditDepositProductModal from './EditDepositProductModal';
-import { PortfolioService } from '../../services/PortfolioService';
+import { PortfolioService } from '../../services/portfolioService';
 
 const { Search } = Input;
 const { Option } = Select;
