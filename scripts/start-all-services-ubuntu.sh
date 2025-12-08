@@ -235,12 +235,12 @@ sleep 2
 # 使用 serve 或 vite preview 提供前端服务
 echo "🚀 启动前端服务..."
 if command -v serve &> /dev/null; then
-    nohup serve -s dist -l 3001 > ../logs/frontend.log 2>&1 &
+    nohup serve -s dist -l 3001 -L > ../logs/frontend.log 2>&1 &
     FRONTEND_PID=$!
     echo $FRONTEND_PID > ../logs/frontend.pid
     echo -e "${GREEN}✅ 前端服务已启动 (serve, PID: $FRONTEND_PID)${NC}"
 else
-    nohup npm run preview -- --port 3001 --host > ../logs/frontend.log 2>&1 &
+    nohup npm run preview -- --port 3001 --host 0.0.0.0 > ../logs/frontend.log 2>&1 &
     FRONTEND_PID=$!
     echo $FRONTEND_PID > ../logs/frontend.pid
     echo -e "${GREEN}✅ 前端服务已启动 (vite preview, PID: $FRONTEND_PID)${NC}"
@@ -253,9 +253,9 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "📍 服务访问地址："
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "   🌐 前端应用:    http://localhost:3001"
-echo "   🔧 后端API:     http://localhost:8000"
-echo "   ❤️  健康检查:    http://localhost:8000/health"
+echo "   🌐 前端应用:    http://apollo123.cloud:3001"
+echo "   🔧 后端API:     http://apollo123.cloud:8000"
+echo "   ❤️  健康检查:    http://apollo123.cloud:8000/health"
 echo "   📊 数据库:      postgresql://localhost:5432/finapp_production"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

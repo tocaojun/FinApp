@@ -17,6 +17,7 @@ import App from './app';
 import { logger } from './utils/logger';
 
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || 'localhost';
 
 async function startServer() {
   try {
@@ -26,10 +27,10 @@ async function startServer() {
     await app.initialize();
     
     // 启动服务器
-    const server = app.getApp().listen(PORT, () => {
-      logger.info(`🚀 FinApp Backend Server is running on port ${PORT}`);
-      logger.info(`📚 API Documentation: http://localhost:${PORT}/api/docs`);
-      logger.info(`🏥 Health Check: http://localhost:${PORT}/health`);
+    const server = app.getApp().listen(PORT, HOST, () => {
+      logger.info(`🚀 FinApp Backend Server is running on ${HOST}:${PORT}`);
+      logger.info(`📚 API Documentation: http://${HOST}:${PORT}/api/docs`);
+      logger.info(`🏥 Health Check: http://${HOST}:${PORT}/health`);
       logger.info(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
 
