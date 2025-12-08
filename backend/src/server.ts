@@ -2,8 +2,11 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-// 确保在项目根目录加载 .env
-dotenv.config({ path: path.join(__dirname, '../.env') });
+// 根据 NODE_ENV 加载对应的环境文件
+const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env';
+const envPath = path.join(__dirname, `../${envFile}`);
+console.log(`[Server] 加载环境文件: ${envPath} (NODE_ENV=${process.env.NODE_ENV})`);
+dotenv.config({ path: envPath });
 
 // 生产环境路径别名支持
 if (process.env.NODE_ENV === 'production') {
