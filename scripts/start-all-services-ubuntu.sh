@@ -56,12 +56,12 @@ else
     exit 1
 fi
 
-# 3. 检查生产数据库是否存在（检查 finapp_test）
+# 3. 检查生产数据库是否存在（检查 finapp_production）
 echo ""
 echo "🔍 检查生产数据库..."
-DB_EXISTS=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='finapp_test'")
+DB_EXISTS=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='finapp_production'")
 if [ "$DB_EXISTS" = "1" ]; then
-    echo -e "${GREEN}✅ 数据库 finapp_test 已存在${NC}"
+    echo -e "${GREEN}✅ 数据库 finapp_production 已存在${NC}"
 else
     echo -e "${YELLOW}⚠️  数据库不存在，请先运行数据库迁移脚本${NC}"
     echo "   sudo bash scripts/production-restore-guide.sh"
@@ -256,7 +256,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "   🌐 前端应用:    http://localhost:3001"
 echo "   🔧 后端API:     http://localhost:8000"
 echo "   ❤️  健康检查:    http://localhost:8000/health"
-echo "   📊 数据库:      postgresql://localhost:5432/finapp_test"
+echo "   📊 数据库:      postgresql://localhost:5432/finapp_production"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "📊 服务状态："
@@ -292,5 +292,5 @@ echo "   查看后端构建日志: tail -f logs/backend-build.log"
 echo "   查看前端构建日志: tail -f logs/frontend-build.log"
 echo "   停止所有服务:     bash scripts/stop-all-services-ubuntu.sh"
 echo "   重启后端:         bash scripts/restart-backend-ubuntu.sh"
-echo "   数据库连接:       sudo -u postgres psql -d finapp_test"
+echo "   数据库连接:       sudo -u postgres psql -d finapp_production"
 echo ""
