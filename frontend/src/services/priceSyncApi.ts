@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 
-// 使用相对路径，通过Vite代理访问后端（避免CORS问题）
-const API_BASE_URL = '/api/price-sync';
+// 使用环境变量配置API基础路径
+const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || '/api'}/price-sync`;
 
 // 创建axios实例
 const priceSyncApiClient: AxiosInstance = axios.create({
