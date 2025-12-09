@@ -4,8 +4,8 @@
 
 import axios from 'axios';
 
-// 使用相对路径以利用Vite的代理配置，避免CORS问题
-const API_BASE_URL = '/api';
+// 使用环境变量配置API基础路径
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export interface ImportTransaction {
   date: string;

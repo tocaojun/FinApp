@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = '/api/wealth';
+// 使用环境变量配置API基础路径
+const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || '/api'}/wealth`;
 
 // ============================================
 // 类型定义
