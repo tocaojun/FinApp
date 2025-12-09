@@ -36,6 +36,7 @@ import {
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
+import priceSyncApiClient from '@/services/priceSyncApi';
 
 const { Option } = Select;
 
@@ -141,12 +142,8 @@ const ApiSync: React.FC = () => {
 
   const loadDataSources = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await axios.get('/api/price-sync/data-sources', {
+      const response = await priceSyncApiClient.get('/data-sources', {
         timeout: 3000, // 3秒超时
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
       });
       if (response.data.success) {
         setDataSources(response.data.data);
@@ -163,12 +160,8 @@ const ApiSync: React.FC = () => {
   const loadSyncTasks = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await axios.get('/api/price-sync/tasks', {
+      const response = await priceSyncApiClient.get('/tasks', {
         timeout: 3000, // 3秒超时
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
       });
       if (response.data.success) {
         setSyncTasks(response.data.data);
@@ -186,12 +179,8 @@ const ApiSync: React.FC = () => {
 
   const loadSyncLogs = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await axios.get('/api/price-sync/logs?limit=100', {
+      const response = await priceSyncApiClient.get('/logs?limit=100', {
         timeout: 3000, // 3秒超时
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
       });
       if (response.data.success) {
         setSyncLogs(response.data.data);
@@ -208,7 +197,7 @@ const ApiSync: React.FC = () => {
   const loadAssetTypes = async () => {
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await axios.get('/api/assets/types', {
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL || '/api'}/assets/types`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -227,7 +216,7 @@ const ApiSync: React.FC = () => {
   const loadAssets = async () => {
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await axios.get('/api/assets?limit=1000', {
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL || '/api'}/assets?limit=1000`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -267,10 +256,9 @@ const ApiSync: React.FC = () => {
 
       if (editingTask) {
         // 更新任务
-        const response = await axios.put(
-          `/api/price-sync/tasks/${editingTask.id}`,
-          values,
-          { headers }
+        const response = await priceSyncApiClient.put(
+          `/tasks/${editingTask.id}`,
+          values
         );
         if (response.data.success) {
           message.success('任务更新成功');
@@ -279,7 +267,7 @@ const ApiSync: React.FC = () => {
         }
       } else {
         // 创建任务
-        const response = await axios.post('/api/price-sync/tasks', values, { headers });
+        const response = await priceSyncApiClient.post('/tasks', values);
         if (response.data.success) {
           message.success('任务创建成功');
           setTaskModalVisible(false);
@@ -303,10 +291,7 @@ const ApiSync: React.FC = () => {
       cancelText: '取消',
       onOk: async () => {
         try {
-          const token = localStorage.getItem('auth_token');
-          const response = await axios.delete(`/api/price-sync/tasks/${taskId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
+          const response = await priceSyncApiClient.delete(`/tasks/${taskId}`);
           if (response.data.success) {
             message.success('任务删除成功');
             loadSyncTasks();
@@ -321,10 +306,7 @@ const ApiSync: React.FC = () => {
 
   const handleExecuteTask = async (taskId: string) => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await axios.post(`/api/price-sync/tasks/${taskId}/execute`, {}, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await priceSyncApiClient.post(`/tasks/${taskId}/execute`, {});
       if (response.data.success) {
         message.success('同步任务已启动，请稍后查看执行日志');
         // 5秒后刷新任务列表和日志
