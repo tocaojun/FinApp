@@ -16,7 +16,7 @@ if (process.env.NODE_ENV === 'production') {
 import App from './app';
 import { logger } from './utils/logger';
 
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT || '3000', 10);
 const HOST = process.env.HOST || 'localhost';
 
 async function startServer() {

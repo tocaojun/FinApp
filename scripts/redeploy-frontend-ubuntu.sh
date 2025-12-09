@@ -97,12 +97,15 @@ fi
 
 # 执行构建
 export NODE_OPTIONS="${NODE_MEMORY}"
-if ! npm run build 2>&1 | tee ../logs/frontend-build.log; then
-    echo -e "${RED}❌ 前端构建失败${NC}"
+npm run build 2>&1 | tee ../logs/frontend-build.log
+BUILD_EXIT_CODE=${PIPESTATUS[0]}
+unset NODE_OPTIONS
+
+if [ $BUILD_EXIT_CODE -ne 0 ]; then
+    echo -e "${RED}❌ 前端构建失败 (退出码: $BUILD_EXIT_CODE)${NC}"
     echo "请查看日志: cat logs/frontend-build.log"
     exit 1
 fi
-unset NODE_OPTIONS
 
 # 7. 验证构建产物
 echo ""

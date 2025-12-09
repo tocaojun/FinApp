@@ -113,12 +113,15 @@ echo -e "${BLUE}ℹ️  使用内存配置: NODE_OPTIONS=${NODE_MEMORY}${NC}"
 
 # 执行后端构建
 export NODE_OPTIONS="${NODE_MEMORY}"
-if ! npm run build 2>&1 | tee ../logs/backend-build.log; then
-    echo -e "${RED}❌ 后端构建失败${NC}"
+npm run build 2>&1 | tee ../logs/backend-build.log
+BUILD_EXIT_CODE=${PIPESTATUS[0]}
+unset NODE_OPTIONS
+
+if [ $BUILD_EXIT_CODE -ne 0 ]; then
+    echo -e "${RED}❌ 后端构建失败 (退出码: $BUILD_EXIT_CODE)${NC}"
     echo "请查看日志: cat logs/backend-build.log"
     exit 1
 fi
-unset NODE_OPTIONS
 
 # 验证构建产物
 if [ ! -d "dist" ] || [ -z "$(ls -A dist)" ]; then
@@ -199,12 +202,15 @@ fi
 
 # 执行前端构建，使用内存配置
 export NODE_OPTIONS="${NODE_MEMORY}"
-if ! npm run build 2>&1 | tee ../logs/frontend-build.log; then
-    echo -e "${RED}❌ 前端构建失败${NC}"
+npm run build 2>&1 | tee ../logs/frontend-build.log
+BUILD_EXIT_CODE=${PIPESTATUS[0]}
+unset NODE_OPTIONS
+
+if [ $BUILD_EXIT_CODE -ne 0 ]; then
+    echo -e "${RED}❌ 前端构建失败 (退出码: $BUILD_EXIT_CODE)${NC}"
     echo "请查看日志: cat logs/frontend-build.log"
     exit 1
 fi
-unset NODE_OPTIONS
 
 # 验证构建产物
 if [ ! -d "dist" ] || [ ! -f "dist/index.html" ]; then
