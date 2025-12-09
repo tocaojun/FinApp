@@ -1,5 +1,6 @@
 // API 基础配置
-const API_BASE_URL = '/api';
+// 生产环境使用环境变量指定的完整URL,开发环境使用相对路径(通过Vite代理)
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // Token 刷新队列，防止多个请求同时刷新 token
 let tokenRefreshPromise: Promise<string | null> | null = null;
