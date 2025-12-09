@@ -16,8 +16,9 @@ if [ "$LOG_COUNT" -gt 0 ]; then
             id,
             status,
             TO_CHAR(started_at, 'YYYY-MM-DD HH24:MI:SS') as started_at,
-            records_processed,
-            records_failed
+            total_records,
+            success_count,
+            failed_count
         FROM finapp.price_sync_logs 
         ORDER BY started_at DESC 
         LIMIT 5
