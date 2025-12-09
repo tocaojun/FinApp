@@ -68,14 +68,21 @@ for package in "${REQUIRED_PACKAGES[@]}"; do
             fi
         fi
     else
-        # 其他包使用 pip3 安装
+        # 其他包使用 pip3 安装（支持 Ubuntu 24.04 的外部环境管理）
         if command -v pip3 &> /dev/null; then
-            sudo pip3 install $package
+            # 尝试使用 --break-system-packages 标志（Ubuntu 24.04+）
+            sudo pip3 install $package --break-system-packages 2>/dev/null
             if [ $? -eq 0 ]; then
-                echo -e "${GREEN}✅ $package 安装成功${NC}"
+                echo -e "${GREEN}✅ $package 安装成功 (使用 --break-system-packages)${NC}"
             else
-                echo -e "${RED}❌ $package 安装失败${NC}"
-                INSTALL_FAILED=1
+                # 如果失败，尝试不带标志安装
+                sudo pip3 install $package
+                if [ $? -eq 0 ]; then
+                    echo -e "${GREEN}✅ $package 安装成功${NC}"
+                else
+                    echo -e "${RED}❌ $package 安装失败${NC}"
+                    INSTALL_FAILED=1
+                fi
             fi
         else
             echo -e "${RED}❌ pip3 未安装，无法安装 $package${NC}"
