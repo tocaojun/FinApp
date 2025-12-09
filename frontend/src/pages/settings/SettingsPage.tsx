@@ -312,7 +312,18 @@ const SettingsPage: React.FC = () => {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || '密码修改失败');
+        // 根据错误类型显示友好的错误消息
+        let errorMessage = '密码修改失败';
+        if (error.code === 'INVALID_PASSWORD') {
+          errorMessage = '当前密码不正确';
+        } else if (error.code === 'WEAK_PASSWORD') {
+          errorMessage = '新密码强度不够：必须包含大写字母、小写字母、数字和特殊字符';
+        } else if (error.code === 'SAME_PASSWORD') {
+          errorMessage = '新密码不能与当前密码相同';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        throw new Error(errorMessage);
       }
 
       message.success('密码修改成功');
@@ -746,8 +757,17 @@ const SettingsPage: React.FC = () => {
             name="newPassword"
             rules={[
               { required: true, message: '请输入新密码' },
-              { min: 8, message: '密码长度至少8位' }
+              { min: 8, message: '密码长度至少8位' },
+              {
+                pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+                message: '密码必须包含大写字母、小写字母、数字和特殊字符(@$!%*?&)'
+              }
             ]}
+            extra={
+              <Text type="secondary" style={{ fontSize: '12px' }}>
+                密码要求：至少8位，包含大写字母、小写字母、数字和特殊字符(@$!%*?&)
+              </Text>
+            }
           >
             <Input.Password />
           </Form.Item>
