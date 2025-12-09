@@ -111,7 +111,8 @@ const SettingsPage: React.FC = () => {
         }
 
         // 获取用户个人资料
-        const response = await fetch('http://localhost:8000/api/auth/profile', {
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+        const response = await fetch(`${API_BASE_URL}/auth/profile`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -227,7 +228,8 @@ const SettingsPage: React.FC = () => {
         throw new Error('未登录');
       }
 
-      const response = await fetch('http://localhost:8000/api/auth/profile', {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -295,7 +297,8 @@ const SettingsPage: React.FC = () => {
         throw new Error('未登录');
       }
 
-      const response = await fetch('http://localhost:8000/api/auth/change-password', {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+      const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
