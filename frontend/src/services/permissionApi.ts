@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { Permission, UserRole } from '../types/auth';
 
-const API_BASE_URL = 'http://localhost:8000/api';
+// 生产环境使用环境变量指定的完整URL,开发环境使用相对路径(通过Vite代理)
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // 权限矩阵数据接口
 export interface PermissionMatrixData {

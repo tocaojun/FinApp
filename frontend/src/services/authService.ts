@@ -4,7 +4,8 @@ import { LoginRequest, LoginResponse, RegisterRequest, User } from '../types/aut
 // 添加缺失的导出
 export type { LoginRequest, RegisterRequest, LoginResponse, User };
 
-const API_BASE_URL = '/api';
+// 生产环境使用环境变量指定的完整URL,开发环境使用相对路径(通过Vite代理)
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // 创建 axios 实例
 const authApi = axios.create({
@@ -204,8 +205,10 @@ export class AuthService {
 
 // 用户管理服务（仅管理员可用）
 export class UserManagementService {
+  private static API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+  
   private static userApi = axios.create({
-    baseURL: `${API_BASE_URL}/admin/users`,
+    baseURL: `${this.API_BASE_URL}/admin/users`,
     timeout: 10000,
     headers: {
       'Content-Type': 'application/json'
