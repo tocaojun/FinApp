@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// 使用相对路径，通过Vite代理访问后端（避免CORS问题）
-const API_BASE_URL = '/api';
+// 使用环境变量配置API基础路径
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // 流动性标签类型定义
 export interface LiquidityTag {
