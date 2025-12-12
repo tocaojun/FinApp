@@ -1,0 +1,83 @@
+================================
+数据同步快速修复指南
+================================
+
+【当前状态】
+✅ 香港股票同步：已修复
+⏸️  美国股票同步：已禁用（避免报错）
+
+================================
+【立即执行】
+================================
+
+1. 重启后端服务
+   cd /Users/caojun/code/FinApp
+   bash restart-backend.sh
+
+2. 测试香港股票同步
+   - 访问：http://localhost:3001
+   - 登录：admin@finapp.com / admin123
+   - 进入：数据同步 → 同步任务
+   - 执行：香港股票价格同步
+   - 查看：同步日志（应显示 total_records > 0）
+
+================================
+【美股同步解决方案】
+================================
+
+方案 1（推荐）：开通富途美股权限
+  1. 访问 https://www.futunn.com
+  2. 我的 → 数据服务 → 美股行情
+  3. 选择延时行情（免费）或实时行情（$9-19/月）
+  4. 重启富途 OpenD
+  5. 执行：psql ... -c "UPDATE finapp.price_sync_tasks 
+            SET is_active = true, 
+            data_source_id = (SELECT id FROM finapp.price_data_sources WHERE provider = 'futu')
+            WHERE name = '美国股票价格同步';"
+
+方案 2：保持禁用
+  - 当前状态：已禁用
+  - 不影响其他同步任务
+  - 需要时再启用
+
+================================
+【验证命令】
+================================
+
+# 检查同步状态
+psql -h localhost -U finapp_user -d finapp_test -f scripts/check-sync-fix.sql
+
+# 查看所有同步任务
+psql -h localhost -U finapp_user -d finapp_test -c "
+SELECT name, is_active, last_run_status 
+FROM finapp.price_sync_tasks 
+ORDER BY name;
+"
+
+================================
+【详细文档】
+================================
+
+- docs/SYNC_STATUS_SUMMARY.md - 完整状态总结
+- docs/FUTU_SYNC_RECORD_COUNT_FIX.md - 香港同步修复详情
+- docs/US_STOCK_SYNC_FIX.md - 美股问题解决方案
+- docs/FUTU_SYNC_TEST_GUIDE.md - 测试指南
+
+================================
+【问题排查】
+================================
+
+如果香港同步仍显示 0 条记录：
+  1. 确认后端已重启
+  2. 清除浏览器缓存
+  3. 查看后端日志：tail -f logs/backend.log
+  4. 手动测试：python3 scripts/futu-sync-single.py "<asset_id>" "HK.00700" 14
+
+如果美股同步失败：
+  1. 检查富途美股权限
+  2. 测试：python3 scripts/futu-sync-single.py "<asset_id>" "US.BILI" 14
+  3. 查看错误：SELECT * FROM finapp.price_sync_errors ORDER BY id DESC LIMIT 5;
+
+================================
+更新时间：2025-12-12
+================================

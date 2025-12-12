@@ -1416,8 +1416,9 @@ export class PriceSyncService {
       console.log(`[Futu] Successfully fetched ${prices.length} price records for ${futuSymbol}`);
       
       // 价格数据已经由Python脚本直接保存到数据库
-      // 这里返回空数组，表示价格已处理（避免重复保存）
-      return [];
+      // 但我们仍然返回数据用于统计同步记录数
+      // 注意：不会重复保存，因为 savePriceData 会检测到数据已存在
+      return prices;
       
     } catch (error: any) {
       const errorMsg = error.message || 'Unknown error';
